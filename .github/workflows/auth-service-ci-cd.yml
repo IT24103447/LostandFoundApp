@@ -1,0 +1,33 @@
+name: auth-service-ci-cd
+on:
+  push:
+    branches: [develop, main]
+    paths: ['services/AuthService/**']
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore services/AuthService
+      - run: dotnet build services/AuthService --no-restore
+      - run: dotnet test services/AuthService --no-build --collect:"XPlat Code Coverage"
+
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet publish services/AuthService -c Release -o services/AuthService/publish
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'lostfound-auth-service'
+          publish-profile: ${{ secrets.AZURE_AUTH_SERVICE_PUBLISH_PROFILE }}
+          package: services/AuthService/publish
