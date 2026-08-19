@@ -6,12 +6,16 @@
 # dotenv files
 .env
 
-# Local app secrets and environment-specific settings
-**/appsettings.Development.json
+# Local-only app config / secrets (placeholders live in committed appsettings.*.json;
+# real secrets come from `dotnet user-secrets` / env vars, NOT from these ignored files)
 **/appsettings.Local.json
 **/secrets*.json
 **/*.pfx
 **/*.pem
+
+# Local Docker volume bind-mount data
+mysql-data/
+kafka-data/
 
 # User-specific files
 *.rsuser
