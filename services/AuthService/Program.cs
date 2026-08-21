@@ -14,10 +14,23 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        // Industry standard: camelCase JSON wire format that matches React/TypeScript conventions.
+        o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        o.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddTransient<IDbConnectionFactory, DbConnectionFactory>();
+
+// CORS for the Vite dev server (default port 5173). Tightened per environment before prod.
+const string DevCorsPolicy = "dev-cors";
+builder.Services.AddCors(o => o.AddPolicy(DevCorsPolicy, p => p
+    .WithOrigins("http://localhost:5173")
+    .AllowAnyHeader()
+    .AllowAnyMethod()));
 
 // Bind strongly-typed configuration sections.
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
@@ -78,6 +91,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(DevCorsPolicy);
 
 app.UseRateLimiter();
 

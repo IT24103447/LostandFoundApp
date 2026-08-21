@@ -7,6 +7,33 @@
 
 ## Services
 - `services/auth-service` - Authentication & role-based access
+- `services/item-service` - Lost & found item records
+- `services/matching-service` - Lost/found item matching
+- `services/admin-verify-service` - Scam/spam moderation
+
+## Frontend (`frontend/`)
+React + Vite + TypeScript SPA. Calls each backend service directly via REST — no API gateway.
+
+### Run locally
+```powershell
+cd frontend
+npm install
+cp .env.example .env.local   # then edit if your service URLs differ
+npm run dev                   # → http://localhost:5173
+```
+
+### Folder conventions (multi-team)
+Each microservice owns one folder under `frontend/src/features/<service>/` with this internal layout:
+```
+features/<service>/
+├── api/         — HTTP wrappers that use ../../../lib/apiClient
+├── schemas/     — zod schemas mirroring the backend DTOs
+├── components/  — feature-specific UI
+└── pages/       — route targets
+```
+- Add a new microservice's base URL to `frontend/src/config/env.ts` (and `.env.example`) — typed service map.
+- **Do not import from other features/** — cross-feature shared code goes in `frontend/src/shared/`.
+- HTTP primitive lives in `frontend/src/lib/apiClient.ts`; the JWT request interceptor lands here when login is added.
 
 ## Current Local Setup (Auth Service)
 1. Install .NET 8 SDK
