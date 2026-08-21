@@ -7,7 +7,7 @@ import {
 } from "../schemas/registerSchema";
 import { register } from "../api/register";
 import type { ApiError } from "../../../lib/apiClient";
-import { Field } from "../../../shared/components/Field";
+import { Field } from "./Field";
 import { inputClass, isValidationProblem } from "./helpers";
 
 export function RegisterForm() {
@@ -16,6 +16,7 @@ export function RegisterForm() {
     handleSubmit,
     setError,
     reset,
+    getValues,
     formState: { errors, isSubmitting, isSubmitted, touchedFields },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -26,11 +27,16 @@ export function RegisterForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Industry-standard feedback gate: show this field's error only after the user has
-  // submitted the form, or after they've touched + blurred that field. Prevents the
-  // "red border appears when clicking the next field" UX trap.
-  const showError = (name: keyof RegisterFormValues): boolean =>
-    isSubmitted || !!touchedFields[name];
+  // Industry-standard "filled-with-error" gating:
+  //   - After submit: show every error so the user sees the full picture.
+  //   - Before submit: show only when the field has been touched AND has a non-empty value.
+  //     Empty fields are not errors yet — the user may still be typing.
+  const showError = (name: keyof RegisterFormValues): boolean => {
+    if (isSubmitted) return !!errors[name];
+    if (!touchedFields[name]) return false;
+    const value = getValues(name) as string | undefined;
+    return !!errors[name] && !!value && value.trim() !== "";
+  };
 
   const onSubmit = async (values: RegisterFormValues) => {
     setSuccess(null);
@@ -111,7 +117,7 @@ export function RegisterForm() {
       <Field
         id="phoneNo"
         label="Phone number"
-        hint="E.164 format, e.g. +94771234567"
+        hint="e.g. +94771234567"
         error={showError("phoneNo") ? errors.phoneNo?.message : undefined}
       >
         <input
@@ -126,7 +132,7 @@ export function RegisterForm() {
       <Field
         id="password"
         label="Password"
-        hint="8–128 chars, at least one upper, lower, and digit."
+        hint="at least one upper case letter, lower case letter, and one digit must be included."
         error={showError("password") ? errors.password?.message : undefined}
       >
         <input

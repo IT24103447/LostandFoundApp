@@ -19,7 +19,7 @@ React + Vite + TypeScript SPA. Calls each backend service directly via REST — 
 cd frontend
 npm install
 cp .env.example .env.local   # then edit if your service URLs differ
-npm run dev                   # → http://localhost:5173
+npm run dev                   # → http://localhost:5173/register
 ```
 
 ### Folder conventions (multi-team)
@@ -28,11 +28,12 @@ Each microservice owns one folder under `frontend/src/features/<service>/` with 
 features/<service>/
 ├── api/         — HTTP wrappers that use ../../../lib/apiClient
 ├── schemas/     — zod schemas mirroring the backend DTOs
-├── components/  — feature-specific UI
+├── components/  — feature-specific UI (own UI primitives; only promote to a shared location when ≥2 features use them)
 └── pages/       — route targets
 ```
 - Add a new microservice's base URL to `frontend/src/config/env.ts` (and `.env.example`) — typed service map.
-- **Do not import from other features/** — cross-feature shared code goes in `frontend/src/shared/`.
+- **Do not import from other features/.** Cross-feature code lives in exactly two places: `lib/apiClient.ts` (HTTP primitive) and `App.tsx` (route table).
+- New pages register a route by adding a single line to `App.tsx`; nothing else needs touching.
 - HTTP primitive lives in `frontend/src/lib/apiClient.ts`; the JWT request interceptor lands here when login is added.
 
 ## Current Local Setup (Auth Service)
