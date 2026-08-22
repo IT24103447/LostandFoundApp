@@ -36,11 +36,19 @@ builder.Services.AddCors(o => o.AddPolicy(DevCorsPolicy, p => p
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("Kafka"));
+builder.Services.Configure<AuthSettings>(builder.Configuration.GetSection("Auth"));
+builder.Services.Configure<SendGridSettings>(builder.Configuration.GetSection("SendGrid"));
 
 // Application services.
 builder.Services.AddScoped<IUsersRepository, UsersRepository>();
+builder.Services.AddScoped<IEmailVerificationTokensRepository, EmailVerificationTokensRepository>();
+builder.Services.AddScoped<IEmailBouncesRepository, EmailBouncesRepository>();
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddSingleton<PasswordValidator>();
+builder.Services.AddSingleton<ITokenGenerator, TokenGenerator>();
+builder.Services.AddSingleton<IVerificationSessionService, VerificationSessionService>();
+builder.Services.AddTransient<IEmailService, SmtpEmailService>();
+builder.Services.AddTransient<IEmailBounceService, SendGridEmailBounceService>();
 
 // JWT bearer authentication.
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
@@ -71,13 +79,23 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
-// Rate limiting: fixed window on the unauthenticated register endpoint.
+// Rate limiting: fixed window on unauthenticated endpoints.
 builder.Services.AddRateLimiter(o =>
 {
     o.AddFixedWindowLimiter("register", opt =>
     {
         opt.PermitLimit = 5;
         opt.Window = TimeSpan.FromMinutes(1);
+    });
+    o.AddFixedWindowLimiter("verify-email", opt =>
+    {
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(1);
+    });
+    o.AddFixedWindowLimiter("resend-verification", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromHours(1);
     });
 });
 
