@@ -7,9 +7,10 @@ type FieldProps = {
   error?: string;
   hint?: string;
   children: ReactNode;
+  trailing?: ReactNode;
 };
 
-export function Field({ id, label, error, hint, children }: FieldProps) {
+export function Field({ id, label, error, hint, children, trailing }: FieldProps) {
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
   const describedBy =
@@ -35,7 +36,14 @@ export function Field({ id, label, error, hint, children }: FieldProps) {
       <label htmlFor={id} className="block text-sm font-medium text-gray-700">
         {label}
   </label>
-      {enhancedChild}
+      <div className="relative">
+        {enhancedChild}
+        {trailing && (
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+            {trailing}
+          </div>
+        )}
+      </div>
       {hint && (
         <p id={hintId} className="text-xs text-gray-500">
           {hint}
@@ -46,6 +54,6 @@ export function Field({ id, label, error, hint, children }: FieldProps) {
           {error}
     </p>
       )}
-</div>
+  </div>
   );
 }
