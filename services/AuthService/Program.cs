@@ -36,18 +36,15 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"))
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("Kafka"));
 builder.Services.Configure<AuthSettings>(builder.Configuration.GetSection("Auth"));
-builder.Services.Configure<SendGridSettings>(builder.Configuration.GetSection("SendGrid"));
 
 // Application services.
 builder.Services.AddScoped<IUsersRepository, UsersRepository>();
 builder.Services.AddScoped<IEmailVerificationTokensRepository, EmailVerificationTokensRepository>();
-builder.Services.AddScoped<IEmailBouncesRepository, EmailBouncesRepository>();
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddSingleton<PasswordValidator>();
 builder.Services.AddSingleton<ITokenGenerator, TokenGenerator>();
 builder.Services.AddSingleton<IVerificationSessionService, VerificationSessionService>();
 builder.Services.AddTransient<IEmailService, SmtpEmailService>();
-builder.Services.AddTransient<IEmailBounceService, SendGridEmailBounceService>();
 
 // JWT bearer authentication.
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()

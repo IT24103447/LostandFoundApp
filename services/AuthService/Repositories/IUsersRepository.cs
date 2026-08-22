@@ -16,14 +16,10 @@ public interface IUsersRepository
     Task MarkEmailVerifiedAsync(Guid userId, CancellationToken ct = default);
     Task UpdateEmailAsync(Guid userId, string newEmail, CancellationToken ct = default);
 
-    /// <summary>Flags the user's email as bounced (won't auto-correct the email; just records that it bounced</summary>
-    Task SetEmailBouncedAsync(Guid userId, CancellationToken ct = default);
 
     /// <summary>Returns the most recent verification status for the given user</summary>
     Task<UserVerificationStatus> GetVerificationStatusAsync(Guid userId, CancellationToken ct = default);
 }
 
 public record UserVerificationStatus(
-    bool IsEmailVerified,
-    DateTime? EmailBouncedAt,
-    DateTime? LatestTokenBouncedAt);
+    bool IsEmailVerified);

@@ -146,27 +146,11 @@ public class UsersRepository : IUsersRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task SetEmailBouncedAsync(Guid userId, CancellationToken ct = default)
-    {
-        const string sql = """
-            UPDATE users
-            SET email_bounced_at = UTC_TIMESTAMP(3), last_resent_at = NULL
-            WHERE id = @id;
-            """;
-        await using var conn = _db.Create();
-        await conn.OpenAsync(ct);
-        await using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@id", userId.ToString());
-        await cmd.ExecuteNonQueryAsync(ct);
-    }
 
     public async Task<UserVerificationStatus> GetVerificationStatusAsync(Guid userId, CancellationToken ct = default)
     {
         const string sql = """
-            SELECT u.is_email_verified, u.email_bounced_at,
-                   (SELECT MAX(t.bounced_at)
-                    FROM email_verification_tokens t
-                    WHERE t.user_id = u.id) AS latest_token_bounced_at
+            SELECT u.is_email_verified
             FROM users u
             WHERE u.id = @id
             LIMIT 1;
@@ -178,12 +162,10 @@ public class UsersRepository : IUsersRepository
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct))
         {
-            return new UserVerificationStatus(false, null, null);
+            return new UserVerificationStatus(false);
         }
         return new UserVerificationStatus(
-            IsEmailVerified: reader.GetBoolean(0),
-            EmailBouncedAt: reader.IsDBNull(1) ? null : reader.GetDateTime(1),
-            LatestTokenBouncedAt: reader.IsDBNull(2) ? null : reader.GetDateTime(2));
+            IsEmailVerified: reader.GetBoolean(0));
     }
 
     private static User Map(MySqlDataReader r) => new()

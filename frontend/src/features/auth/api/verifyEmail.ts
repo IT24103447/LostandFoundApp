@@ -12,8 +12,6 @@ export type ResendVerificationRequest = {
 
 export type VerificationStatusResponse = {
   isEmailVerified: boolean;
-  emailBouncedAt: string | null;
-  latestTokenBouncedAt: string | null;
 };
 
 export const verifyEmail = (

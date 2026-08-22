@@ -1,4 +1,4 @@
-﻿using AuthService.Configuration;
+using AuthService.Configuration;
 using AuthService.Models;
 using AuthService.Models.Dtos;
 using AuthService.Repositories;
@@ -194,8 +194,7 @@ public class AuthController : ControllerBase
 
     /// <summary>
     /// Lightweight polling endpoint for the verify-email page. Returns the user's current
-    /// verification status so the frontend can surface "your email bounced, please correct it"
-    /// without the user having to click anything.
+    /// verification status.
     ///</summary>
     [HttpGet("verification-status")]
     public async Task<IActionResult> VerificationStatus(
@@ -210,9 +209,7 @@ public class AuthController : ControllerBase
         var status = await _users.GetVerificationStatusAsync(userId.Value, ct);
         return Ok(new
         {
-            isEmailVerified = status.IsEmailVerified,
-            emailBouncedAt = status.EmailBouncedAt,
-            latestTokenBouncedAt = status.LatestTokenBouncedAt,
+            isEmailVerified = status.IsEmailVerified
         });
     }
 
