@@ -36,6 +36,7 @@ export function VerifyEmailPage() {
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     if (state.sessionToken) {
@@ -56,6 +57,7 @@ export function VerifyEmailPage() {
         if (cancelled) return;
         if (status.isEmailVerified) {
           setMessage("Email already verified. Redirecting...");
+          setResendCooldown(0);
           setTimeout(() => navigate("/"), 1000);
           return;
         }
@@ -72,6 +74,20 @@ export function VerifyEmailPage() {
       clearInterval(id);
     };
   }, [sessionToken, navigate]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const id = setInterval(() => {
+      setResendCooldown((c) => {
+        if (c <= 1) {
+          clearInterval(id);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [resendCooldown]);
 
   if (!sessionToken) {
     return (
@@ -183,6 +199,7 @@ export function VerifyEmailPage() {
     try {
       await resendVerification({ sessionToken, email: email.trim() });
       setMessage(`Verification code resent to ${email.trim()}.`);
+      setResendCooldown(60);
       setCodeDigits(Array(6).fill(""));
       inputRefs.current[0]?.focus();
     } catch (err) {
@@ -191,6 +208,10 @@ export function VerifyEmailPage() {
       if (apiErr.status === 429) {
         const retry = (apiErr.body as { error?: string } | null)?.error ?? "Please wait before requesting another code.";
         setError(retry);
+        const match = retry.match(/(\d+)\s+seconds/);
+        if (match) {
+          setResendCooldown(Number(match[1]));
+        }
       } else {
         setError(body?.error ?? "Failed to resend code. Please try again.");
       }
@@ -268,10 +289,10 @@ export function VerifyEmailPage() {
             <button
               type="button"
               onClick={handleResend}
-              disabled={isResending}
+              disabled={isResending || resendCooldown > 0}
               className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
-              {isResending ? "Sending..." : "Resend"}
+              {isResending ? "Sending..." : resendCooldown > 0 ? `Resend ${resendCooldown}s` : "Resend"}
             </button>
           </div>
         </div>
