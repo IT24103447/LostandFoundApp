@@ -29,7 +29,7 @@ export function RegisterForm() {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Industry-standard "filled-with-error" gating:
+  
   //   - After submit: show every error so the user sees the full picture.
   //   - Before submit: show only when the field has been touched AND has a non-empty value.
   //     Empty fields are not errors yet — the user may still be typing.
