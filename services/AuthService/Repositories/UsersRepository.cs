@@ -55,4 +55,147 @@ public class UsersRepository : IUsersRepository
         cmd.Parameters.AddWithValue("@isEmailVerified", user.IsEmailVerified ? 1 : 0);
         await cmd.ExecuteNonQueryAsync(ct);
     }
+
+    public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
+    {
+        const string sql = """
+            SELECT id, email, password_hash, name, phone_no, is_admin, is_email_verified, created_at, updated_at
+            FROM users WHERE email = @email LIMIT 1;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@email", email);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct) ? Map(reader) : null;
+    }
+
+    public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        const string sql = """
+            SELECT id, email, password_hash, name, phone_no, is_admin, is_email_verified, created_at, updated_at
+            FROM users WHERE id = @id LIMIT 1;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", id.ToString());
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct) ? Map(reader) : null;
+    }
+
+    public async Task<bool> IsEmailRegisteredAsync(string email, CancellationToken ct = default)
+    {
+        const string sql = "SELECT COUNT(*) FROM users WHERE email = @email;";
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@email", email);
+        var count = Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
+        return count > 0;
+    }
+
+    public async Task<DateTime?> GetLastResentAtAsync(Guid userId, CancellationToken ct = default)
+    {
+        const string sql = "SELECT last_resent_at FROM users WHERE id = @id;";
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result == DBNull.Value || result == null ? null : Convert.ToDateTime(result);
+    }
+
+    public async Task SetLastResentAtAsync(Guid userId, DateTime at, CancellationToken ct = default)
+    {
+        const string sql = "UPDATE users SET last_resent_at = @at WHERE id = @id;";
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@at", at);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task MarkEmailVerifiedAsync(Guid userId, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE users
+            SET is_email_verified = 1, updated_at = UTC_TIMESTAMP(3)
+            WHERE id = @id;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task UpdateEmailAsync(Guid userId, string newEmail, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE users
+            SET email = @email, updated_at = UTC_TIMESTAMP(3)
+            WHERE id = @id;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@email", newEmail);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task SetEmailBouncedAsync(Guid userId, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE users
+            SET email_bounced_at = UTC_TIMESTAMP(3), last_resent_at = NULL
+            WHERE id = @id;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<UserVerificationStatus> GetVerificationStatusAsync(Guid userId, CancellationToken ct = default)
+    {
+        const string sql = """
+            SELECT u.is_email_verified, u.email_bounced_at,
+                   (SELECT MAX(t.bounced_at)
+                    FROM email_verification_tokens t
+                    WHERE t.user_id = u.id) AS latest_token_bounced_at
+            FROM users u
+            WHERE u.id = @id
+            LIMIT 1;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct))
+        {
+            return new UserVerificationStatus(false, null, null);
+        }
+        return new UserVerificationStatus(
+            IsEmailVerified: reader.GetBoolean(0),
+            EmailBouncedAt: reader.IsDBNull(1) ? null : reader.GetDateTime(1),
+            LatestTokenBouncedAt: reader.IsDBNull(2) ? null : reader.GetDateTime(2));
+    }
+
+    private static User Map(MySqlDataReader r) => new()
+    {
+        Id = Guid.Parse(r.GetString(0)),
+        Email = r.GetString(1),
+        PasswordHash = r.GetString(2),
+        Name = r.GetString(3),
+        PhoneNo = r.GetString(4),
+        IsAdmin = r.GetBoolean(5),
+        IsEmailVerified = r.GetBoolean(6),
+        CreatedAt = r.GetDateTime(7),
+        UpdatedAt = r.GetDateTime(8),
+    };
 }

@@ -7,4 +7,23 @@ public interface IUsersRepository
     Task<bool> EmailExistsAsync(string email, CancellationToken ct = default);
     Task<bool> PhoneExistsAsync(string phoneNo, CancellationToken ct = default);
     Task CreateAsync(User user, CancellationToken ct = default);
+
+    Task<User?> GetByEmailAsync(string email, CancellationToken ct = default);
+    Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<bool> IsEmailRegisteredAsync(string email, CancellationToken ct = default);
+    Task<DateTime?> GetLastResentAtAsync(Guid userId, CancellationToken ct = default);
+    Task SetLastResentAtAsync(Guid userId, DateTime at, CancellationToken ct = default);
+    Task MarkEmailVerifiedAsync(Guid userId, CancellationToken ct = default);
+    Task UpdateEmailAsync(Guid userId, string newEmail, CancellationToken ct = default);
+
+    /// <summary>Flags the user's email as bounced (won't auto-correct the email; just records that it bounced</summary>
+    Task SetEmailBouncedAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>Returns the most recent verification status for the given user</summary>
+    Task<UserVerificationStatus> GetVerificationStatusAsync(Guid userId, CancellationToken ct = default);
 }
+
+public record UserVerificationStatus(
+    bool IsEmailVerified,
+    DateTime? EmailBouncedAt,
+    DateTime? LatestTokenBouncedAt);
