@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -11,6 +12,7 @@ import { Field } from "./Field";
 import { inputClass, isValidationProblem } from "./helpers";
 
 export function RegisterForm() {
+  const navigate = useNavigate();
   const {
     register: registerField,
     handleSubmit,
@@ -47,6 +49,7 @@ export function RegisterForm() {
       const { confirmPassword: _confirm, ...payload } = values;
       const result = await register(payload, controller.signal);
       setSuccess(`Account created for ${result.email}. You can now sign in.`);
+      navigate("/verify-email", { state: { sessionToken: result.verificationSessionToken } });
       reset({
         name: "",
         email: "",

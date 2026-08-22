@@ -15,6 +15,7 @@ export type RegisterResponse = {
   isAdmin: boolean;
   isEmailVerified: boolean;
   createdAt: string;
+  verificationSessionToken: string;
 };
 
 export const register = (

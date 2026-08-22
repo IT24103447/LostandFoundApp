@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 export function VerifyEmailPage() {
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
-  const navigate = useNavigate();
+  // navigate available for redirect after verification
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
