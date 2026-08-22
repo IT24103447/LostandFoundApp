@@ -53,10 +53,27 @@ One-time init (already run on this repo): `dotnet user-secrets init --project se
 Set each of the following (replace the angle-bracket values with your own real secrets):
 
 ```powershell
+# JWT secret
 dotnet user-secrets set "Jwt:Secret"           "<32+ char random string>"                                  --project services/AuthService
-dotnet user-secrets set "ConnectionStrings:MySql" "Server=localhost;Database=auth_service;Uid=root;Pwd=<your-mysql-password>;" --project services/AuthService
+
+# MySQL connection string. NOTE: `Allow User Variables=true` is required so
+# the V002 migration's idempotent ALTER TABLE check (using MySQL session
+# variables @col_exists) can execute. Without it, the app will fail to boot
+# with "Parameter '@col_exists' must be defined".
+dotnet user-secrets set "ConnectionStrings:MySql" "Server=localhost;Database=auth_service;Uid=root;Pwd=<your-mysql-password>;Allow User Variables=true;" --project services/AuthService
+
+# AuthService frontend base URL (for email-verification links).
+dotnet user-secrets set "Auth:FrontendBaseUrl"  "http://localhost:5173"                                     --project services/AuthService
+
+# Mailtrap SMTP (dev email catching)
 dotnet user-secrets set "Smtp:User"            "<mailtrap-username>"                                        --project services/AuthService
 dotnet user-secrets set "Smtp:Password"        "<mailtrap-password>"                                        --project services/AuthService
+
+# SendGrid Webhook ECDSA public key (Settings → Mail Settings → Webhooks → "Signed Event Webhook Requests")
+# Paste the PEM contents verbatim (including BEGIN/END markers).
+dotnet user-secrets set "SendGrid:WebhookPublicKey" "<paste-pem-here>"                                        --project services/AuthService
+
+# Kafka for local dev (docker compose up -d in infra/kafka)
 dotnet user-secrets set "Kafka:BootstrapServers" "localhost:9092"                                           --project services/AuthService
 ```
 
@@ -67,6 +84,50 @@ Inspect what's stored (read-only): `dotnet user-secrets list --project services/
 
 Configuration is applied in this precedence (later overrides earlier):
 `appsettings.json` → `appsettings.Development.json` → user-secrets (dev) → environment variables (CI / Azure)
+
+## SMTP Provider
+
+- **Dev**: Mailtrap sandbox (`smtp.mailtrap.io`) configured in `appsettings.Development.json`.
+- **Prod**: SendGrid SMTP relay (`smtp.sendgrid.net`) configured in `appsettings.json`.
+- Same `SmtpEmailService` handles both — switch by environment/user-secrets, no code change needed.
+  We use SendGrid in **SMTP relay mode** (`smtp.sendgrid.net:587`, `User=apikey`, `Password=<your API key>`) so
+  the existing `SmtpEmailService` works without any code change — just point the SMTP settings at SendGrid.
+
+### Switching dev → SendGrid (for bounce testing)
+```powershell
+dotnet user-secrets set "Smtp:Host"     "smtp.sendgrid.net"  --project services/AuthService
+dotnet user-secrets set "Smtp:Port"     "587"                --project services/AuthService
+dotnet user-secrets set "Smtp:User"     "apikey"             --project services/AuthService
+dotnet user-secrets set "Smtp:Password" "<your-sendgrid-api-key>" --project services/AuthService
+dotnet user-secrets set "Smtp:From"     "<your-verified-sender@example.com>" --project services/AuthService
+```
+
+### SendGrid Webhook (bounce detection)
+
+SendGrid → Mail Settings → Webhooks → add an HTTP POST URL pointing at the bounce endpoint.
+
+In production, point it at `https://<your-auth-service>.azurewebsites.net/api/webhooks/sendgrid`.
+
+In local dev, the AuthService is on `localhost` — SendGrid can't reach it. Use **ngrok**:
+
+```powershell
+ngrok http 5261
+# copy the https://<random>.ngrok.io URL it prints
+# in SendGrid dashboard: set the webhook URL to https://<random>.ngrok.io/api/webhooks/sendgrid
+```
+
+Then in the AuthService, paste the **ECDSA public key** (Settings → Mail Settings → Webhooks → "Signed Event Webhook Requests" → "Download" or "Copy") into user-secrets:
+
+```powershell
+dotnet user-secrets set "SendGrid:WebhookPublicKey" "<paste the full PEM, including BEGIN/END lines>" --project services/AuthService
+```
+
+On `bounce`, `dropped`, `spamreport`, or `blocked`, the AuthService:
+1. Logs the event to the `email_bounces` audit table (with the raw payload).
+2. Marks the user's most recent active verification token as `bounced_at = now()` (so it can't be used or resent against).
+3. Clears the user's `last_resent_at` so they can immediately resend to a corrected email without waiting out the cooldown.
+
+The frontend polls `GET /api/auth/verification-status?sessionToken=…` and surfaces a "this email bounced, please correct it" message.
 
 ## Environment Variables (Azure App Service)
 - `ConnectionStrings__MySql`
