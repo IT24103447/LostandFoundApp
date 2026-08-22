@@ -153,8 +153,8 @@ public class EmailVerificationTokensRepository : IEmailVerificationTokensReposit
 
     private static EmailVerificationToken Map(MySqlDataReader r) => new()
     {
-        Id = Guid.Parse(r.GetString(0)),
-        UserId = Guid.Parse(r.GetString(1)),
+        Id = r.GetGuid(0),
+        UserId = r.GetGuid(1),
         CodeHash = r.GetString(2),
         PendingEmail = r.IsDBNull(3) ? null : r.GetString(3),
         ExpiresAt = r.GetDateTime(4),

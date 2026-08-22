@@ -188,7 +188,7 @@ public class UsersRepository : IUsersRepository
 
     private static User Map(MySqlDataReader r) => new()
     {
-        Id = Guid.Parse(r.GetString(0)),
+        Id = r.GetGuid(0),
         Email = r.GetString(1),
         PasswordHash = r.GetString(2),
         Name = r.GetString(3),

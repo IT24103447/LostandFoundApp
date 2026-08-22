@@ -41,6 +41,7 @@ public class VerificationSessionService : IVerificationSessionService
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Secret));
         var handler = new JwtSecurityTokenHandler();
+        handler.MapInboundClaims = false;
         try
         {
             var principal = handler.ValidateToken(token, new TokenValidationParameters
@@ -55,7 +56,8 @@ public class VerificationSessionService : IVerificationSessionService
                 ClockSkew = TimeSpan.FromMinutes(2),
             }, out _);
 
-            var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+            var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             return Guid.TryParse(sub, out var id) ? id : null;
         }
         catch

@@ -1,18 +1,19 @@
-import { apiPost } from "../../../lib/apiClient";
+import { apiGet, apiPost } from "../../../lib/apiClient";
 
 export type VerifyEmailRequest = {
   sessionToken: string;
   code: string;
 };
 
-export type RegisterResponse = {
-  id: string;
+export type ResendVerificationRequest = {
+  sessionToken: string;
   email: string;
-  name: string;
-  phoneNo: string;
-  isAdmin: boolean;
+};
+
+export type VerificationStatusResponse = {
   isEmailVerified: boolean;
-  createdAt: string;
+  emailBouncedAt: string | null;
+  latestTokenBouncedAt: string | null;
 };
 
 export const verifyEmail = (
@@ -23,6 +24,27 @@ export const verifyEmail = (
     "auth",
     "/api/auth/verify-email",
     payload,
+    signal,
+  );
+
+export const resendVerification = (
+  payload: ResendVerificationRequest,
+  signal?: AbortSignal,
+): Promise<{ sent: boolean }> =>
+  apiPost<ResendVerificationRequest, { sent: boolean }>(
+    "auth",
+    "/api/auth/resend-verification",
+    payload,
+    signal,
+  );
+
+export const getVerificationStatus = (
+  sessionToken: string,
+  signal?: AbortSignal,
+): Promise<VerificationStatusResponse> =>
+  apiGet<VerificationStatusResponse>(
+    "auth",
+    `/api/auth/verification-status?sessionToken=${encodeURIComponent(sessionToken)}`,
     signal,
   );
 

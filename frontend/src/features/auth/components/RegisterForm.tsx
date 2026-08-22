@@ -49,7 +49,11 @@ export function RegisterForm() {
       const { confirmPassword: _confirm, ...payload } = values;
       const result = await register(payload, controller.signal);
       setSuccess(`Account created for ${result.email}. You can now sign in.`);
-      navigate("/verify-email", { state: { sessionToken: result.verificationSessionToken } });
+      try {
+        sessionStorage.setItem("verificationSessionToken", result.verificationSessionToken);
+        sessionStorage.setItem("verificationEmail", result.email);
+      } catch {}
+      navigate("/verify-email", { state: { sessionToken: result.verificationSessionToken, email: result.email } });
       reset({
         name: "",
         email: "",
