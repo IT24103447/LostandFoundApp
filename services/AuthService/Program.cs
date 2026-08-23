@@ -32,7 +32,8 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
 builder.Services.AddCors(o => o.AddPolicy(DevCorsPolicy, p => p
     .WithOrigins(allowedOrigins)
     .AllowAnyHeader()
-    .AllowAnyMethod()));
+    .AllowAnyMethod()
+    .AllowCredentials()));
 
 // Bind strongly-typed configuration sections.
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
@@ -132,7 +133,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors(DevCorsPolicy);
 

@@ -316,7 +316,7 @@ public class AuthController : ControllerBase
         {
             HttpOnly = true,
             Secure = isProduction,
-            SameSite = SameSiteMode.Lax,
+            SameSite = SameSiteMode.None,
             Path = "/",
             Expires = DateTime.UtcNow.AddMinutes(_jwt.ExpiryMinutes)
         };
@@ -347,7 +347,7 @@ public class AuthController : ControllerBase
         {
             HttpOnly = true,
             Secure = isProduction,
-            SameSite = SameSiteMode.Lax,
+            SameSite = SameSiteMode.None,
             Path = "/"
         });
         await Task.CompletedTask;
