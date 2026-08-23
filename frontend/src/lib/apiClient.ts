@@ -17,6 +17,7 @@ export async function apiPost<TReq, TRes>(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal,
+    credentials: "include",
   });
 
   const text = await res.text();
@@ -34,7 +35,7 @@ export async function apiGet<TRes>(
   signal?: AbortSignal,
 ): Promise<TRes> {
   const url = `${API_BASE_URLS[service]}${path}`;
-  const res = await fetch(url, { method: "GET", signal });
+  const res = await fetch(url, { method: "GET", signal, credentials: "include" });
   const text = await res.text();
   const respBody = text ? safeParseJson(text) : null;
   if (!res.ok) {
