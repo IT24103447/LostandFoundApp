@@ -69,7 +69,7 @@ public class AuthController : ControllerBase
         if (!pwOk)
         {
             return ValidationProblem(new ValidationProblemDetails(
-                pwErrors.ToDictionary(e => "Password", e => new[] { e })));
+                new Dictionary<string, string[]> { ["Password"] = pwErrors.ToArray() }));
         }
 
         if (await _users.EmailExistsAsync(req.Email, ct))

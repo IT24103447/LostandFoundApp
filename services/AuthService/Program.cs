@@ -140,6 +140,18 @@ if (!app.Environment.IsDevelopment())
 
 app.UseCors(DevCorsPolicy);
 
+app.UseExceptionHandler(appBuilder =>
+{
+    appBuilder.Run(async context =>
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError("Unhandled exception occurred");
+
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync("{\"error\":\"An internal error occurred.\"}");
+    });
+});
 app.UseRateLimiter();
 
 app.UseAuthentication();
