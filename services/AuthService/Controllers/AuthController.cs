@@ -417,6 +417,56 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Permanently deletes the current user's account and all associated data.
+    /// Admin accounts cannot be deleted through this endpoint.
+    ///</summary>
+    [HttpDelete("me")]
+    [Authorize]
+    public async Task<IActionResult> DeleteMe(
+        [FromBody] DeleteAccountRequest req,
+        CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { error = "Invalid session." });
+        }
+
+        var user = await _users.GetByIdAsync(userId, ct);
+        if (user is null)
+        {
+            return Unauthorized(new { error = "User not found." });
+        }
+
+        if (user.IsAdmin)
+        {
+            return StatusCode(403, new { error = "Admin accounts cannot be deleted through this interface." });
+        }
+
+        if (!_passwordHasher.Verify(req.Password, user.PasswordHash))
+        {
+            return BadRequest(new { error = "Incorrect password." });
+        }
+
+        await _resetTokens.DeleteForUserAsync(userId, ct);
+        await _tokens.DeleteForUserAsync(userId, ct);
+        await _users.DeleteAsync(userId, ct);
+
+        Response.Cookies.Delete("auth_token", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/",
+        });
+
+        _logger.LogInformation("User {UserId} deleted their account.", userId);
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
     /// Initiates a password reset by sending a 6-digit OTP to the user's email.
     /// Always returns the same response regardless of whether the email exists (prevents enumeration).
     ///</summary>

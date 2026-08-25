@@ -20,5 +20,5 @@ public interface IEmailVerificationTokensRepository
     Task MarkUsedAsync(Guid tokenId, CancellationToken ct = default);
 
     Task InvalidateAllForUserAsync(Guid userId, CancellationToken ct = default);
-
+    Task DeleteForUserAsync(Guid userId, CancellationToken ct = default);
 }

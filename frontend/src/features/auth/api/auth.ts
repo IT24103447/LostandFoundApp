@@ -1,4 +1,4 @@
-import { apiPost, apiGet, apiPut } from "../../../lib/apiClient";
+import { apiPost, apiGet, apiPut, apiDelete } from "../../../lib/apiClient";
 
 export type LoginRequest = {
   email: string;
@@ -31,3 +31,10 @@ export const getMe = (signal?: AbortSignal) =>
 
 export const updateProfile = (body: UpdateProfileRequest, signal?: AbortSignal) =>
   apiPut<UpdateProfileRequest, UserProfile>("auth", "/api/auth/me", body, signal);
+
+export type DeleteAccountRequest = {
+  password: string;
+};
+
+export const deleteAccount = (body: DeleteAccountRequest, signal?: AbortSignal) =>
+  apiDelete<DeleteAccountRequest, { success: boolean }>("auth", "/api/auth/me", body, signal);

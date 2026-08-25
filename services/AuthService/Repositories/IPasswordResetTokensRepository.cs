@@ -9,4 +9,5 @@ public interface IPasswordResetTokensRepository
     Task IncrementAttemptsAsync(Guid tokenId, CancellationToken ct = default);
     Task MarkUsedAsync(Guid tokenId, CancellationToken ct = default);
     Task InvalidateAllForUserAsync(Guid userId, CancellationToken ct = default);
+    Task DeleteForUserAsync(Guid userId, CancellationToken ct = default);
 }

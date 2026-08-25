@@ -68,6 +68,30 @@ export async function apiPut<TReq, TRes>(
   return respBody as TRes;
 }
 
+export async function apiDelete<TReq, TRes>(
+  service: ApiService,
+  path: string,
+  body: TReq,
+  signal?: AbortSignal,
+): Promise<TRes> {
+  const url = `${API_BASE_URLS[service]}${path}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+    credentials: "include",
+  });
+
+  const text = await res.text();
+  const respBody = text ? safeParseJson(text) : null;
+
+  if (!res.ok) {
+    throw { status: res.status, body: respBody } as ApiError;
+  }
+  return respBody as TRes;
+}
+
 function safeParseJson(s: string): unknown {
   try {
     return JSON.parse(s);

@@ -94,6 +94,16 @@ public class PasswordResetTokensRepository : IPasswordResetTokensRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task DeleteForUserAsync(Guid userId, CancellationToken ct = default)
+    {
+        const string sql = "DELETE FROM password_reset_tokens WHERE user_id = @userId;";
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@userId", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     private static PasswordResetToken Map(MySqlDataReader r) => new()
     {
         Id = r.GetGuid(0),

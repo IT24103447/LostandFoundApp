@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { ProfileEditForm } from "../components/ProfileEditForm";
+import { DeleteAccountSection } from "../components/DeleteAccountSection";
 
 export function ProfilePage() {
   const navigate = useNavigate();
@@ -128,6 +129,13 @@ export function ProfilePage() {
             </div>
           )}
         </div>
+
+        {/* Danger Zone - only for non-admin users */}
+        {!user.isAdmin && (
+          <div className="mt-8">
+            <DeleteAccountSection />
+          </div>
+        )}
       </main>
     </div>
   );

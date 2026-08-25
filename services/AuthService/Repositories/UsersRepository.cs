@@ -190,6 +190,16 @@ public class UsersRepository : IUsersRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task DeleteAsync(Guid userId, CancellationToken ct = default)
+    {
+        const string sql = "DELETE FROM users WHERE id = @id;";
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     public async Task<UserVerificationStatus> GetVerificationStatusAsync(Guid userId, CancellationToken ct = default)
     {
         const string sql = """

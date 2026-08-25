@@ -18,6 +18,7 @@ public interface IUsersRepository
     Task UpdateProfileAsync(Guid userId, string name, string phoneNo, CancellationToken ct = default);
     Task<bool> PhoneExistsForOtherUserAsync(Guid userId, string phoneNo, CancellationToken ct = default);
     Task UpdatePasswordHashAsync(Guid userId, string newHash, CancellationToken ct = default);
+    Task DeleteAsync(Guid userId, CancellationToken ct = default);
 
 
     /// <summary>Returns the most recent verification status for the given user</summary>

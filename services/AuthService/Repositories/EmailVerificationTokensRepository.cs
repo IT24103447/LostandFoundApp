@@ -116,6 +116,16 @@ public class EmailVerificationTokensRepository : IEmailVerificationTokensReposit
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task DeleteForUserAsync(Guid userId, CancellationToken ct = default)
+    {
+        const string sql = "DELETE FROM email_verification_tokens WHERE user_id = @userId;";
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@userId", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
 
     private static EmailVerificationToken Map(MySqlDataReader r) => new()
     {
