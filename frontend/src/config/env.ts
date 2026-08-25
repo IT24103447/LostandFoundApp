@@ -1,6 +1,6 @@
 const requireEnv = (key: string): string => {
   const v = import.meta.env[key] as string | undefined;
-  if (!v) {
+  if (v == null) {
     throw new Error(
       `Missing required env var: ${key}. Copy frontend/.env.example to frontend/.env.local and fill in the value.`,
     );

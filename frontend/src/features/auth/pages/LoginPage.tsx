@@ -1,8 +1,22 @@
 import { LoginForm } from "../components/LoginForm";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
+import { useAuth } from "../AuthContext";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to={user?.isAdmin ? "/admin/dashboard" : "/home"} replace />;
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-12 sm:px-6 lg:px-8 relative overflow-hidden">
