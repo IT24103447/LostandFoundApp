@@ -44,6 +44,7 @@ builder.Services.Configure<AuthSettings>(builder.Configuration.GetSection("Auth"
 // Application services.
 builder.Services.AddScoped<IUsersRepository, UsersRepository>();
 builder.Services.AddScoped<IEmailVerificationTokensRepository, EmailVerificationTokensRepository>();
+builder.Services.AddScoped<IPasswordResetTokensRepository, PasswordResetTokensRepository>();
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddSingleton<PasswordValidator>();
 builder.Services.AddSingleton<ITokenGenerator, TokenGenerator>();
@@ -102,6 +103,13 @@ builder.Services.AddAuthorization();
 // Rate limiting: fixed window on unauthenticated endpoints.
 builder.Services.AddRateLimiter(o =>
 {
+    o.OnRejected = async (ctx, ct) =>
+    {
+        ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        ctx.HttpContext.Response.ContentType = "application/json";
+        await ctx.HttpContext.Response.WriteAsync("{\"error\":\"Too many requests. Please wait and try again.\"}", ct);
+    };
+
     o.AddFixedWindowLimiter("register", opt =>
     {
         opt.PermitLimit = 5;
@@ -121,6 +129,16 @@ builder.Services.AddRateLimiter(o =>
     {
         opt.PermitLimit = 10;
         opt.Window = TimeSpan.FromMinutes(5);
+    });
+    o.AddFixedWindowLimiter("forgot-password", opt =>
+    {
+        opt.PermitLimit = 3;
+        opt.Window = TimeSpan.FromMinutes(1);
+    });
+    o.AddFixedWindowLimiter("reset-password", opt =>
+    {
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(1);
     });
 });
 

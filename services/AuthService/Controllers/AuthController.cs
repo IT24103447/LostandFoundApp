@@ -19,6 +19,7 @@ public class AuthController : ControllerBase
 {
     private readonly IUsersRepository _users;
     private readonly IEmailVerificationTokensRepository _tokens;
+    private readonly IPasswordResetTokensRepository _resetTokens;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
     private readonly ITokenGenerator _tokenGenerator;
@@ -32,6 +33,7 @@ public class AuthController : ControllerBase
     public AuthController(
         IUsersRepository users,
         IEmailVerificationTokensRepository tokens,
+        IPasswordResetTokensRepository resetTokens,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
         ITokenGenerator tokenGenerator,
@@ -44,6 +46,7 @@ public class AuthController : ControllerBase
     {
         _users = users;
         _tokens = tokens;
+        _resetTokens = resetTokens;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
         _tokenGenerator = tokenGenerator;
@@ -159,18 +162,24 @@ public class AuthController : ControllerBase
         }
 
         var codeHash = _tokenGenerator.Hash(req.Code);
-        var token = await _tokens.GetActiveByHashAsync(codeHash, ct);
-        if (token is null || token.UserId != userId.Value)
+        var token = await _tokens.GetActiveByUserAsync(userId.Value, ct);
+        if (token is null)
         {
             return BadRequest(new { error = "Invalid or expired verification code." });
         }
 
-        await _tokens.IncrementAttemptsAsync(token.Id, ct);
-        if (token.Attempts + 1 >= _auth.MaxOtpAttempts)
+        if (token.CodeHash != codeHash)
         {
-            await _tokens.MarkUsedAsync(token.Id, ct);
+            await _tokens.IncrementAttemptsAsync(token.Id, ct);
+            if (token.Attempts + 1 >= _auth.MaxOtpAttempts)
+            {
+                await _tokens.MarkUsedAsync(token.Id, ct);
+                return BadRequest(new { error = "Too many failed attempts. Please request a new code." });
+            }
             return BadRequest(new { error = "Invalid or expired verification code." });
         }
+
+
 
         var user = await _users.GetByIdAsync(userId.Value, ct)
             ?? throw new InvalidOperationException("Session references a non-existent user.");
@@ -405,6 +414,111 @@ public class AuthController : ControllerBase
             IsEmailVerified = user.IsEmailVerified,
             CreatedAt = user.CreatedAt
         });
+    }
+
+    /// <summary>
+    /// Initiates a password reset by sending a 6-digit OTP to the user's email.
+    /// Always returns the same response regardless of whether the email exists (prevents enumeration).
+    ///</summary>
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest req,
+        CancellationToken ct)
+    {
+        var user = await _users.GetByEmailAsync(req.Email, ct);
+        if (user is null)
+        {
+            return BadRequest(new { error = "there is no account associated with this email." });
+        }
+
+        await _resetTokens.InvalidateAllForUserAsync(user.Id, ct);
+
+        var code = _tokenGenerator.GenerateCode();
+        var codeHash = _tokenGenerator.Hash(code);
+        var expiresAt = DateTime.UtcNow.AddMinutes(5);
+        await _resetTokens.CreateAsync(new PasswordResetToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            CodeHash = codeHash,
+            ExpiresAt = expiresAt,
+            Attempts = 0,
+            UsedAt = null,
+            CreatedAt = DateTime.UtcNow,
+        }, ct);
+
+        var htmlBody = $"""
+            <p>Your Lost & Found password reset code</p>
+            <p style="font-size:32px;font-weight:bold;letter-spacing:6px">{code}</p>
+            <p>This code expires in 5 minutes.</p>
+            <p>If you didn't request this, you can safely ignore this email.</p>
+            """;
+        var plainBody =
+            $"Your password reset code is: {code}\n\n" +
+            $"This code expires in 5 minutes.";
+
+        await _email.SendAsync(
+            user.Email,
+            "Your Lost & Found password reset code",
+            htmlBody,
+            plainBody,
+            ct);
+
+        var sessionToken = _sessionService.Issue(user.Id);
+
+        return Ok(new { sessionToken });
+    }
+
+    /// <summary>
+    /// Resets the user's password using a 6-digit OTP and a new password.
+    /// Validates the OTP, enforces complexity rules, and hashes the new password.
+    ///</summary>
+    [HttpPost("reset-password")]
+    [EnableRateLimiting("reset-password")]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest req,
+        CancellationToken ct)
+    {
+        var userId = _sessionService.Validate(req.SessionToken);
+        if (userId is null)
+        {
+            return BadRequest(new { error = "Invalid or expired reset session." });
+        }
+
+        var codeHash = _tokenGenerator.Hash(req.Code);
+        var token = await _resetTokens.GetActiveByUserIdAsync(userId.Value, ct);
+
+        if (token is null)
+        {
+            return BadRequest(new { error = "Invalid or expired reset code." });
+        }
+
+        if (token.CodeHash != codeHash)
+        {
+            await _resetTokens.IncrementAttemptsAsync(token.Id, ct);
+            if (token.Attempts + 1 >= _auth.MaxOtpAttempts)
+            {
+                await _resetTokens.MarkUsedAsync(token.Id, ct);
+                return BadRequest(new { error = "Too many failed attempts. Please request a new code." });
+            }
+            return BadRequest(new { error = "Invalid or expired reset code." });
+        }
+
+        var (pwOk, pwErrors) = _passwordValidator.Validate(req.NewPassword);
+        if (!pwOk)
+        {
+            return ValidationProblem(new ValidationProblemDetails(
+                new Dictionary<string, string[]> { ["Password"] = pwErrors.ToArray() }));
+        }
+
+        var newHash = _passwordHasher.Hash(req.NewPassword);
+        await _users.UpdatePasswordHashAsync(userId.Value, newHash, ct);
+        await _resetTokens.MarkUsedAsync(token.Id, ct);
+
+        _logger.LogInformation("User {UserId} reset their password.", userId.Value);
+
+        return Ok(new { success = true });
     }
 
     private async Task<ActionResult<UserProfileDto>> GetUserProfileFromToken(CancellationToken ct)

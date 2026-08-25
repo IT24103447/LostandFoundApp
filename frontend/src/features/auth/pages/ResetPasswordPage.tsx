@@ -1,8 +1,8 @@
-import { LoginForm } from "../components/LoginForm";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
+import { ResetPasswordForm } from "../components/ResetPasswordForm";
 
-export function LoginPage() {
+export function ResetPasswordPage() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -26,29 +26,21 @@ export function LoginPage() {
       <div className="w-full max-w-md rounded-2xl border border-white/40 bg-white/70 p-8 shadow-2xl backdrop-blur-xl relative z-10 transition-all duration-300">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 mb-2">
-            Welcome back
+            Reset your password
           </h1>
-          <p className="text-sm text-gray-500">Sign in to your account</p>
+          <p className="text-sm text-gray-500">
+            Enter the code from your email and choose a new password.
+          </p>
         </div>
 
-        <LoginForm />
-
-        <p className="mt-4 text-center text-sm">
-          <button
-            onClick={() => navigate("/forgot-password")}
-            className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
-          >
-            Forgot password?
-          </button>
-        </p>
+        <ResetPasswordForm />
 
         <p className="mt-6 text-center text-sm text-gray-600">
-          Don't have an account?{" "}
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/login")}
             className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
           >
-            Create one
+            ← Back to sign in
           </button>
         </p>
       </div>

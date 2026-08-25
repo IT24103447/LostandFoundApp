@@ -175,6 +175,21 @@ public class UsersRepository : IUsersRepository
         return count > 0;
     }
 
+    public async Task UpdatePasswordHashAsync(Guid userId, string newHash, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE users
+            SET password_hash = @hash, updated_at = UTC_TIMESTAMP(3)
+            WHERE id = @id;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@hash", newHash);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     public async Task<UserVerificationStatus> GetVerificationStatusAsync(Guid userId, CancellationToken ct = default)
     {
         const string sql = """
