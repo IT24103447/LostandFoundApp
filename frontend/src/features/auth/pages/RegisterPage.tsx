@@ -20,7 +20,6 @@ export function RegisterPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Decorative background elements */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full bg-indigo-300 opacity-20 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 rounded-full bg-purple-300 opacity-20 blur-[100px] pointer-events-none" />
 

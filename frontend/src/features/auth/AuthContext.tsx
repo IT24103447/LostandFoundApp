@@ -8,6 +8,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<UserProfile>;
   logout: () => Promise<void>;
+  setUser: (user: UserProfile) => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   login: async () => { throw new Error("AuthProvider not mounted"); },
   logout: async () => {},
+  setUser: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -63,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
+        setUser,
       }}
     >
       {children}

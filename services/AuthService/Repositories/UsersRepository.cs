@@ -147,6 +147,34 @@ public class UsersRepository : IUsersRepository
     }
 
 
+    public async Task UpdateProfileAsync(Guid userId, string name, string phoneNo, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE users
+            SET name = @name, phone_no = @phoneNo, updated_at = UTC_TIMESTAMP(3)
+            WHERE id = @id;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@name", name);
+        cmd.Parameters.AddWithValue("@phoneNo", phoneNo);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<bool> PhoneExistsForOtherUserAsync(Guid userId, string phoneNo, CancellationToken ct = default)
+    {
+        const string sql = "SELECT COUNT(*) FROM users WHERE phone_no = @phone AND id <> @id;";
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@phone", phoneNo);
+        cmd.Parameters.AddWithValue("@id", userId.ToString());
+        var count = Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
+        return count > 0;
+    }
+
     public async Task<UserVerificationStatus> GetVerificationStatusAsync(Guid userId, CancellationToken ct = default)
     {
         const string sql = """

@@ -4,6 +4,7 @@ import { VerifyEmailPage } from "./features/auth/pages/VerifyEmailPage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { HomePage } from "./features/home/pages/HomePage";
 import { AdminDashboardPage } from "./features/admin/pages/AdminDashboardPage";
+import { ProfilePage } from "./features/auth/pages/ProfilePage";
 import { ProtectedRoute } from "./features/auth/components/ProtectedRoute";
 import { useAuth } from "./features/auth/AuthContext";
 
@@ -37,10 +38,12 @@ export default function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/home" element={<HomePage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
       <Route element={<ProtectedRoute roles={["Admin"]} />}>
         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+        <Route path="/admin/profile" element={<ProfilePage />} />
       </Route>
     </Routes>
   );

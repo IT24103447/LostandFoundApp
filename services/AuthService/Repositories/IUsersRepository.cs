@@ -15,6 +15,8 @@ public interface IUsersRepository
     Task SetLastResentAtAsync(Guid userId, DateTime at, CancellationToken ct = default);
     Task MarkEmailVerifiedAsync(Guid userId, CancellationToken ct = default);
     Task UpdateEmailAsync(Guid userId, string newEmail, CancellationToken ct = default);
+    Task UpdateProfileAsync(Guid userId, string name, string phoneNo, CancellationToken ct = default);
+    Task<bool> PhoneExistsForOtherUserAsync(Guid userId, string phoneNo, CancellationToken ct = default);
 
 
     /// <summary>Returns the most recent verification status for the given user</summary>

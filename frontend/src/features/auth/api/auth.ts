@@ -1,8 +1,13 @@
-import { apiPost, apiGet } from "../../../lib/apiClient";
+import { apiPost, apiGet, apiPut } from "../../../lib/apiClient";
 
 export type LoginRequest = {
   email: string;
   password: string;
+};
+
+export type UpdateProfileRequest = {
+  name: string;
+  phoneNo: string;
 };
 
 export type UserProfile = {
@@ -23,3 +28,6 @@ export const logout = (signal?: AbortSignal) =>
 
 export const getMe = (signal?: AbortSignal) =>
   apiGet<UserProfile>("auth", "/api/auth/me", signal);
+
+export const updateProfile = (body: UpdateProfileRequest, signal?: AbortSignal) =>
+  apiPut<UpdateProfileRequest, UserProfile>("auth", "/api/auth/me", body, signal);

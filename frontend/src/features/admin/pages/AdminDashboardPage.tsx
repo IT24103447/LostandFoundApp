@@ -1,7 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 
 export function AdminDashboardPage() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -10,6 +12,12 @@ export function AdminDashboardPage() {
           <h1 className="text-xl font-bold text-indigo-600">back2u - admin</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user?.name}</span>
+            <button
+              onClick={() => navigate("/admin/profile")}
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+            >
+              Profile
+            </button>
             <button
               onClick={logout}
               className="text-sm font-medium text-red-600 hover:text-red-500 transition-colors"

@@ -3,6 +3,7 @@ using AuthService.Models;
 using AuthService.Models.Dtos;
 using AuthService.Repositories;
 using AuthService.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -362,6 +363,48 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<UserProfileDto>> GetMe(CancellationToken ct)
     {
         return await GetUserProfileFromToken(ct);
+    }
+
+    /// <summary>
+    /// Updates the current user's name and phone number.
+    /// Returns the updated profile. Phone uniqueness is enforced.
+    ///</summary>
+    [HttpPut("me")]
+    [Authorize]
+    public async Task<ActionResult<UserProfileDto>> UpdateMe(
+        [FromBody] UpdateProfileRequest req,
+        CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { error = "Invalid session." });
+        }
+
+        if (await _users.PhoneExistsForOtherUserAsync(userId, req.PhoneNo, ct))
+        {
+            return Conflict(new { error = "This phone number is already in use by another account." });
+        }
+
+        await _users.UpdateProfileAsync(userId, req.Name, req.PhoneNo, ct);
+
+        var user = await _users.GetByIdAsync(userId, ct);
+        if (user is null)
+        {
+            return Unauthorized(new { error = "User not found." });
+        }
+
+        return Ok(new UserProfileDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            Name = user.Name,
+            PhoneNo = user.PhoneNo,
+            IsAdmin = user.IsAdmin,
+            IsEmailVerified = user.IsEmailVerified,
+            CreatedAt = user.CreatedAt
+        });
     }
 
     private async Task<ActionResult<UserProfileDto>> GetUserProfileFromToken(CancellationToken ct)
