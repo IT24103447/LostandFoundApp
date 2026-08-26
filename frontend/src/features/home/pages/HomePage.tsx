@@ -47,7 +47,7 @@ export function HomePage() {
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-12">
-        <p className="text-gray-500">Item listings coming soon…</p>
+        
       </main>
     </div>
   );

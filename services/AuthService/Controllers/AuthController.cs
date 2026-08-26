@@ -168,12 +168,6 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "Invalid or expired verification session." });
         }
 
-        var currentUserId = GetCurrentUserIdFromCookie();
-        if (currentUserId.HasValue)
-        {
-            return BadRequest(new { error = "Already authenticated. Please sign out first." });
-        }
-
         var user = await _users.GetByIdAsync(userId.Value, ct)
             ?? throw new InvalidOperationException("Session references a non-existent user.");
 
@@ -371,6 +365,25 @@ public class AuthController : ControllerBase
         if (!user.IsEmailVerified)
         {
             var sessionToken = _sessionService.Issue(user.Id);
+
+            await _tokens.InvalidateAllForUserAsync(user.Id, ct);
+            var code = _tokenGenerator.GenerateCode();
+            var codeHash = _tokenGenerator.Hash(code);
+            var expiresAt = DateTime.UtcNow.AddMinutes(_auth.OtpExpiryMinutes);
+            await _tokens.CreateAsync(user.Id, codeHash, pendingEmail: null, expiresAt, ct);
+
+            var htmlBody = $"""
+                <p>Your Lost & Found verification code</p>
+                <p style="font-size:32px;font-weight:bold;letter-spacing:6px">{code}</p>
+                <p>Enter this code on the verification page. It expires in {_auth.OtpExpiryMinutes} minutes</p>
+                """;
+            var plainBody =
+                $"Your Lost & Found verification code is: {code}\n\n" +
+                $"Enter it on the verification page. It expires in {_auth.OtpExpiryMinutes} minutes.";
+
+            await _email.SendAsync(user.Email, "Your Lost & Found verification code", htmlBody, plainBody, ct);
+            await _users.SetLastResentAtAsync(user.Id, DateTime.UtcNow, ct);
+
             return StatusCode(403, new
             {
                 error = "Email not verified. Please verify your email before signing in.",
