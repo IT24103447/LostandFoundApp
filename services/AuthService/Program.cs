@@ -54,6 +54,11 @@ builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddSingleton<IVerificationSessionService, VerificationSessionService>();
 builder.Services.AddTransient<IEmailService, SmtpEmailService>();
 
+// Kafka event publisher (channel-based, buffered).
+builder.Services.AddSingleton<KafkaEventPublisher>();
+builder.Services.AddSingleton<IEventPublisher>(sp => sp.GetRequiredService<KafkaEventPublisher>());
+builder.Services.AddHostedService<KafkaEventProducerService>();
+
 // JWT bearer authentication.
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
     ?? throw new InvalidOperationException("Jwt settings not configured.");

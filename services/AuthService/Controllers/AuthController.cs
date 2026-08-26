@@ -1,6 +1,7 @@
 using AuthService.Configuration;
 using AuthService.Models;
 using AuthService.Models.Dtos;
+using AuthService.Models.Events;
 using AuthService.Repositories;
 using AuthService.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -26,8 +27,10 @@ public class AuthController : ControllerBase
     private readonly IEmailService _email;
     private readonly IVerificationSessionService _sessionService;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IEventPublisher _publisher;
     private readonly AuthSettings _auth;
     private readonly JwtSettings _jwt;
+    private readonly KafkaSettings _kafka;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
@@ -40,8 +43,10 @@ public class AuthController : ControllerBase
         IEmailService email,
         IVerificationSessionService sessionService,
         IJwtTokenService jwtTokenService,
+        IEventPublisher publisher,
         IOptions<AuthSettings> auth,
         IOptions<JwtSettings> jwt,
+        IOptions<KafkaSettings> kafka,
         ILogger<AuthController> logger)
     {
         _users = users;
@@ -53,8 +58,10 @@ public class AuthController : ControllerBase
         _email = email;
         _sessionService = sessionService;
         _jwtTokenService = jwtTokenService;
+        _publisher = publisher;
         _auth = auth.Value;
         _jwt = jwt.Value;
+        _kafka = kafka.Value;
         _logger = logger;
     }
 
@@ -216,6 +223,14 @@ public class AuthController : ControllerBase
 
         await _users.MarkEmailVerifiedAsync(userId.Value, ct);
         await _tokens.MarkUsedAsync(token.Id, ct);
+
+        await _publisher.PublishAsync($"{_kafka.TopicPrefix}.user.verified", new UserVerifiedEvent
+        {
+            UserId = userId.Value,
+            Email = user.Email,
+            Name = user.Name,
+            Phone = user.PhoneNo
+        }, ct);
 
         var jwtToken = _jwtTokenService.IssueLoginToken(user);
         var isProduction = HttpContext.RequestServices.GetService<IHostEnvironment>()?.IsProduction() ?? false;
@@ -440,10 +455,22 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "Invalid session." });
         }
 
+        var existingUser = await _users.GetByIdAsync(userId, ct);
+        if (existingUser is null)
+        {
+            return Unauthorized(new { error = "User not found." });
+        }
+
         if (await _users.PhoneExistsForOtherUserAsync(userId, req.PhoneNo, ct))
         {
             return Conflict(new { error = "This phone number is already in use by another account." });
         }
+
+        var changedFields = new List<string>();
+        if (!string.Equals(existingUser.Name, req.Name, StringComparison.Ordinal))
+            changedFields.Add("name");
+        if (!string.Equals(existingUser.PhoneNo, req.PhoneNo, StringComparison.Ordinal))
+            changedFields.Add("phoneNo");
 
         await _users.UpdateProfileAsync(userId, req.Name, req.PhoneNo, ct);
 
@@ -461,6 +488,15 @@ public class AuthController : ControllerBase
         if (!user.IsEmailVerified)
         {
             return Unauthorized(new { error = "Email not verified." });
+        }
+
+        if (changedFields.Count > 0)
+        {
+            await _publisher.PublishAsync($"{_kafka.TopicPrefix}.user.profile_updated", new UserProfileUpdatedEvent
+            {
+                UserId = userId,
+                UpdatedFields = [.. changedFields]
+            }, ct);
         }
 
         return Ok(new UserProfileDto
@@ -521,6 +557,14 @@ public class AuthController : ControllerBase
         await _resetTokens.DeleteForUserAsync(userId, ct);
         await _tokens.DeleteForUserAsync(userId, ct);
         await _users.SoftDeleteAsync(userId, ct);
+
+        await _publisher.PublishAsync($"{_kafka.TopicPrefix}.user.deleted", new UserDeletedEvent
+        {
+            UserId = userId,
+            Email = user.Email,
+            Name = user.Name,
+            Phone = user.PhoneNo
+        }, ct);
 
         Response.Cookies.Delete("auth_token", new CookieOptions
         {

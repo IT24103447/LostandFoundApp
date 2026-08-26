@@ -1,7 +1,11 @@
+using AuthService.Configuration;
 using AuthService.Models.Dtos;
+using AuthService.Models.Events;
 using AuthService.Repositories;
+using AuthService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace AuthService.Controllers;
 
@@ -11,11 +15,19 @@ namespace AuthService.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly IUsersRepository _users;
+    private readonly IEventPublisher _publisher;
+    private readonly KafkaSettings _kafka;
     private readonly ILogger<AdminController> _logger;
 
-    public AdminController(IUsersRepository users, ILogger<AdminController> logger)
+    public AdminController(
+        IUsersRepository users,
+        IEventPublisher publisher,
+        IOptions<KafkaSettings> kafka,
+        ILogger<AdminController> logger)
     {
         _users = users;
+        _publisher = publisher;
+        _kafka = kafka.Value;
         _logger = logger;
     }
 
@@ -101,6 +113,15 @@ public class AdminController : ControllerBase
 
         await _users.SetKickedAsync(id, true, ct);
 
+        await _publisher.PublishAsync($"{_kafka.TopicPrefix}.user.kicked", new UserKickedEvent
+        {
+            UserId = id,
+            KickedBy = currentUserId,
+            Email = user.Email,
+            Name = user.Name,
+            Phone = user.PhoneNo
+        }, ct);
+
         _logger.LogInformation("Admin {AdminId} kicked user {UserId}.", currentUserId, id);
 
         return Ok(new { success = true, message = $"User {user.Email} has been kicked." });
@@ -132,6 +153,15 @@ public class AdminController : ControllerBase
         }
 
         await _users.SetKickedAsync(id, false, ct);
+
+        await _publisher.PublishAsync($"{_kafka.TopicPrefix}.user.unkicked", new UserUnkickedEvent
+        {
+            UserId = id,
+            UnkickedBy = GetCurrentUserId(),
+            Email = user.Email,
+            Name = user.Name,
+            Phone = user.PhoneNo
+        }, ct);
 
         _logger.LogInformation("Admin {AdminId} un-kicked user {UserId}.", GetCurrentUserId(), id);
 
