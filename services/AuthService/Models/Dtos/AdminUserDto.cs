@@ -10,4 +10,5 @@ public record AdminUserDto
     public bool IsEmailVerified { get; init; }
     public bool IsKicked { get; init; }
     public DateTime CreatedAt { get; init; }
+    public DateTime? DeletedAt { get; init; }
 }

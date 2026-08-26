@@ -17,6 +17,7 @@ export function UserManagementSection() {
   const [search, setSearch] = useState("");
   const [filterKicked, setFilterKicked] = useState<boolean | undefined>(undefined);
   const [filterVerified, setFilterVerified] = useState<boolean | undefined>(undefined);
+  const [filterDeleted, setFilterDeleted] = useState<boolean | undefined>(undefined);
   const [page, setPage] = useState(1);
 
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -42,8 +43,8 @@ export function UserManagementSection() {
   }, []);
 
   useEffect(() => {
-    fetchUsers({ search: search || undefined, isKicked: filterKicked, isVerified: filterVerified, page });
-  }, [search, filterKicked, filterVerified, page, fetchUsers]);
+    fetchUsers({ search: search || undefined, isKicked: filterKicked, isVerified: filterVerified, isDeleted: filterDeleted, page });
+  }, [search, filterKicked, filterVerified, filterDeleted, page, fetchUsers]);
 
   const handleConfirm = async () => {
     if (!confirmDialog) return;
@@ -55,7 +56,7 @@ export function UserManagementSection() {
         await unkickUser(confirmDialog.userId);
       }
       setConfirmDialog(null);
-      fetchUsers({ search: search || undefined, isKicked: filterKicked, isVerified: filterVerified, page });
+      fetchUsers({ search: search || undefined, isKicked: filterKicked, isVerified: filterVerified, isDeleted: filterDeleted, page });
     } catch {
       setError("Action failed. Please try again.");
     } finally {
@@ -100,6 +101,18 @@ export function UserManagementSection() {
           <option value="true">Verified</option>
           <option value="false">Unverified</option>
         </select>
+        <select
+          value={filterDeleted === undefined ? "" : String(filterDeleted)}
+          onChange={(e) => {
+            setFilterDeleted(e.target.value === "" ? undefined : e.target.value === "true");
+            setPage(1);
+          }}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+        >
+          <option value="">All accounts</option>
+          <option value="false">Active</option>
+          <option value="true">Deleted</option>
+        </select>
       </div>
 
       {error && (
@@ -133,7 +146,7 @@ export function UserManagementSection() {
               </tr>
             ) : (
               users.map((u) => (
-                <tr key={u.id} className={u.isKicked ? "bg-red-50" : ""}>
+                <tr key={u.id} className={u.deletedAt ? "bg-gray-50 opacity-60" : u.isKicked ? "bg-red-50" : ""}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.phoneNo}</td>
@@ -145,7 +158,9 @@ export function UserManagementSection() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {u.isKicked ? (
+                    {u.deletedAt ? (
+                      <span className="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-600">Deleted</span>
+                    ) : u.isKicked ? (
                       <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">Kicked</span>
                     ) : (
                       <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Active</span>
@@ -155,7 +170,7 @@ export function UserManagementSection() {
                     {u.isAdmin ? "Admin" : "User"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    {!u.isAdmin && (
+                    {!u.isAdmin && !u.deletedAt && (
                       u.isKicked ? (
                         <button
                           onClick={() => setConfirmDialog({ userId: u.id, userName: u.name, action: "unkick" })}

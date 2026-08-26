@@ -27,6 +27,7 @@ public class AdminController : ControllerBase
         [FromQuery] string? search,
         [FromQuery] bool? isKicked,
         [FromQuery] bool? isVerified,
+        [FromQuery] bool? isDeleted,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
@@ -35,8 +36,8 @@ public class AdminController : ControllerBase
         pageSize = Math.Clamp(pageSize, 1, 100);
         var offset = (page - 1) * pageSize;
 
-        var users = await _users.SearchUsersAsync(search, isKicked, isVerified, pageSize, offset, ct);
-        var total = await _users.CountUsersAsync(search, isKicked, isVerified, ct);
+        var users = await _users.SearchUsersAsync(search, isKicked, isVerified, isDeleted, pageSize, offset, ct);
+        var total = await _users.CountUsersAsync(search, isKicked, isVerified, isDeleted, ct);
 
         var result = users.Select(u => new AdminUserDto
         {
@@ -47,7 +48,8 @@ public class AdminController : ControllerBase
             IsAdmin = u.IsAdmin,
             IsEmailVerified = u.IsEmailVerified,
             IsKicked = u.IsKicked,
-            CreatedAt = u.CreatedAt
+            CreatedAt = u.CreatedAt,
+            DeletedAt = u.DeletedAt
         });
 
         return Ok(new

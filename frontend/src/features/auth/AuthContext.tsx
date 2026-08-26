@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import type { UserProfile } from "./api/auth";
 import { getMe, logout as logoutApi, login as loginApi } from "./api/auth";
+import { setOnAuthFailure } from "../../lib/apiClient";
 
 type AuthContextType = {
   user: UserProfile | null;
@@ -58,6 +59,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
   };
+
+  const handleKicked = useCallback(() => {
+    logout();
+    window.location.href = "/login";
+  }, []);
+
+  useEffect(() => {
+    setOnAuthFailure(handleKicked);
+    return () => setOnAuthFailure(null);
+  }, [handleKicked]);
+
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(async () => {
+      try {
+        await getMe();
+      } catch (err) {
+        const status = typeof err === "object" && err !== null && "status" in err
+          ? (err as { status: number }).status
+          : 0;
+        if (status === 403) {
+          handleKicked();
+        }
+      }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [user, handleKicked]);
 
   const refreshUser = async (): Promise<UserProfile | null> => {
     try {

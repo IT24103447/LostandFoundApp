@@ -5,6 +5,12 @@ export type ApiError = {
   body: unknown;
 };
 
+let onAuthFailure: (() => void) | null = null;
+
+export function setOnAuthFailure(cb: (() => void) | null) {
+  onAuthFailure = cb;
+}
+
 export async function apiPost<TReq, TRes>(
   service: ApiService,
   path: string,
@@ -24,6 +30,7 @@ export async function apiPost<TReq, TRes>(
   const respBody = text ? safeParseJson(text) : null;
 
   if (!res.ok) {
+    handleAuthFailure(res.status, respBody);
     throw { status: res.status, body: respBody } as ApiError;
   }
   return respBody as TRes;
@@ -39,6 +46,7 @@ export async function apiGet<TRes>(
   const text = await res.text();
   const respBody = text ? safeParseJson(text) : null;
   if (!res.ok) {
+    handleAuthFailure(res.status, respBody);
     throw { status: res.status, body: respBody } as ApiError;
   }
   return respBody as TRes;
@@ -63,6 +71,7 @@ export async function apiPut<TReq, TRes>(
   const respBody = text ? safeParseJson(text) : null;
 
   if (!res.ok) {
+    handleAuthFailure(res.status, respBody);
     throw { status: res.status, body: respBody } as ApiError;
   }
   return respBody as TRes;
@@ -87,9 +96,19 @@ export async function apiDelete<TReq, TRes>(
   const respBody = text ? safeParseJson(text) : null;
 
   if (!res.ok) {
+    handleAuthFailure(res.status, respBody);
     throw { status: res.status, body: respBody } as ApiError;
   }
   return respBody as TRes;
+}
+
+function handleAuthFailure(status: number, body: unknown) {
+  if (status === 403) {
+    const msg = typeof body === "object" && body !== null && "error" in body
+      ? String((body as { error: unknown }).error)
+      : "";
+    if (msg.includes("Account suspended")) onAuthFailure?.();
+  }
 }
 
 function safeParseJson(s: string): unknown {

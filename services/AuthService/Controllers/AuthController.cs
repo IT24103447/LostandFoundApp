@@ -520,7 +520,7 @@ public class AuthController : ControllerBase
 
         await _resetTokens.DeleteForUserAsync(userId, ct);
         await _tokens.DeleteForUserAsync(userId, ct);
-        await _users.DeleteAsync(userId, ct);
+        await _users.SoftDeleteAsync(userId, ct);
 
         Response.Cookies.Delete("auth_token", new CookieOptions
         {

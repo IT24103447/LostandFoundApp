@@ -9,6 +9,7 @@ export type AdminUser = {
   isEmailVerified: boolean;
   isKicked: boolean;
   createdAt: string;
+  deletedAt: string | null;
 };
 
 export type UsersResponse = {
@@ -23,6 +24,7 @@ export type UsersParams = {
   search?: string;
   isKicked?: boolean;
   isVerified?: boolean;
+  isDeleted?: boolean;
   page?: number;
   pageSize?: number;
 };
@@ -32,6 +34,7 @@ export const getUsers = (params: UsersParams, signal?: AbortSignal) => {
   if (params.search) searchParams.set("search", params.search);
   if (params.isKicked !== undefined) searchParams.set("isKicked", String(params.isKicked));
   if (params.isVerified !== undefined) searchParams.set("isVerified", String(params.isVerified));
+  if (params.isDeleted !== undefined) searchParams.set("isDeleted", String(params.isDeleted));
   if (params.page) searchParams.set("page", String(params.page));
   if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
   const qs = searchParams.toString();
