@@ -18,7 +18,7 @@ type Mode = "idle" | "send-code" | "reset-code" | "reset-done";
 
 export function DeleteAccountSection() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
 
   const [mode, setMode] = useState<Mode>("idle");
   const [sessionToken, setSessionToken] = useState("");
@@ -135,6 +135,7 @@ export function DeleteAccountSection() {
         code: values.code,
         newPassword: values.newPassword,
       });
+      await refreshUser();
       if (cooldownRef.current) clearInterval(cooldownRef.current);
       setMode("reset-done");
       setResetSuccess(true);
@@ -167,6 +168,16 @@ export function DeleteAccountSection() {
         }
       } else if (apiErr.status === 429) {
         setResetError("Too many attempts. Please wait a minute and try again.");
+      } else if (apiErr.status === 403) {
+        const body = apiErr.body as { error?: string; verificationSessionToken?: string; email?: string } | null;
+        if (body?.verificationSessionToken) {
+          navigate("/verify-email", {
+            state: { sessionToken: body.verificationSessionToken, email: body.email },
+            replace: true,
+          });
+          return;
+        }
+        setResetError(body?.error ?? "Something went wrong.");
       } else {
         setResetError("Something went wrong. Please try again.");
       }

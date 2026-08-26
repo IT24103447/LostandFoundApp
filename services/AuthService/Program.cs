@@ -7,8 +7,10 @@ using AuthService.Databases;
 using AuthService.Models;
 using AuthService.Repositories;
 using AuthService.Services;
+using AuthService.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -98,7 +100,12 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("ActiveUser", policy =>
+        policy.Requirements.Add(new ActiveUserRequirement()));
+});
+builder.Services.AddScoped<IAuthorizationHandler, ActiveUserHandler>();
 
 // Rate limiting: fixed window on unauthenticated endpoints.
 builder.Services.AddRateLimiter(o =>

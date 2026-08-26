@@ -175,6 +175,11 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "Email is already verified." });
         }
 
+        if (user.IsKicked)
+        {
+            return StatusCode(403, new { error = "Your account has been suspended." });
+        }
+
         var codeHash = _tokenGenerator.Hash(req.Code);
         var token = await _tokens.GetActiveByUserAsync(userId.Value, ct);
         if (token is null)
@@ -271,6 +276,11 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "Invalid or expired verification session." });
         }
 
+        if (user.IsKicked)
+        {
+            return StatusCode(403, new { error = "Your account has been suspended." });
+        }
+
         var lastSent = await _users.GetLastResentAtAsync(userId.Value, ct);
         if (lastSent.HasValue)
         {
@@ -352,6 +362,11 @@ public class AuthController : ControllerBase
                 email = user.Email,
                 verificationSessionToken = sessionToken
             });
+        }
+
+        if (user.IsKicked)
+        {
+            return StatusCode(403, new { error = "Your account has been suspended." });
         }
 
         var token = _jwtTokenService.IssueLoginToken(user);
@@ -438,6 +453,11 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "User not found." });
         }
 
+        if (user.IsKicked)
+        {
+            return StatusCode(403, new { error = "Your account has been suspended." });
+        }
+
         if (!user.IsEmailVerified)
         {
             return Unauthorized(new { error = "Email not verified." });
@@ -476,6 +496,11 @@ public class AuthController : ControllerBase
         if (user is null)
         {
             return Unauthorized(new { error = "User not found." });
+        }
+
+        if (user.IsKicked)
+        {
+            return StatusCode(403, new { error = "Your account has been suspended." });
         }
 
         if (!user.IsEmailVerified)
@@ -524,6 +549,11 @@ public class AuthController : ControllerBase
         if (user is null)
         {
             return BadRequest(new { error = "there is no account associated with this email." });
+        }
+
+        if (user.IsKicked)
+        {
+            return StatusCode(403, new { error = "Your account has been suspended. Please contact support." });
         }
 
         await _resetTokens.InvalidateAllForUserAsync(user.Id, ct);
@@ -580,6 +610,12 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "Invalid or expired reset session." });
         }
 
+        var resetUser = await _users.GetByIdAsync(userId.Value, ct);
+        if (resetUser is not null && resetUser.IsKicked)
+        {
+            return StatusCode(403, new { error = "Your account has been suspended." });
+        }
+
         var codeHash = _tokenGenerator.Hash(req.Code);
         var token = await _resetTokens.GetActiveByUserIdAsync(userId.Value, ct);
 
@@ -613,6 +649,17 @@ public class AuthController : ControllerBase
         var user = await _users.GetByIdAsync(userId.Value, ct)
             ?? throw new InvalidOperationException("Session references a non-existent user.");
 
+        if (!user.IsEmailVerified)
+        {
+            var verifySessionToken = _sessionService.Issue(user.Id);
+            return StatusCode(403, new
+            {
+                error = "Email not verified. Please verify your email before signing in.",
+                email = user.Email,
+                verificationSessionToken = verifySessionToken
+            });
+        }
+
         var jwtToken = _jwtTokenService.IssueLoginToken(user);
         var isProduction = HttpContext.RequestServices.GetService<IHostEnvironment>()?.IsProduction() ?? false;
         var cookieOptions = new CookieOptions
@@ -643,6 +690,11 @@ public class AuthController : ControllerBase
         if (user is null)
         {
             return Unauthorized(new { error = "User not found." });
+        }
+
+        if (user.IsKicked)
+        {
+            return StatusCode(403, new { error = "Your account has been suspended." });
         }
 
         if (!user.IsEmailVerified)

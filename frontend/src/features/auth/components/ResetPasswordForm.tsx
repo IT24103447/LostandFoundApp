@@ -102,6 +102,16 @@ export function ResetPasswordForm() {
         }
       } else if (apiErr.status === 429) {
         setSubmitError("Too many attempts. Please wait a minute and try again.");
+      } else if (apiErr.status === 403) {
+        const body = apiErr.body as { error?: string; verificationSessionToken?: string; email?: string } | null;
+        if (body?.verificationSessionToken) {
+          navigate("/verify-email", {
+            state: { sessionToken: body.verificationSessionToken, email: body.email },
+            replace: true,
+          });
+          return;
+        }
+        setSubmitError(body?.error ?? "Something went wrong.");
       } else {
         setSubmitError("Something went wrong. Please try again.");
       }

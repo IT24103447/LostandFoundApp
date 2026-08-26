@@ -20,6 +20,9 @@ public interface IUsersRepository
     Task UpdatePasswordHashAsync(Guid userId, string newHash, CancellationToken ct = default);
     Task DeleteAsync(Guid userId, CancellationToken ct = default);
 
+    Task SetKickedAsync(Guid userId, bool isKicked, CancellationToken ct = default);
+    Task<List<User>> SearchUsersAsync(string? query, bool? isKicked, bool? isVerified, int limit, int offset, CancellationToken ct = default);
+    Task<int> CountUsersAsync(string? query, bool? isKicked, bool? isVerified, CancellationToken ct = default);
 
     /// <summary>Returns the most recent verification status for the given user</summary>
     Task<UserVerificationStatus> GetVerificationStatusAsync(Guid userId, CancellationToken ct = default);
