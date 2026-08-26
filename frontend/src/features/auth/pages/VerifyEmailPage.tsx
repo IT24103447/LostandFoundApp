@@ -5,6 +5,7 @@ import {
   resendVerification,
   verifyEmail,
 } from "../api/verifyEmail";
+import { useAuth } from "../AuthContext";
 import type { ApiError } from "../../../lib/apiClient";
 
 type LocationState = {
@@ -15,19 +16,19 @@ type LocationState = {
 export function VerifyEmailPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshUser } = useAuth();
   const state = (location.state as LocationState | null) ?? {};
-  
+
   const storedToken = (() => {
     try { return sessionStorage.getItem("verificationSessionToken") ?? ""; } catch { return ""; }
   })();
   const storedEmail = (() => {
     try { return sessionStorage.getItem("verificationEmail") ?? ""; } catch { return ""; }
   })();
-  
+
   const sessionToken = state.sessionToken ?? storedToken;
   const initialEmail = state.email ?? storedEmail;
 
-  // OTP state: Array of 6 strings
   const [codeDigits, setCodeDigits] = useState<string[]>(Array(6).fill(""));
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -61,7 +62,6 @@ export function VerifyEmailPage() {
           setTimeout(() => navigate("/"), 1000);
           return;
         }
-
       } catch {
         // ignore polling errors
       }
@@ -96,7 +96,7 @@ export function VerifyEmailPage() {
           <h1 className="mb-4 text-2xl font-bold text-gray-900">Session Expired</h1>
           <p className="mb-6 text-sm text-gray-600">Please register again to receive a new verification code.</p>
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/register")}
             className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:from-indigo-700 hover:to-purple-700 hover:shadow-indigo-500/25 active:scale-[0.98]"
           >
             Go to Register
@@ -114,11 +114,12 @@ export function VerifyEmailPage() {
     try {
       const res = await verifyEmail({ sessionToken, code: codeString });
       if (res.verified) {
-        try { 
-          sessionStorage.removeItem("verificationSessionToken"); 
-          sessionStorage.removeItem("verificationEmail"); 
+        try {
+          sessionStorage.removeItem("verificationSessionToken");
+          sessionStorage.removeItem("verificationEmail");
         } catch {}
         setMessage(`Email ${res.email} verified. Redirecting...`);
+        await refreshUser();
         setTimeout(() => navigate("/"), 1200);
       }
     } catch (err) {
@@ -126,8 +127,7 @@ export function VerifyEmailPage() {
       const body = apiErr.body as { error?: string } | null;
       if (apiErr.status === 429) setError("Too many attempts. Please wait and try again.");
       else setError(body?.error ?? "Invalid or expired verification code.");
-      
-      // Clear code digits on error
+
       setCodeDigits(Array(6).fill(""));
       inputRefs.current[0]?.focus();
     } finally {
@@ -136,20 +136,18 @@ export function VerifyEmailPage() {
   };
 
   const handleChange = (index: number, val: string) => {
-    // allow only numbers
     const value = val.replace(/[^0-9]/g, "");
-    if (!value && val !== "") return; // if user typed non-number, ignore
+    if (!value && val !== "") return;
 
     const newDigits = [...codeDigits];
 
     if (value.length > 1) {
-      // Handle paste scenario
       const chars = value.split("").slice(0, 6);
       chars.forEach((char, i) => {
         if (index + i < 6) newDigits[index + i] = char;
       });
       setCodeDigits(newDigits);
-      
+
       const nextFocus = Math.min(index + chars.length, 5);
       inputRefs.current[nextFocus]?.focus();
 
@@ -166,7 +164,7 @@ export function VerifyEmailPage() {
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
-    
+
     const combined = newDigits.join("");
     if (combined.length === 6 && value) {
       doVerify(combined);
@@ -222,7 +220,6 @@ export function VerifyEmailPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Decorative background elements */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full bg-indigo-300 opacity-20 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 rounded-full bg-purple-300 opacity-20 blur-[100px] pointer-events-none" />
 
@@ -233,8 +230,6 @@ export function VerifyEmailPage() {
             We've sent a 6-digit verification code to your email.
           </p>
         </div>
-
-
 
         <form onSubmit={handleVerifySubmit} className="space-y-6" noValidate>
           <div className="flex justify-between gap-2 sm:gap-3">

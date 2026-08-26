@@ -9,6 +9,8 @@ public class User
     public string PhoneNo { get; set; } = string.Empty;
     public bool IsAdmin { get; set; }
     public bool IsEmailVerified { get; set; }
+    public bool IsKicked { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }

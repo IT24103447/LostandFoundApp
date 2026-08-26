@@ -15,7 +15,15 @@ public interface IUsersRepository
     Task SetLastResentAtAsync(Guid userId, DateTime at, CancellationToken ct = default);
     Task MarkEmailVerifiedAsync(Guid userId, CancellationToken ct = default);
     Task UpdateEmailAsync(Guid userId, string newEmail, CancellationToken ct = default);
+    Task UpdateProfileAsync(Guid userId, string name, string phoneNo, CancellationToken ct = default);
+    Task<bool> PhoneExistsForOtherUserAsync(Guid userId, string phoneNo, CancellationToken ct = default);
+    Task UpdatePasswordHashAsync(Guid userId, string newHash, CancellationToken ct = default);
+    Task DeleteAsync(Guid userId, CancellationToken ct = default);
+    Task SoftDeleteAsync(Guid userId, CancellationToken ct = default);
 
+    Task SetKickedAsync(Guid userId, bool isKicked, CancellationToken ct = default);
+    Task<List<User>> SearchUsersAsync(string? query, bool? isKicked, bool? isVerified, bool? isDeleted, int limit, int offset, CancellationToken ct = default);
+    Task<int> CountUsersAsync(string? query, bool? isKicked, bool? isVerified, bool? isDeleted, CancellationToken ct = default);
 
     /// <summary>Returns the most recent verification status for the given user</summary>
     Task<UserVerificationStatus> GetVerificationStatusAsync(Guid userId, CancellationToken ct = default);

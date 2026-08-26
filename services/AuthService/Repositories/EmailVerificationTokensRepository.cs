@@ -45,7 +45,6 @@ public class EmailVerificationTokensRepository : IEmailVerificationTokensReposit
             WHERE code_hash = @codeHash
               AND used_at IS NULL
               AND expires_at > UTC_TIMESTAMP(3)
-              AND attempts < 5
             LIMIT 1;
             """;
         await using var conn = _db.Create();
@@ -110,6 +109,16 @@ public class EmailVerificationTokensRepository : IEmailVerificationTokensReposit
             SET used_at = UTC_TIMESTAMP(3)
             WHERE user_id = @userId AND used_at IS NULL;
             """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@userId", userId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task DeleteForUserAsync(Guid userId, CancellationToken ct = default)
+    {
+        const string sql = "DELETE FROM email_verification_tokens WHERE user_id = @userId;";
         await using var conn = _db.Create();
         await conn.OpenAsync(ct);
         await using var cmd = new MySqlCommand(sql, conn);
