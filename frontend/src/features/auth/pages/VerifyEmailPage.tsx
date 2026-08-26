@@ -5,6 +5,7 @@ import {
   resendVerification,
   verifyEmail,
 } from "../api/verifyEmail";
+import { useAuth } from "../AuthContext";
 import type { ApiError } from "../../../lib/apiClient";
 
 type LocationState = {
@@ -15,6 +16,7 @@ type LocationState = {
 export function VerifyEmailPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshUser } = useAuth();
   const state = (location.state as LocationState | null) ?? {};
 
   const storedToken = (() => {
@@ -94,7 +96,7 @@ export function VerifyEmailPage() {
           <h1 className="mb-4 text-2xl font-bold text-gray-900">Session Expired</h1>
           <p className="mb-6 text-sm text-gray-600">Please register again to receive a new verification code.</p>
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/register")}
             className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:from-indigo-700 hover:to-purple-700 hover:shadow-indigo-500/25 active:scale-[0.98]"
           >
             Go to Register
@@ -117,6 +119,7 @@ export function VerifyEmailPage() {
           sessionStorage.removeItem("verificationEmail");
         } catch {}
         setMessage(`Email ${res.email} verified. Redirecting...`);
+        await refreshUser();
         setTimeout(() => navigate("/"), 1200);
       }
     } catch (err) {

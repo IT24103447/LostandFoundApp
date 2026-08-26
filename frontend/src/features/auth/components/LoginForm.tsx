@@ -33,10 +33,19 @@ export function LoginForm() {
       if (profile.isAdmin) {
         navigate("/admin/dashboard", { replace: true });
       } else {
-        navigate(from || "/home", { replace: true });
+        navigate(from || "/", { replace: true });
       }
     } catch (err) {
       const apiErr = err as ApiError;
+      if (apiErr.status === 403) {
+        const body = apiErr.body as { error?: string; email?: string; verificationSessionToken?: string } | null;
+        if (body?.verificationSessionToken) {
+          navigate("/verify-email", {
+            state: { sessionToken: body.verificationSessionToken, email: body.email ?? values.email },
+          });
+          return;
+        }
+      }
       const body = apiErr.body as { error?: string } | null;
       setError(body?.error ?? "Login failed. Please try again.");
     }

@@ -8,32 +8,12 @@ import { HomePage } from "./features/home/pages/HomePage";
 import { AdminDashboardPage } from "./features/admin/pages/AdminDashboardPage";
 import { ProfilePage } from "./features/auth/pages/ProfilePage";
 import { ProtectedRoute } from "./features/auth/components/ProtectedRoute";
-import { useAuth } from "./features/auth/AuthContext";
-
-function RootRedirect() {
-  const { isAuthenticated, isLoading, user } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (isAuthenticated && user?.isAdmin) {
-    return <Navigate to="/admin/dashboard" replace />;
-  }
-  if (isAuthenticated) {
-    return <Navigate to="/home" replace />;
-  }
-  return <RegisterPage />;
-}
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<RootRedirect />} />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/home" element={<Navigate to="/" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -41,7 +21,6 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route element={<ProtectedRoute />}>
-        <Route path="/home" element={<HomePage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 

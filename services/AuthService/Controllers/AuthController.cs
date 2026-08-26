@@ -161,6 +161,20 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "Invalid or expired verification session." });
         }
 
+        var currentUserId = GetCurrentUserIdFromCookie();
+        if (currentUserId.HasValue)
+        {
+            return BadRequest(new { error = "Already authenticated. Please sign out first." });
+        }
+
+        var user = await _users.GetByIdAsync(userId.Value, ct)
+            ?? throw new InvalidOperationException("Session references a non-existent user.");
+
+        if (user.IsEmailVerified)
+        {
+            return BadRequest(new { error = "Email is already verified." });
+        }
+
         var codeHash = _tokenGenerator.Hash(req.Code);
         var token = await _tokens.GetActiveByUserAsync(userId.Value, ct);
         if (token is null)
@@ -178,11 +192,6 @@ public class AuthController : ControllerBase
             }
             return BadRequest(new { error = "Invalid or expired verification code." });
         }
-
-
-
-        var user = await _users.GetByIdAsync(userId.Value, ct)
-            ?? throw new InvalidOperationException("Session references a non-existent user.");
 
         if (!string.IsNullOrEmpty(token.PendingEmail) &&
             !string.Equals(token.PendingEmail, user.Email, StringComparison.OrdinalIgnoreCase))
@@ -202,6 +211,20 @@ public class AuthController : ControllerBase
 
         await _users.MarkEmailVerifiedAsync(userId.Value, ct);
         await _tokens.MarkUsedAsync(token.Id, ct);
+
+        var jwtToken = _jwtTokenService.IssueLoginToken(user);
+        var isProduction = HttpContext.RequestServices.GetService<IHostEnvironment>()?.IsProduction() ?? false;
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = isProduction,
+            SameSite = isProduction ? SameSiteMode.None : SameSiteMode.Lax,
+            Path = "/",
+            Expires = DateTime.UtcNow.AddMinutes(_jwt.ExpiryMinutes)
+        };
+        Response.Cookies.Append("auth_token", jwtToken, cookieOptions);
+
+        _logger.LogInformation("User {UserId} email verified and logged in.", userId.Value);
 
         return Ok(new { verified = true, email = user.Email });
     }
@@ -318,6 +341,17 @@ public class AuthController : ControllerBase
         if (user is null || !_passwordHasher.Verify(req.Password, user.PasswordHash))
         {
             return Unauthorized(new { error = "Invalid email or password." });
+        }
+
+        if (!user.IsEmailVerified)
+        {
+            var sessionToken = _sessionService.Issue(user.Id);
+            return StatusCode(403, new
+            {
+                error = "Email not verified. Please verify your email before signing in.",
+                email = user.Email,
+                verificationSessionToken = sessionToken
+            });
         }
 
         var token = _jwtTokenService.IssueLoginToken(user);
@@ -566,7 +600,22 @@ public class AuthController : ControllerBase
         await _users.UpdatePasswordHashAsync(userId.Value, newHash, ct);
         await _resetTokens.MarkUsedAsync(token.Id, ct);
 
-        _logger.LogInformation("User {UserId} reset their password.", userId.Value);
+        var user = await _users.GetByIdAsync(userId.Value, ct)
+            ?? throw new InvalidOperationException("Session references a non-existent user.");
+
+        var jwtToken = _jwtTokenService.IssueLoginToken(user);
+        var isProduction = HttpContext.RequestServices.GetService<IHostEnvironment>()?.IsProduction() ?? false;
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = isProduction,
+            SameSite = isProduction ? SameSiteMode.None : SameSiteMode.Lax,
+            Path = "/",
+            Expires = DateTime.UtcNow.AddMinutes(_jwt.ExpiryMinutes)
+        };
+        Response.Cookies.Append("auth_token", jwtToken, cookieOptions);
+
+        _logger.LogInformation("User {UserId} reset their password and logged in.", userId.Value);
 
         return Ok(new { success = true });
     }
@@ -596,5 +645,24 @@ public class AuthController : ControllerBase
             IsEmailVerified = user.IsEmailVerified,
             CreatedAt = user.CreatedAt
         });
+    }
+
+    private Guid? GetCurrentUserIdFromCookie()
+    {
+        if (!HttpContext.Request.Cookies.TryGetValue("auth_token", out var token) || string.IsNullOrEmpty(token))
+            return null;
+
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jwt = handler.ReadJwtToken(token);
+            if (jwt.ValidTo < DateTime.UtcNow) return null;
+            var sub = jwt.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub)?.Value;
+            return Guid.TryParse(sub, out var userId) ? userId : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

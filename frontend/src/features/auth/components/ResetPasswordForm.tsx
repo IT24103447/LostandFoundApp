@@ -7,6 +7,7 @@ import {
   type ResetPasswordFormValues,
 } from "../schemas/resetPasswordSchema";
 import { resetPassword, forgotPassword } from "../api/forgotPassword";
+import { useAuth } from "../AuthContext";
 import type { ApiError } from "../../../lib/apiClient";
 import { Field } from "./Field";
 import { inputClass, isValidationProblem } from "./helpers";
@@ -20,6 +21,7 @@ type LocationState = {
 export function ResetPasswordForm() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshUser } = useAuth();
   const state = (location.state as LocationState | null) ?? {};
 
   const sessionToken = state.sessionToken ?? "";
@@ -35,7 +37,7 @@ export function ResetPasswordForm() {
 
   useEffect(() => {
     if (!success) return;
-    const timer = setTimeout(() => navigate("/login"), 3000);
+    const timer = setTimeout(() => navigate("/"), 3000);
     return () => clearTimeout(timer);
   }, [success, navigate]);
 
@@ -74,6 +76,7 @@ export function ResetPasswordForm() {
         code: values.code,
         newPassword: values.newPassword,
       });
+      await refreshUser();
       setSuccess(true);
     } catch (err) {
       const apiErr = err as ApiError;
@@ -163,13 +166,13 @@ export function ResetPasswordForm() {
           Password reset successfully!
         </p>
         <p className="text-sm text-gray-500">
-          Redirecting to sign in…
+          Redirecting to home…
         </p>
         <button
-          onClick={() => navigate("/login")}
+          onClick={() => navigate("/")}
           className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:from-indigo-700 hover:to-purple-700 hover:shadow-indigo-500/25 active:scale-[0.98]"
         >
-          Sign in now
+          Go to home
         </button>
       </div>
     );

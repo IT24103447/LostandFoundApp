@@ -15,7 +15,7 @@ export function LoginPage() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={user?.isAdmin ? "/admin/dashboard" : "/home"} replace />;
+    return <Navigate to={user?.isAdmin ? "/admin/dashboard" : "/"} replace />;
   }
 
   return (
@@ -45,7 +45,7 @@ export function LoginPage() {
         <p className="mt-6 text-center text-sm text-gray-600">
           Don't have an account?{" "}
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/register")}
             className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
           >
             Create one

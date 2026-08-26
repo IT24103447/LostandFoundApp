@@ -43,7 +43,7 @@ export function ProfilePage() {
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user.name}</span>
             <button
-              onClick={() => navigate(user.isAdmin ? "/admin/dashboard" : "/home")}
+              onClick={() => navigate(user.isAdmin ? "/admin/dashboard" : "/")}
               className="text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
             >
               Dashboard

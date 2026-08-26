@@ -15,7 +15,7 @@ export function ForgotPasswordPage() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={user?.isAdmin ? "/admin/dashboard" : "/home"} replace />;
+    return <Navigate to={user?.isAdmin ? "/admin/dashboard" : "/"} replace />;
   }
 
   return (
