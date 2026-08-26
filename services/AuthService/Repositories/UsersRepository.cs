@@ -206,8 +206,8 @@ public class UsersRepository : IUsersRepository
         const string sql = """
             UPDATE users
             SET deleted_at = UTC_TIMESTAMP(3),
-                email = CONCAT('deleted-', @id, '@deleted.local'),
-                phone_no = CONCAT('DELETED-', @id)
+                email = CONCAT('del-', LEFT(@id, 8), '@deleted.local'),
+                phone_no = CONCAT('DEL-', LEFT(@id, 8))
             WHERE id = @id;
             """;
         await using var conn = _db.Create();
