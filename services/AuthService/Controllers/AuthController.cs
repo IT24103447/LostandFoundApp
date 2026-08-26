@@ -438,6 +438,11 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "User not found." });
         }
 
+        if (!user.IsEmailVerified)
+        {
+            return Unauthorized(new { error = "Email not verified." });
+        }
+
         return Ok(new UserProfileDto
         {
             Id = user.Id,
@@ -471,6 +476,11 @@ public class AuthController : ControllerBase
         if (user is null)
         {
             return Unauthorized(new { error = "User not found." });
+        }
+
+        if (!user.IsEmailVerified)
+        {
+            return Unauthorized(new { error = "Email not verified." });
         }
 
         if (user.IsAdmin)
@@ -633,6 +643,11 @@ public class AuthController : ControllerBase
         if (user is null)
         {
             return Unauthorized(new { error = "User not found." });
+        }
+
+        if (!user.IsEmailVerified)
+        {
+            return Unauthorized(new { error = "Email not verified." });
         }
 
         return Ok(new UserProfileDto
