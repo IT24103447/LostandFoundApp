@@ -11,7 +11,7 @@ namespace AuthService.Controllers;
 
 [ApiController]
 [Route("api/admin")]
-[Authorize(Policy = "ActiveUser")]
+[Authorize(Policy = "AdminOnly")]
 public class AdminController : ControllerBase
 {
     private readonly IUsersRepository _users;

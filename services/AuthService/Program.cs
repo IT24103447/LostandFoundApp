@@ -109,8 +109,11 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("ActiveUser", policy =>
         policy.Requirements.Add(new ActiveUserRequirement()));
+    options.AddPolicy("AdminOnly", policy =>
+        policy.Requirements.Add(new AdminOnlyRequirement()));
 });
 builder.Services.AddScoped<IAuthorizationHandler, ActiveUserHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, AdminOnlyHandler>();
 
 // Rate limiting: fixed window on unauthenticated endpoints.
 builder.Services.AddRateLimiter(o =>
