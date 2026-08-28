@@ -18,7 +18,6 @@ export function ProfileEditForm({ user, onSaved, onCancel }: ProfileEditFormProp
     register: registerField,
     handleSubmit,
     setError,
-    getValues,
     formState: { errors, isSubmitting, isSubmitted, touchedFields },
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -35,8 +34,7 @@ export function ProfileEditForm({ user, onSaved, onCancel }: ProfileEditFormProp
   const showError = (name: keyof ProfileFormValues): boolean => {
     if (isSubmitted) return !!errors[name];
     if (!touchedFields[name]) return false;
-    const value = getValues(name) as string | undefined;
-    return !!errors[name] && !!value && value.trim() !== "";
+    return !!errors[name];
   };
 
   const onSubmit = async (values: ProfileFormValues) => {
