@@ -24,18 +24,25 @@ public class AuthControllerRegisterTests
     private readonly Mock<ITokenGenerator> _tokenGenerator = new();
     private readonly Mock<IEmailService> _email = new();
     private readonly Mock<IVerificationSessionService> _sessionService = new();
+    private readonly Mock<IJwtTokenService> _jwtTokenService = new();
+    private readonly Mock<IEventPublisher> _publisher = new();
 
     private AuthController BuildController()
     {
         return new AuthController(
             _users.Object,
             _tokens.Object,
+            Mock.Of<IPasswordResetTokensRepository>(),
             _passwordHasher.Object,
             new PasswordValidator(), // real instance — it's pure/stateless logic
             _tokenGenerator.Object,
             _email.Object,
             _sessionService.Object,
+            _jwtTokenService.Object,
+            _publisher.Object,
             Options.Create(new AuthSettings()),
+            Options.Create(new JwtSettings { ExpiryMinutes = 60 }),
+            Options.Create(new KafkaSettings()),
             Mock.Of<ILogger<AuthController>>());
     }
 
@@ -58,8 +65,7 @@ public class AuthControllerRegisterTests
 
         var result = await controller.Register(req, CancellationToken.None);
 
-        Assert.IsType<ObjectResult>(result.Result); // ValidationProblem() returns a 400 ObjectResult
-        var problem = Assert.IsType<ObjectResult>(result.Result);
+        var problem = Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Equal(400, problem.StatusCode);
 
         // Blocks submission before even checking the DB.
