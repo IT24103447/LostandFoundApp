@@ -36,6 +36,9 @@ jobs:
         env:
           VITE_AUTH_API_BASE_URL: https://lostfound-auth-service.azurewebsites.net
 
+      - name: List dist contents (debug)
+        run: ls -la frontend/dist
+
       - name: Deploy
         uses: Azure/static-web-apps-deploy@v1
         with:
@@ -45,4 +48,3 @@ jobs:
           app_location: "/frontend"
           output_location: "dist"
           skip_app_build: true
-          skip_api_build: true
