@@ -256,3 +256,5 @@ static async Task SeedUsersAsync(IUsersRepository repo, IPasswordHasher hasher)
         });
     }
 }
+
+public partial class Program { }
