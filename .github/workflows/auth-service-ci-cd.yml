@@ -2,7 +2,7 @@ name: auth-service-ci-cd
 on:
   push:
     branches: [develop, main, 'feature/**']
-    paths: ['services/AuthService/**']
+    paths: ['services/AuthService/**', 'services/AuthService.Tests/**']
 
 jobs:
   build-and-test:
@@ -13,8 +13,10 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - run: dotnet restore services/AuthService
+      - run: dotnet restore services/AuthService.Tests
       - run: dotnet build services/AuthService --no-restore
-      - run: dotnet test services/AuthService --no-build --collect:"XPlat Code Coverage"
+      - run: dotnet build services/AuthService.Tests --no-restore
+      - run: dotnet test services/AuthService.Tests --no-build --collect:"XPlat Code Coverage"
 
   deploy:
     needs: build-and-test
