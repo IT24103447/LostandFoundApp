@@ -68,3 +68,5 @@ statements at the top of each test file to match.
   Kafka — that's the next layer (integration tests via `WebApplicationFactory`),
   not unit tests. Happy to build that project next once this one is running
   green for you.
+
+ci/cd trigger
