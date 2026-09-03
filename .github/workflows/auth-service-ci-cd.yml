@@ -1,7 +1,7 @@
 name: auth-service-ci-cd
 on:
   push:
-    branches: [develop, main , 'feature/**']
+    branches: [develop, main, 'feature/**']
     paths: ['services/AuthService/**']
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
 
   deploy:
     needs: build-and-test
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
