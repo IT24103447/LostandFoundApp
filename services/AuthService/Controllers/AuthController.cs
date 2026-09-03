@@ -509,6 +509,7 @@ public class AuthController : ControllerBase
             {
                 UserId = userId,
                 UpdatedFields = [.. changedFields],
+                Email = user.Email,
                 Name = user.Name,
                 Phone = user.PhoneNo
             }, ct);
