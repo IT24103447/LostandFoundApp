@@ -39,12 +39,12 @@ export const getUsers = (params: UsersParams, signal?: AbortSignal) => {
   if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
   const qs = searchParams.toString();
   const path = `/api/admin/users${qs ? `?${qs}` : ""}`;
-  return apiGet<UsersResponse>("admin", path, signal);
+  return apiGet<UsersResponse>("auth", path, signal);
 };
 
 export const kickUser = (id: string, signal?: AbortSignal) =>
   apiPost<{ confirm: boolean }, { success: boolean; message: string }>(
-    "admin",
+    "auth",
     `/api/admin/users/${id}/kick`,
     { confirm: true },
     signal,
@@ -52,7 +52,7 @@ export const kickUser = (id: string, signal?: AbortSignal) =>
 
 export const unkickUser = (id: string, signal?: AbortSignal) =>
   apiPost<{ confirm: boolean }, { success: boolean; message: string }>(
-    "admin",
+    "auth",
     `/api/admin/users/${id}/unkick`,
     { confirm: true },
     signal,
