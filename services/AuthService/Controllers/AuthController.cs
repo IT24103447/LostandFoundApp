@@ -508,7 +508,9 @@ public class AuthController : ControllerBase
             await _publisher.PublishAsync($"{_kafka.TopicPrefix}.user.profile_updated", new UserProfileUpdatedEvent
             {
                 UserId = userId,
-                UpdatedFields = [.. changedFields]
+                UpdatedFields = [.. changedFields],
+                Name = user.Name,
+                Phone = user.PhoneNo
             }, ct);
         }
 
