@@ -25,6 +25,7 @@ builder.Services.AddControllers()
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddTransient<IDbConnectionFactory, DbConnectionFactory>();
 
 // CORS for the Vite dev server (default port 5173). Tightened per environment before prod.
