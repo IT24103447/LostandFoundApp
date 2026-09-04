@@ -583,43 +583,26 @@ Shared infrastructure (resource group, plan, MySQL server, Kafka container, App 
 
 Item Service stores uploadable images (item photos) in Azure Blob Storage. This was not needed for Auth Service (Sprint 1), so it's documented here as the Sprint 2 addition. This section covers the current working setup (connection-string auth, public-read container) plus the alternatives.
 
-### Create / locate the storage account
-
-```powershell
-az storage account create --name <account> --resource-group lostfound-rg --location southeastasia --sku Standard_LRS --kind StorageV2
-az storage container create --name item-images --account-name <account> --auth-mode login --public-access blob
-```
-
-`--public-access blob` makes blobs readable via a public URL (per-blob public read), which is what lets the frontend render item images directly.
-
 ### Auth method: connection string (current, recommended for the shared F1 setup)
 
 Item Service uses the storage account connection string. Grab it with:
 
 ```powershell
-az storage account show-connection-string --name <account> --resource-group lostfound-rg -o tsv
+az storage account show-connection-string --name lostfoundblob8842 --resource-group lostfound-rg -o tsv
 ```
 
-> **Managed Identity alternative (future hardening):** enable a system-assigned identity on the Item App Service and grant `Storage Blob Data Contributor` on the storage account, then use no secret in `appsettings`. Richer but more moving parts; not needed on the shared F1 plan.
-
-### Settings (mirrored from item `appsettings.json`)
+### Settings
 
 | Setting | Purpose |
 |---|---|
-| `BlobStorage__ConnectionString` | Storage account connection string (upload client) |
-| `BlobStorage__ContainerName` | Container holding item images (e.g. `item-images`) |
+| `BlobStorage__ConnectionString` | Storage account connection string |
+| `BlobStorage__ContainerName` | Container holding item images |
 | `BlobStorage__PublicBaseUrl` | `https://<account>.blob.core.windows.net/<container>` — used to build the public URL returned/stored for each image |
 
 ### Access model: public-read
 
 Because the container is public (`--public-access blob`), the service uploads an image and constructs a stable public URL:
 `{BlobStorage__PublicBaseUrl}/{blobName}`, which the frontend renders directly. No SAS expiration handling needed.
-
-> **Private + SAS alternative:** keep the container private and have the service issue short-lived SAS URLs (or proxy image bytes). More secure, but adds complexity and URL-expiry handling. Documented as a possible future change.
-
-### Code requirement (mirrors App Insights, section 5)
-
-A connection string in `appsettings`/App Service settings alone does nothing — the Item Service must actually resolve `IOptions<BlobStorageSettings>` (or read the env vars) and construct a `BlobContainerClient` in `Program.cs`. Verify an upload path exists in Code before assuming config is responsible for any failure.
 
 ---
 
