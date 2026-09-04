@@ -1,0 +1,35 @@
+name: item-service-ci-cd
+on:
+  push:
+    branches: [develop, main, 'feature/Item-Service']
+    paths: ['services/ItemService/**', 'services/ItemService.Tests/**']
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore services/ItemService
+      - run: dotnet restore services/ItemService.Tests
+      - run: dotnet build services/ItemService --no-restore
+      - run: dotnet build services/ItemService.Tests --no-restore
+      - run: dotnet test services/ItemService.Tests --no-build --collect:"XPlat Code Coverage"
+
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet publish services/ItemService -c Release -o services/ItemService/publish
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'lostfound-item-service'
+          publish-profile: ${{ secrets.AZURE_ITEM_SERVICE_PUBLISH_PROFILE }}
+          package: services/ItemService/publish
