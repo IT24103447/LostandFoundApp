@@ -31,8 +31,19 @@ builder.Services.AddCors(o => o.AddPolicy(DevCorsPolicy, p => p
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<ItemSettings>(builder.Configuration.GetSection("Item"));
 builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("Kafka"));
+builder.Services.Configure<BlobStorageSettings>(builder.Configuration.GetSection("BlobStorage"));
 
 builder.Services.AddScoped<ILostItemsRepository, LostItemsRepository>();
+
+var blobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(blobConnectionString))
+{
+    builder.Services.AddSingleton<IPhotoStorageService, AzureBlobPhotoStorageService>();
+}
+else
+{
+    builder.Services.AddScoped<IPhotoStorageService, LocalPhotoStorageService>();
+}
 
 builder.Services.AddSingleton<KafkaEventPublisher>();
 builder.Services.AddSingleton<IEventPublisher>(sp => sp.GetRequiredService<KafkaEventPublisher>());
@@ -114,6 +125,8 @@ app.UseExceptionHandler(appBuilder =>
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseStaticFiles();
 
 app.MapControllers();
 
