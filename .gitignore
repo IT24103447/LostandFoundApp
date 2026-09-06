@@ -481,3 +481,11 @@ yarn-error.log*
 
 # General / misc
 *.log
+
+# .NET
+bin/
+obj/
+
+# Local photo uploads (dev fallback storage - not for git)
+services/ItemService/wwwroot/photos/*
+!services/ItemService/wwwroot/photos/.gitkeep
