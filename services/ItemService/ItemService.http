@@ -1,0 +1,40 @@
+@ItemService_HostAddress = http://localhost:5001
+
+### Report a lost item (requires an auth_token cookie from AuthService login/register+verify).
+### Swap COOKIE_VALUE for a real cookie captured from the browser dev tools while testing.
+POST {{ItemService_HostAddress}}/api/items/lost
+Cookie: auth_token=COOKIE_VALUE
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="Title"
+
+Black leather wallet
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="Category"
+
+Wallets
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="Description"
+
+Bifold wallet, slightly worn, lost near the food court.
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="DateLost"
+
+2026-08-28
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="LastKnownLocation"
+
+Colombo City Centre, 2nd floor food court
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="HiddenInformation"
+
+Has a torn inner pocket with a faded bus ticket stub inside.
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+GET {{ItemService_HostAddress}}/api/items/lost/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+###
