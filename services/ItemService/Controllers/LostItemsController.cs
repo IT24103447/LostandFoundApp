@@ -4,7 +4,9 @@ using System.Globalization;
 using ItemService.Configuration;
 using ItemService.Models;
 using ItemService.Models.Dtos;
+using ItemService.Models.Events;
 using ItemService.Repositories;
+using ItemService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -17,16 +19,25 @@ namespace ItemService.Controllers;
 public class LostItemsController : ControllerBase
 {
     private readonly ILostItemsRepository _items;
+    private readonly IPhotoStorageService _photoStorage;
+    private readonly IEventPublisher _publisher;
     private readonly ItemSettings _itemSettings;
+    private readonly KafkaSettings _kafka;
     private readonly ILogger<LostItemsController> _logger;
 
     public LostItemsController(
         ILostItemsRepository items,
+        IPhotoStorageService photoStorage,
+        IEventPublisher publisher,
         IOptions<ItemSettings> itemSettings,
+        IOptions<KafkaSettings> kafka,
         ILogger<LostItemsController> logger)
     {
         _items = items;
+        _photoStorage = photoStorage;
+        _publisher = publisher;
         _itemSettings = itemSettings.Value;
+        _kafka = kafka.Value;
         _logger = logger;
     }
 
@@ -53,6 +64,34 @@ public class LostItemsController : ControllerBase
             errors["DateLost"] = ["Date lost cannot be in the future."];
         }
 
+        var photos = req.Photos ?? [];
+        if (photos.Count > _itemSettings.MaxPhotosPerItem)
+        {
+            errors["Photos"] = [$"You can attach at most {_itemSettings.MaxPhotosPerItem} photos."];
+        }
+        else
+        {
+            for (var i = 0; i < photos.Count; i++)
+            {
+                var photo = photos[i];
+                if (photo.Length == 0)
+                {
+                    errors["Photos"] = ["One or more photo files is empty."];
+                    break;
+                }
+                if (photo.Length > _itemSettings.MaxPhotoSizeBytes)
+                {
+                    errors["Photos"] = [$"Each photo must be at most {_itemSettings.MaxPhotoSizeBytes / (1024 * 1024)} MB."];
+                    break;
+                }
+                if (!_itemSettings.AllowedPhotoContentTypes.Contains(photo.ContentType, StringComparer.OrdinalIgnoreCase))
+                {
+                    errors["Photos"] = ["Photos must be JPEG, PNG, or WEBP images."];
+                    break;
+                }
+            }
+        }
+
         if (errors.Count > 0)
         {
             return ValidationProblem(new ValidationProblemDetails(errors));
@@ -75,9 +114,35 @@ public class LostItemsController : ControllerBase
 
         await _items.CreateAsync(item, ct);
 
+        var photoUrls = new List<string>();
+        foreach (var photo in photos)
+        {
+            var url = await _photoStorage.SaveAsync(item.Id, photo, ct);
+            photoUrls.Add(url);
+        }
+        if (photoUrls.Count > 0)
+        {
+            await _items.AddPhotosAsync(item.Id, photoUrls, ct);
+        }
+
+        await _publisher.PublishAsync($"{_kafka.TopicPrefix}.lost_item.created", new LostItemCreatedEvent
+        {
+            UserId = userId,
+            LostItemId = item.Id,
+            Title = item.Title,
+            Category = item.Category,
+            Description = item.Description,
+            DateLost = item.DateLost,
+            LastKnownLocation = item.LastKnownLocation,
+            HiddenInformation = item.HiddenInformation,
+            Status = item.Status.ToString(),
+            PhotoUrls = photoUrls,
+            CreatedAt = item.CreatedAt
+        }, ct);
+
         _logger.LogInformation("User {UserId} reported lost item {LostItemId}.", userId, item.Id);
 
-        return CreatedAtAction(nameof(GetById), new { id = item.Id }, ToDto(item, []));
+        return CreatedAtAction(nameof(GetById), new { id = item.Id }, ToDto(item, photoUrls));
     }
 
     [HttpGet("{id:guid}")]

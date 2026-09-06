@@ -3,6 +3,7 @@ using System.Text;
 using ItemService.Configuration;
 using ItemService.Databases;
 using ItemService.Repositories;
+using ItemService.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -29,8 +30,13 @@ builder.Services.AddCors(o => o.AddPolicy(DevCorsPolicy, p => p
 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<ItemSettings>(builder.Configuration.GetSection("Item"));
+builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("Kafka"));
 
 builder.Services.AddScoped<ILostItemsRepository, LostItemsRepository>();
+
+builder.Services.AddSingleton<KafkaEventPublisher>();
+builder.Services.AddSingleton<IEventPublisher>(sp => sp.GetRequiredService<KafkaEventPublisher>());
+builder.Services.AddHostedService<KafkaEventProducerService>();
 
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
     ?? throw new InvalidOperationException("Jwt settings not configured.");
