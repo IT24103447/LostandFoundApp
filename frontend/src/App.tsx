@@ -11,6 +11,8 @@ import { UserManagementSection } from "./features/admin/components/UserManagemen
 import { AdminProfileSection } from "./features/admin/components/AdminProfileSection";
 import { ProfilePage } from "./features/auth/pages/ProfilePage";
 import { ProtectedRoute } from "./features/auth/components/ProtectedRoute";
+import { ReportLostItemPage } from "./features/items/pages/ReportLostItemPage";
+import { ReportLostItemSuccessPage } from "./features/items/pages/ReportLostItemSuccessPage";
 
 export default function App() {
   return (
@@ -25,6 +27,8 @@ export default function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/report-lost-item" element={<ReportLostItemPage />} />
+        <Route path="/report-lost-item/success" element={<ReportLostItemSuccessPage />} />
       </Route>
 
       <Route element={<ProtectedRoute roles={["Admin"]} />}>
