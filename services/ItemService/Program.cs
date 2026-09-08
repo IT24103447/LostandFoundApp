@@ -34,6 +34,7 @@ builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("Kafk
 builder.Services.Configure<BlobStorageSettings>(builder.Configuration.GetSection("BlobStorage"));
 
 builder.Services.AddScoped<ILostItemsRepository, LostItemsRepository>();
+builder.Services.AddScoped<IFoundItemsRepository, FoundItemsRepository>();
 
 var blobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
 if (!string.IsNullOrWhiteSpace(blobConnectionString))
