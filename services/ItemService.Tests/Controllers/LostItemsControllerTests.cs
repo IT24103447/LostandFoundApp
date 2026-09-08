@@ -252,7 +252,7 @@ public class LostItemsControllerTests
 
     // BUG-01 regression test
     [Fact]
-    public async Task ReportLostItem_WhitespaceOnlyTitle_ShouldBeRejected()
+    public void ReportLostItem_WhitespaceOnlyTitle_ShouldBeRejected()
     {
         var req = ValidRequest();
         req.Title = "   ";
