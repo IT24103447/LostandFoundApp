@@ -10,18 +10,61 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="xunit" Version="2.5.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+
+    <!-- Test framework -->
+    <PackageReference Include="Microsoft.NET.Test.Sdk"
+                      Version="17.8.0" />
+
+    <PackageReference Include="xunit"
+                      Version="2.5.3" />
+
+    <PackageReference Include="xunit.runner.visualstudio"
+                      Version="2.5.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>
+        runtime; build; native; contentfiles; analyzers; buildtransitive
+      </IncludeAssets>
+    </PackageReference>
+
+    <!-- Code coverage -->
+    <PackageReference Include="coverlet.collector"
+                      Version="6.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>
+        runtime; build; native; contentfiles; analyzers; buildtransitive
+      </IncludeAssets>
+    </PackageReference>
+
+    <!-- ASP.NET Core integration testing -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing"
+                      Version="8.0.0" />
+
+    <!-- Mocking -->
+    <PackageReference Include="Moq"
+                      Version="4.20.72" />
+
+    <!-- Isolated MySQL database for integration tests -->
+    <PackageReference Include="Testcontainers.MySql"
+                      Version="3.10.0" />
+
+    <!-- JWT creation for authenticated integration tests -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt"
+                      Version="8.2.1" />
+
   </ItemGroup>
 
   <ItemGroup>
+
+    <!-- xUnit global using -->
     <Using Include="Xunit" />
+
   </ItemGroup>
 
   <ItemGroup>
+
+    <!-- Reference the application being tested -->
     <ProjectReference Include="..\ItemService\ItemService.csproj" />
+
   </ItemGroup>
 
 </Project>
