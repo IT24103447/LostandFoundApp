@@ -13,6 +13,9 @@ import { ProfilePage } from "./features/auth/pages/ProfilePage";
 import { ProtectedRoute } from "./features/auth/components/ProtectedRoute";
 import { ReportLostItemPage } from "./features/items/pages/ReportLostItemPage";
 import { ReportLostItemSuccessPage } from "./features/items/pages/ReportLostItemSuccessPage";
+import { ReportFoundItemPage } from "./features/items/pages/ReportFoundItemPage";
+import { ReportFoundItemSuccessPage } from "./features/items/pages/ReportFoundItemSuccessPage";
+import { MyReportsPage } from "./features/items/pages/MyReportsPage";
 
 export default function App() {
   return (
@@ -29,6 +32,9 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/report-lost-item" element={<ReportLostItemPage />} />
         <Route path="/report-lost-item/success" element={<ReportLostItemSuccessPage />} />
+        <Route path="/report-found-item" element={<ReportFoundItemPage />} />
+        <Route path="/report-found-item/success" element={<ReportFoundItemSuccessPage />} />
+        <Route path="/my-reports" element={<MyReportsPage />} />
       </Route>
 
       <Route element={<ProtectedRoute roles={["Admin"]} />}>

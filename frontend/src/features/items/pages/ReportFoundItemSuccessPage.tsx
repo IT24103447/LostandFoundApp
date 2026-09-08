@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ShieldCheck, ArrowLeft, Lock } from "lucide-react";
 import { AppHeader } from "../layout/AppHeader";
 import { SuccessCheckIllustration } from "../components/Illustrations";
-import { LOST_ITEM_CATEGORIES } from "../schemas/reportLostItemSchema";
-import type { LostItemResponse } from "../api/reportLostItem";
+import { FOUND_ITEM_CATEGORIES } from "../schemas/reportFoundItemSchema";
+import type { FoundItemResponse } from "../api/reportFoundItem";
 import { resolvePhotoUrl } from "../../../config/env";
 
 function formatDisplay(value: string): string {
@@ -13,20 +13,21 @@ function formatDisplay(value: string): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
 
-export function ReportLostItemSuccessPage() {
+export function ReportFoundItemSuccessPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const report = (location.state as { report?: LostItemResponse } | null)?.report;
+  const report = (location.state as { report?: FoundItemResponse } | null)?.report;
 
   useEffect(() => {
     if (!report) {
-      navigate("/report-lost-item", { replace: true });
+      navigate("/report-found-item", { replace: true });
     }
   }, [report, navigate]);
 
   if (!report) return null;
 
-  const categoryLabel = LOST_ITEM_CATEGORIES.find((c) => c.value === report.category)?.label ?? report.category;
+  const categoryLabel =
+    FOUND_ITEM_CATEGORIES.find((c) => c.value === report.category)?.label ?? report.category;
 
   return (
     <div className="min-h-screen bg-[#FAFAFC]">
@@ -35,19 +36,19 @@ export function ReportLostItemSuccessPage() {
         <SuccessCheckIllustration />
 
         <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-gray-900">
-          Lost Item Reported Successfully
+          Found Item Reported Successfully
         </h1>
         <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
           Your report has been submitted and is now active.
           <br />
-          We'll keep your report visible while our matching system looks for potential matches.
+          Thank you for helping someone get their belongings back.
         </p>
 
         <div className="mt-8 w-full rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/60 to-white p-6 text-left shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-900">Report Summary</h2>
             <span className="flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">
-              <span className="h-1.5 w-1.5 rounded-full bg-white" />
+              <span className="h-1.5 w-1.5 rounded-full bg-white" /> 
               {report.status}
             </span>
           </div>
@@ -62,12 +63,12 @@ export function ReportLostItemSuccessPage() {
               <p className="mt-0.5 font-semibold text-gray-900">{categoryLabel}</p>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Date Lost</p>
-              <p className="mt-0.5 font-semibold text-gray-900">{formatDisplay(report.dateLost)}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Date Found</p>
+              <p className="mt-0.5 font-semibold text-gray-900">{formatDisplay(report.dateFound)}</p>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Last Known Location</p>
-              <p className="mt-0.5 font-semibold text-gray-900">{report.lastKnownLocation}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Location Found</p>
+              <p className="mt-0.5 font-semibold text-gray-900">{report.locationFound}</p>
             </div>
           </div>
 
@@ -105,7 +106,7 @@ export function ReportLostItemSuccessPage() {
               <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] text-white">
                 ✓
               </span>
-              Your report has been created
+              Your found item report was created
             </span>
             <span className="mx-2 h-px flex-1 bg-gray-200" />
             <span className="flex items-center gap-1.5 text-gray-800">
@@ -117,9 +118,12 @@ export function ReportLostItemSuccessPage() {
             <span className="mx-2 h-px flex-1 bg-gray-200" />
             <span className="flex items-center gap-1.5">
               <span className="h-4 w-4 rounded-full border-2 border-gray-300" />
-              We'll notify you about potential matches
+              The system can use it for potential matching
             </span>
           </div>
+          <p className="mt-4 text-sm font-semibold text-gray-800">
+            Your private verification detail remains protected and is not displayed publicly.
+          </p>
         </div>
 
         <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row">
@@ -132,10 +136,10 @@ export function ReportLostItemSuccessPage() {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/report-lost-item")}
+            onClick={() => navigate("/report-found-item")}
             className="flex-1 rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
           >
-            Report Another Item
+            Report Another Found Item
           </button>
         </div>
 

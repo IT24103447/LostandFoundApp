@@ -16,3 +16,11 @@ export const API_BASE_URLS = {
 } as const;
 
 export type ApiService = keyof typeof API_BASE_URLS;
+
+//Resolves a photo URL returned by ItemService into something an <img> tag can load.
+export function resolvePhotoUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `${API_BASE_URLS.items}${url}`;
+}
