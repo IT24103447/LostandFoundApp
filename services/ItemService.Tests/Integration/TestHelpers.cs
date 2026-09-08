@@ -70,6 +70,15 @@ public static class TestAuthHelper
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    public static string GenerateTamperedToken(Guid? userId = null)
+    {
+        var token = GenerateValidToken(userId);
+        var parts = token.Split('.');
+        var payload = Encoding.UTF8.GetBytes("{\"sub\":\"00000000-0000-0000-0000-000000000001\"}");
+        parts[1] = Base64UrlEncoder.Encode(payload);
+        return string.Join('.', parts);
+    }
+
     public static HttpClient CreateClientWithValidCookie(
         ItemServiceApiFactory factory,
         Guid? userId = null)
@@ -98,10 +107,70 @@ public static class TestAuthHelper
 
         return client;
     }
+
+    public static HttpClient CreateClientWithTamperedCookie(
+        ItemServiceApiFactory factory)
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("Cookie", $"auth_token={GenerateTamperedToken()}");
+        return client;
+    }
 }
 
 public static class TestMultipartHelper
 {
+    public static MultipartFormDataContent BuildValidFoundFormExcept(
+        string? fieldToOmit = null,
+        string hiddenInfo = "default-found-hidden-info")
+    {
+        var content = new MultipartFormDataContent();
+        var values = new Dictionary<string, string>
+        {
+            ["Title"] = "Found wallet",
+            ["Category"] = "Accessories",
+            ["Description"] = "Found near the library entrance",
+            ["DateFound"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            ["LocationFound"] = "Main library entrance",
+            ["HiddenInformation"] = hiddenInfo
+        };
+
+        foreach (var field in values)
+        {
+            if (!string.Equals(field.Key, fieldToOmit, StringComparison.Ordinal))
+            {
+                content.Add(new StringContent(field.Value), field.Key);
+            }
+        }
+
+        return content;
+    }
+
+    public static MultipartFormDataContent BuildValidFoundForm(
+        string hiddenInfo = "default-found-hidden-info") =>
+        BuildValidFoundFormExcept(null, hiddenInfo);
+
+    public static MultipartFormDataContent BuildValidFoundFormWithOverride(
+        string fieldName,
+        string value)
+    {
+        var content = new MultipartFormDataContent();
+        var values = new Dictionary<string, string>
+        {
+            ["Title"] = "Found wallet",
+            ["Category"] = "Accessories",
+            ["Description"] = "Found near the library entrance",
+            ["DateFound"] = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            ["LocationFound"] = "Main library entrance",
+            ["HiddenInformation"] = "default-found-hidden-info"
+        };
+        values[fieldName] = value;
+        foreach (var field in values)
+        {
+            content.Add(new StringContent(field.Value), field.Key);
+        }
+        return content;
+    }
+
     public static MultipartFormDataContent BuildValidFormExcept(
         string? fieldToOmit = null,
         string hiddenInfo = "default-hidden-info")
@@ -157,5 +226,27 @@ public static class TestMultipartHelper
         string hiddenInfo = "default-hidden-info")
     {
         return BuildValidFormExcept(null, hiddenInfo);
+    }
+
+    public static MultipartFormDataContent BuildValidFormWithOverride(
+        string fieldName,
+        string value)
+    {
+        var content = new MultipartFormDataContent();
+        var values = new Dictionary<string, string>
+        {
+            ["Title"] = "Test Title",
+            ["Category"] = "Electronics",
+            ["Description"] = "Test Description",
+            ["DateLost"] = "2026-08-28",
+            ["LastKnownLocation"] = "Test Location",
+            ["HiddenInformation"] = "default-hidden-info"
+        };
+        values[fieldName] = value;
+        foreach (var field in values)
+        {
+            content.Add(new StringContent(field.Value), field.Key);
+        }
+        return content;
     }
 }

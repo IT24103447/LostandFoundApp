@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testname="ReportFoundItem_LoadTest" testclass="TestPlan">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="BASE_URL" elementType="Argument">
+            <stringProp name="Argument.value">http://localhost:5001</stringProp>
+          </elementProp>
+          <elementProp name="TEST_EMAIL" elementType="Argument">
+            <stringProp name="Argument.value">user1@example.com</stringProp>
+          </elementProp>
+          <elementProp name="TEST_PASSWORD" elementType="Argument">
+            <stringProp name="Argument.value">User123!</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testname="Found item users" testclass="ThreadGroup">
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,1)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(ramp_seconds,10)}</stringProp>
+        <stringProp name="ThreadGroup.loops">${__P(loops,1)}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <CookieManager guiclass="CookiePanel" testname="HTTP Cookie Manager" testclass="CookieManager"/>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testname="Login" testclass="HTTPSamplerProxy">
+          <stringProp name="HTTPSampler.domain">localhost</stringProp>
+          <stringProp name="HTTPSampler.port">5261</stringProp>
+          <stringProp name="HTTPSampler.path">/api/auth/login</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="loginBody" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{"email":"${TEST_EMAIL}","password":"${TEST_PASSWORD}"}</stringProp>
+                <stringProp name="HTTPArgument.contentType">application/json</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testname="JSON content type" testclass="HeaderManager">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="Content-Type" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion testname="Login succeeds" testclass="ResponseAssertion">
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <stringProp name="49586">200</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testname="POST ReportFoundItem" testclass="HTTPSamplerProxy">
+          <stringProp name="HTTPSampler.domain">localhost</stringProp>
+          <stringProp name="HTTPSampler.port">5001</stringProp>
+          <stringProp name="HTTPSampler.path">/api/items/found</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="Title" elementType="HTTPArgument"><stringProp name="Argument.value">Found load item ${__threadNum}-${__Random(1,99999)}</stringProp></elementProp>
+              <elementProp name="Category" elementType="HTTPArgument"><stringProp name="Argument.value">Accessories</stringProp></elementProp>
+              <elementProp name="Description" elementType="HTTPArgument"><stringProp name="Argument.value">Found during JMeter load testing.</stringProp></elementProp>
+              <elementProp name="DateFound" elementType="HTTPArgument"><stringProp name="Argument.value">${__time(yyyy-MM-dd)}</stringProp></elementProp>
+              <elementProp name="LocationFound" elementType="HTTPArgument"><stringProp name="Argument.value">Main library entrance</stringProp></elementProp>
+              <elementProp name="HiddenInformation" elementType="HTTPArgument"><stringProp name="Argument.value">Found-load-private-${__threadNum}</stringProp></elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion testname="Found item returns 201" testclass="ResponseAssertion">
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <stringProp name="49586">201</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion testname="Hidden information is not returned" testclass="ResponseAssertion">
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <stringProp name="Assertion.test_type">6</stringProp>
+            <collectionProp name="Asserion.test_strings">
+              <stringProp>hiddenInformation</stringProp>
+            </collectionProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <DurationAssertion testname="Create SLA 500ms" testclass="DurationAssertion">
+            <stringProp name="DurationAssertion.duration">500</stringProp>
+          </DurationAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

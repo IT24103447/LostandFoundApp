@@ -1,4 +1,4 @@
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id          CHAR(36)     PRIMARY KEY,
     user_id     CHAR(36)     NOT NULL,
     code_hash   CHAR(64)     NOT NULL UNIQUE,
