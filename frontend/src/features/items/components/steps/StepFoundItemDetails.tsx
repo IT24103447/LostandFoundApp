@@ -68,7 +68,7 @@ export function StepFoundItemDetails() {
             required
             error={errors.description?.message}
             hint="Describe the item's appearance, brand, color, condition, or distinctive features."
-            trailing={<span className="text-xs text-gray-400">{description.length} / 500</span>}
+            trailing={<span className="text-xs text-gray-400">{description.length} / 2000</span>}
           >
             <textarea
               id="description"

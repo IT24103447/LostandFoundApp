@@ -55,6 +55,17 @@ public class FoundItemsController : ControllerBase
 
         var errors = new Dictionary<string, string[]>();
 
+        if (string.IsNullOrWhiteSpace(req.Title))
+            errors["Title"] = ["Title is required."];
+        if (string.IsNullOrWhiteSpace(req.Category))
+            errors["Category"] = ["Category is required."];
+        if (string.IsNullOrWhiteSpace(req.Description))
+            errors["Description"] = ["Description is required."];
+        if (string.IsNullOrWhiteSpace(req.LocationFound))
+            errors["LocationFound"] = ["Location found is required."];
+        if (string.IsNullOrWhiteSpace(req.HiddenInformation))
+            errors["HiddenInformation"] = ["Hidden information is required."];
+
         if (!DateOnly.TryParseExact(req.DateFound, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateFound))
         {
             errors["DateFound"] = ["Date found must be a valid date in yyyy-MM-dd format."];
@@ -102,12 +113,12 @@ public class FoundItemsController : ControllerBase
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            Title = req.Title,
-            Category = req.Category,
-            Description = req.Description,
+            Title = req.Title.Trim(),
+            Category = req.Category.Trim(),
+            Description = req.Description.Trim(),
             DateFound = dateFound,
-            LocationFound = req.LocationFound,
-            HiddenInformation = req.HiddenInformation,
+            LocationFound = req.LocationFound.Trim(),
+            HiddenInformation = req.HiddenInformation.Trim(),
             Status = FoundItemStatus.ACTIVE,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

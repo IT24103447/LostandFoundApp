@@ -55,6 +55,17 @@ public class LostItemsController : ControllerBase
 
         var errors = new Dictionary<string, string[]>();
 
+        if (string.IsNullOrWhiteSpace(req.Title))
+            errors["Title"] = ["Title is required."];
+        if (string.IsNullOrWhiteSpace(req.Category))
+            errors["Category"] = ["Category is required."];
+        if (string.IsNullOrWhiteSpace(req.Description))
+            errors["Description"] = ["Description is required."];
+        if (string.IsNullOrWhiteSpace(req.LastKnownLocation))
+            errors["LastKnownLocation"] = ["Last known location is required."];
+        if (string.IsNullOrWhiteSpace(req.HiddenInformation))
+            errors["HiddenInformation"] = ["Hidden information is required."];
+
         if (!DateOnly.TryParseExact(req.DateLost, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateLost))
         {
             errors["DateLost"] = ["Date lost must be a valid date in yyyy-MM-dd format."];
@@ -101,12 +112,12 @@ public class LostItemsController : ControllerBase
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            Title = req.Title,
-            Category = req.Category,
-            Description = req.Description,
+            Title = req.Title.Trim(),
+            Category = req.Category.Trim(),
+            Description = req.Description.Trim(),
             DateLost = dateLost,
-            LastKnownLocation = req.LastKnownLocation,
-            HiddenInformation = req.HiddenInformation,
+            LastKnownLocation = req.LastKnownLocation.Trim(),
+            HiddenInformation = req.HiddenInformation.Trim(),
             Status = LostItemStatus.ACTIVE,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

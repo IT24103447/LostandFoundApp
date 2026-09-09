@@ -38,13 +38,15 @@ const photoFileSchema = z.custom<File>((f) => f instanceof File);
 export const step1Schema = z.object({
   title: z
     .string()
+    .trim()
     .min(1, "Item title is required.")
     .max(150, "Title must be at most 150 characters."),
-  category: z.string().min(1, "Please select a category."),
+  category: z.string().trim().min(1, "Please select a category."),
   description: z
     .string()
+    .trim()
     .min(1, "Description is required.")
-    .max(1000, "Description must be at most 1000 characters."),
+    .max(2000, "Description must be at most 2000 characters."),
 });
 export type Step1Values = z.infer<typeof step1Schema>;
 
@@ -57,6 +59,7 @@ export const step2Schema = z.object({
     .refine((v) => new Date(v) <= today(), "Date lost cannot be in the future."),
   lastKnownLocation: z
     .string()
+    .trim()
     .min(1, "Last known location is required.")
     .max(255, "Last known location must be at most 255 characters."),
 });
@@ -66,6 +69,7 @@ export type Step2Values = z.infer<typeof step2Schema>;
 export const step3Schema = z.object({
   hiddenInformation: z
     .string()
+    .trim()
     .min(1, "Hidden information is required.")
     .max(500, "Hidden information must be at most 500 characters."),
   photos: z

@@ -33,7 +33,7 @@ const STEP_HEADINGS: Record<WizardStep, { title: string; subtitle: string }> = {
   2: { title: "When & Where", subtitle: "Tell us when and where you found the item." },
   3: {
     title: "One last step",
-    subtitle: "Add a photo and a private detail that can help us verify the item's owner.",
+    subtitle: "Add photos and a private detail that can help us verify the item's owner.",
   },
 };
 

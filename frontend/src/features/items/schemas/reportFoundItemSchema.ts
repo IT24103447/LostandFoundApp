@@ -3,15 +3,16 @@ import {
   LOST_ITEM_CATEGORIES,
   MAX_PHOTO_SIZE_BYTES,
   ALLOWED_PHOTO_TYPES,
+  MAX_PHOTOS,
 } from "./reportLostItemSchema";
 
 // Found items reuse the same category taxonomy as lost items so the Matching
 // Service is comparing like-for-like categories between the two record types.
 export const FOUND_ITEM_CATEGORIES = LOST_ITEM_CATEGORIES;
 
-// The found-item form only supports a single photo (see prototype + Scenario 2
-// of the "Report a Found Item" story, which is written in the singular).
-export const MAX_FOUND_ITEM_PHOTOS = 1;
+// Confirmed business rule: Found item reports allow the same number of
+// photos as Lost item reports (matches backend ItemSettings.MaxPhotosPerItem = 5).
+export const MAX_FOUND_ITEM_PHOTOS = MAX_PHOTOS;;
 
 const today = () => new Date(new Date().toDateString());
 
@@ -21,13 +22,15 @@ const photoFileSchema = z.custom<File>((f) => f instanceof File);
 export const foundStep1Schema = z.object({
   title: z
     .string()
+    .trim()
     .min(1, "Item title is required.")
     .max(150, "Title must be at most 150 characters."),
-  category: z.string().min(1, "Please select a category."),
+  category: z.string().trim().min(1, "Please select a category."),
   description: z
     .string()
+    .trim()
     .min(1, "Description is required.")
-    .max(500, "Description must be at most 500 characters."),
+    .max(2000, "Description must be at most 2000 characters."),
 });
 export type FoundStep1Values = z.infer<typeof foundStep1Schema>;
 
@@ -40,25 +43,22 @@ export const foundStep2Schema = z.object({
     .refine((v) => new Date(v) <= today(), "Date found cannot be in the future."),
   locationFound: z
     .string()
+    .trim()
     .min(1, "Location found is required.")
     .max(255, "Location found must be at most 255 characters."),
 });
 export type FoundStep2Values = z.infer<typeof foundStep2Schema>;
 
 // ---- Step 3: Verification ----
-// NOTE: hiddenInformation is a distinguishing detail only the real owner would
-// know. It is stored on the record and published to Kafka for the Matching
-// Service, but is never returned by any frontend-facing endpoint — see
-// FoundItemResponse in ../api/reportFoundItem.ts, which deliberately has no
-// field for it.
 export const foundStep3Schema = z.object({
   hiddenInformation: z
     .string()
+    .trim()
     .min(1, "Hidden information is required.")
     .max(500, "Hidden information must be at most 500 characters."),
   photos: z
     .array(photoFileSchema)
-    .max(MAX_FOUND_ITEM_PHOTOS, "You can attach at most 1 photo.")
+    .max(MAX_FOUND_ITEM_PHOTOS, `You can attach at most ${MAX_FOUND_ITEM_PHOTOS} photos.`)
     .refine((files) => files.every((f) => f.size <= MAX_PHOTO_SIZE_BYTES), {
       message: "Each photo must be at most 5 MB.",
     })

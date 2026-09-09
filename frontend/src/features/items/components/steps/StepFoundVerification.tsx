@@ -1,9 +1,9 @@
 import { useFormContext, Controller } from "react-hook-form";
 import { Lock, ShieldCheck, ImageIcon } from "lucide-react";
 import type { ReportFoundItemFormValues } from "../../schemas/reportFoundItemSchema";
-import { FOUND_ITEM_CATEGORIES } from "../../schemas/reportFoundItemSchema";
+import { FOUND_ITEM_CATEGORIES, MAX_FOUND_ITEM_PHOTOS } from "../../schemas/reportFoundItemSchema";
 import { WizardField, wizardInputClass } from "../WizardField";
-import { SinglePhotoField } from "../SinglePhotoField";
+import { PhotoDropzone } from "../PhotoDropzone";
 
 function formatDisplay(value: string): string {
   if (!value) return "";
@@ -29,19 +29,19 @@ export function StepFoundVerification() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Add a photo</h2>
+            <h2 className="text-xl font-bold text-gray-900">Add photos</h2>
             <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500">
               Optional
             </span>
           </div>
           <p className="mb-5 text-sm text-gray-500">
-            A photo can help the owner recognize their belongings.
+             Photos can help the owner recognize their belongings. Up to {MAX_FOUND_ITEM_PHOTOS} photos.
           </p>
           <Controller
             name="photos"
             control={control}
             render={({ field }) => (
-              <SinglePhotoField photos={field.value ?? []} onChange={field.onChange} />
+              <PhotoDropzone photos={field.value ?? []} onChange={field.onChange} maxPhotos={MAX_FOUND_ITEM_PHOTOS}/>
             )}
           />
           {errors.photos?.message && (
@@ -104,7 +104,7 @@ export function StepFoundVerification() {
           </div>
           <div className="flex items-center gap-2 text-gray-500">
             <ImageIcon className="h-4 w-4" />
-            Photo: <span className="text-gray-800">{values.photos?.length ? "1 added" : "None"}</span>
+            Photos: <span className="text-gray-800">{values.photos?.length ?? 0} added</span>
           </div>
           <div>
             <p className="text-gray-500">Private verification</p>

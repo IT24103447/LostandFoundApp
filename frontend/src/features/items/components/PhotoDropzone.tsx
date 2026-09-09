@@ -5,9 +5,10 @@ import { ALLOWED_PHOTO_TYPES, MAX_PHOTOS } from "../schemas/reportLostItemSchema
 type PhotoDropzoneProps = {
   photos: File[];
   onChange: (photos: File[]) => void;
+  maxPhotos?: number; // defaults to Lost Item's MAX_PHOTOS (5)
 };
 
-export function PhotoDropzone({ photos, onChange }: PhotoDropzoneProps) {
+export function PhotoDropzone({ photos, onChange, maxPhotos = MAX_PHOTOS }: PhotoDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -20,7 +21,7 @@ export function PhotoDropzone({ photos, onChange }: PhotoDropzoneProps) {
 
   const addFiles = (incoming: FileList | File[]) => {
     const accepted = Array.from(incoming).filter((f) => ALLOWED_PHOTO_TYPES.includes(f.type));
-    const room = Math.max(0, MAX_PHOTOS - photos.length);
+    const room = Math.max(0, maxPhotos - photos.length);
     onChange([...photos, ...accepted.slice(0, room)]);
   };
 
@@ -28,7 +29,7 @@ export function PhotoDropzone({ photos, onChange }: PhotoDropzoneProps) {
     onChange(photos.filter((_, i) => i !== index));
   };
 
-  const canAddMore = photos.length < MAX_PHOTOS;
+  const canAddMore = photos.length < maxPhotos;
 
   return (
     <div>
