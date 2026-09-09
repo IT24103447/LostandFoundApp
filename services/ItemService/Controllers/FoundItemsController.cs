@@ -58,7 +58,13 @@ public class FoundItemsController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Title))
             errors["Title"] = ["Title is required."];
         if (string.IsNullOrWhiteSpace(req.Category))
+        {
             errors["Category"] = ["Category is required."];
+        }
+        else if (!ItemCategories.IsValid(req.Category))
+        {
+            errors["Category"] = [$"Category must be one of: {string.Join(", ", ItemCategories.All)}."];
+        }
         if (string.IsNullOrWhiteSpace(req.Description))
             errors["Description"] = ["Description is required."];
         if (string.IsNullOrWhiteSpace(req.LocationFound))
@@ -99,6 +105,11 @@ public class FoundItemsController : ControllerBase
                 if (!_itemSettings.AllowedPhotoContentTypes.Contains(photo.ContentType, StringComparer.OrdinalIgnoreCase))
                 {
                     errors["Photos"] = ["Photos must be JPEG, PNG, or WEBP images."];
+                    break;
+                }
+                if (!await ImageSignatureValidator.MatchesDeclaredTypeAsync(photo, ct))
+                {
+                    errors["Photos"] = ["One or more files do not match a supported image format."];
                     break;
                 }
             }
