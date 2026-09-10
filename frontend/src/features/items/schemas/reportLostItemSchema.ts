@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export const MAX_PHOTOS = 5;
+export const MAX_PHOTOS = 1;
 export const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 

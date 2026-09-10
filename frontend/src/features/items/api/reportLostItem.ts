@@ -1,4 +1,41 @@
-import { apiPostForm } from "../../../lib/apiClient";
+import { apiGet, apiPut, apiPutForm, apiPostForm, apiDelete } from "../../../lib/apiClient";
+export type ItemPhoto = { id: string; url: string };
+
+export type UpdateLostItemPayload = {
+  title: string;
+  category: string;
+  description: string;
+  dateLost: string;
+  lastKnownLocation: string;
+  hiddenInformation: string;
+};
+
+export const getLostItem = (id: string, signal?: AbortSignal): Promise<LostItemResponse> =>
+  apiGet<LostItemResponse>("items", `/api/items/lost/${id}`, signal);
+
+export const updateLostItem = (
+  id: string,
+  payload: UpdateLostItemPayload,
+  signal?: AbortSignal,
+): Promise<LostItemResponse> =>
+  apiPut<UpdateLostItemPayload, LostItemResponse>("items", `/api/items/lost/${id}`, payload, signal);
+
+export const replaceLostItemPhoto = (
+  id: string,
+  file: File,
+  signal?: AbortSignal,
+): Promise<LostItemResponse> => {
+  const form = new FormData();
+  form.append("photo", file);
+  return apiPutForm<LostItemResponse>("items", `/api/items/lost/${id}/photo`, form, signal);
+};
+
+export const deleteLostItemPhoto = (
+  id: string,
+  signal?: AbortSignal,
+): Promise<LostItemResponse> =>
+  apiDelete<undefined, LostItemResponse>("items", `/api/items/lost/${id}/photo`, undefined, signal);
+
 
 export type ReportLostItemPayload = {
   title: string;
@@ -20,6 +57,7 @@ export type LostItemResponse = {
   lastKnownLocation: string;
   status: string;
   photoUrls: string[];
+  photo: ItemPhoto | null;
   createdAt: string;
 };
 

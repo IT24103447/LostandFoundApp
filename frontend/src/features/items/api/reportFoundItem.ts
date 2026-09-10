@@ -1,4 +1,40 @@
-import { apiPostForm } from "../../../lib/apiClient";
+import { apiGet, apiPut, apiPutForm, apiPostForm, apiDelete } from "../../../lib/apiClient";
+import type { ItemPhoto } from "./reportLostItem";
+
+export type UpdateFoundItemPayload = {
+  title: string;
+  category: string;
+  description: string;
+  dateFound: string;
+  locationFound: string;
+  hiddenInformation: string;
+};
+
+export const getFoundItem = (id: string, signal?: AbortSignal): Promise<FoundItemResponse> =>
+  apiGet<FoundItemResponse>("items", `/api/items/found/${id}`, signal);
+
+export const updateFoundItem = (
+  id: string,
+  payload: UpdateFoundItemPayload,
+  signal?: AbortSignal,
+): Promise<FoundItemResponse> =>
+  apiPut<UpdateFoundItemPayload, FoundItemResponse>("items", `/api/items/found/${id}`, payload, signal);
+
+export const replaceFoundItemPhoto = (
+  id: string,
+  file: File,
+  signal?: AbortSignal,
+): Promise<FoundItemResponse> => {
+  const form = new FormData();
+  form.append("photo", file);
+  return apiPutForm<FoundItemResponse>("items", `/api/items/found/${id}/photo`, form, signal);
+};
+
+export const deleteFoundItemPhoto = (
+  id: string,
+  signal?: AbortSignal,
+): Promise<FoundItemResponse> =>
+  apiDelete<undefined, FoundItemResponse>("items", `/api/items/found/${id}/photo`, undefined, signal);
 
 export type ReportFoundItemPayload = {
   title: string;
@@ -24,6 +60,7 @@ export type FoundItemResponse = {
   locationFound: string;
   status: string;
   photoUrls: string[];
+  photo: ItemPhoto | null;
   createdAt: string;
 };
 

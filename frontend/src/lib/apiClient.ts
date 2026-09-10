@@ -65,6 +65,35 @@ export async function apiPostForm<TRes>(
   return respBody as TRes;
 }
 
+/**
+ * PUT a multipart/form-data body (e.g. replacing a photo on an existing item).
+ * Do NOT set a Content-Type header here — the browser sets the correct
+ * multipart boundary automatically when the body is a FormData instance.
+ */
+export async function apiPutForm<TRes>(
+  service: ApiService,
+  path: string,
+  formData: FormData,
+  signal?: AbortSignal,
+): Promise<TRes> {
+  const url = `${API_BASE_URLS[service]}${path}`;
+  const res = await fetch(url, {
+    method: "PUT",
+    body: formData,
+    signal,
+    credentials: "include",
+  });
+
+  const text = await res.text();
+  const respBody = text ? safeParseJson(text) : null;
+
+  if (!res.ok) {
+    handleAuthFailure(res.status, respBody);
+    throw { status: res.status, body: respBody } as ApiError;
+  }
+  return respBody as TRes;
+}
+
 export async function apiGet<TRes>(
   service: ApiService,
   path: string,

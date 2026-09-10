@@ -11,7 +11,7 @@ import {
 export const FOUND_ITEM_CATEGORIES = LOST_ITEM_CATEGORIES;
 
 // Confirmed business rule: Found item reports allow the same number of
-// photos as Lost item reports (matches backend ItemSettings.MaxPhotosPerItem = 5).
+// photos as Lost item reports (matches backend ItemSettings.MaxPhotosPerItem = 1).
 export const MAX_FOUND_ITEM_PHOTOS = MAX_PHOTOS;;
 
 const today = () => new Date(new Date().toDateString());
