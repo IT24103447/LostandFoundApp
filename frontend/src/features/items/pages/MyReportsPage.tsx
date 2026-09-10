@@ -277,6 +277,13 @@ export function MyReportsPage() {
                   </span>
                   <button
                     type="button"
+                    onClick={() => navigate(row.kind === "lost" ? `/edit-lost-item/${row.id}` : `/edit-found-item/${row.id}`)}
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
                     aria-label="More options"
                     className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                   >

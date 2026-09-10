@@ -5,7 +5,7 @@ import { ALLOWED_PHOTO_TYPES, MAX_PHOTOS } from "../schemas/reportLostItemSchema
 type PhotoDropzoneProps = {
   photos: File[];
   onChange: (photos: File[]) => void;
-  maxPhotos?: number; // defaults to Lost Item's MAX_PHOTOS (5)
+  maxPhotos?: number; // defaults to Lost Item's MAX_PHOTOS (1)
 };
 
 export function PhotoDropzone({ photos, onChange, maxPhotos = MAX_PHOTOS }: PhotoDropzoneProps) {
@@ -52,7 +52,7 @@ export function PhotoDropzone({ photos, onChange, maxPhotos = MAX_PHOTOS }: Phot
           <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm">
             <Camera className="h-5 w-5 text-gray-400" />
           </span>
-          <p className="text-[15px] font-medium text-gray-800">Drag and drop photos here</p>
+          <p className="text-[15px] font-medium text-gray-800">Drag and drop a photo here</p>
           <p className="mt-1 text-sm text-gray-500">
             or{" "}
             <button

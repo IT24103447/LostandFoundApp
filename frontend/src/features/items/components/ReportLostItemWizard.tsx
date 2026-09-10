@@ -27,7 +27,7 @@ const STEP_FIELDS: Record<WizardStep, (keyof ReportLostItemFormValues)[]> = {
 const STEP_HEADINGS: Record<WizardStep, { title: string; subtitle: string }> = {
   1: { title: "Report a Lost Item", subtitle: "Let's start with the basic details about what you lost." },
   2: { title: "Where did you lose it?", subtitle: "Help us understand when and where you last had your item." },
-  3: { title: "One last step", subtitle: "Add photos and a private detail that helps us verify a potential match." },
+  3: { title: "One last step", subtitle: "Add a photo and a private detail that helps us verify a potential match." },
 };
 
 export function ReportLostItemWizard() {

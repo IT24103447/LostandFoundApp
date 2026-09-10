@@ -29,13 +29,13 @@ export function StepFoundVerification() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Add photos</h2>
+            <h2 className="text-xl font-bold text-gray-900">Add a photo</h2>
             <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500">
               Optional
             </span>
           </div>
           <p className="mb-5 text-sm text-gray-500">
-             Photos can help the owner recognize their belongings. Up to {MAX_FOUND_ITEM_PHOTOS} photos.
+             A photo can help the owner recognize their belongings. Up to {MAX_FOUND_ITEM_PHOTOS} photo.
           </p>
           <Controller
             name="photos"
