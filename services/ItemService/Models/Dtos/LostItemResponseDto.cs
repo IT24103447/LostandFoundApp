@@ -12,5 +12,6 @@ public class LostItemResponseDto
     public string LastKnownLocation { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public List<string> PhotoUrls { get; set; } = [];
+    public ItemPhotoDto? Photo { get; set; }
     public DateTime CreatedAt { get; set; }
 }

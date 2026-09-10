@@ -36,10 +36,15 @@ public class LostItemsRepository : ILostItemsRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task AddPhotosAsync(Guid lostItemId, IEnumerable<string> photoUrls, CancellationToken ct = default)
+    public async Task<LostItemPhoto> AddPhotoAsync(Guid lostItemId, string photoUrl, CancellationToken ct = default)
     {
-        var urls = photoUrls.ToList();
-        if (urls.Count == 0) return;
+        var photo = new LostItemPhoto
+        {
+            Id = Guid.NewGuid(),
+            LostItemId = lostItemId,
+            Url = photoUrl,
+            CreatedAt = DateTime.UtcNow
+        };
 
         const string sql = """
             INSERT INTO lost_item_photos (id, lost_item_id, url)
@@ -47,15 +52,50 @@ public class LostItemsRepository : ILostItemsRepository
             """;
         await using var conn = _db.Create();
         await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", photo.Id.ToString());
+        cmd.Parameters.AddWithValue("@lostItemId", lostItemId.ToString());
+        cmd.Parameters.AddWithValue("@url", photoUrl);
+        await cmd.ExecuteNonQueryAsync(ct);
 
-        foreach (var url in urls)
-        {
-            await using var cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
-            cmd.Parameters.AddWithValue("@lostItemId", lostItemId.ToString());
-            cmd.Parameters.AddWithValue("@url", url);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        return photo;
+    }
+
+    public async Task DeletePhotosAsync(Guid lostItemId, CancellationToken ct = default)
+    {
+        const string sql = "DELETE FROM lost_item_photos WHERE lost_item_id = @lostItemId;";
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@lostItemId", lostItemId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task UpdateAsync(LostItem item, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE lost_items
+            SET title = @title,
+                category = @category,
+                description = @description,
+                date_lost = @dateLost,
+                last_known_location = @lastKnownLocation,
+                hidden_information = @hiddenInformation,
+                updated_at = @updatedAt
+            WHERE id = @id;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", item.Id.ToString());
+        cmd.Parameters.AddWithValue("@title", item.Title);
+        cmd.Parameters.AddWithValue("@category", item.Category);
+        cmd.Parameters.AddWithValue("@description", item.Description);
+        cmd.Parameters.AddWithValue("@dateLost", item.DateLost.ToDateTime(TimeOnly.MinValue));
+        cmd.Parameters.AddWithValue("@lastKnownLocation", item.LastKnownLocation);
+        cmd.Parameters.AddWithValue("@hiddenInformation", item.HiddenInformation);
+        cmd.Parameters.AddWithValue("@updatedAt", item.UpdatedAt);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     public async Task<LostItem?> GetByIdAsync(Guid id, CancellationToken ct = default)

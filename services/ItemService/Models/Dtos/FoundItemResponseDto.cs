@@ -1,7 +1,7 @@
 namespace ItemService.Models.Dtos;
 
 // HiddenInformation is excluded from all frontend-facing DTOs.
-// Stored only in the domain, DB, and Kafka create event.
+// Stored only in the domain, DB, and Kafka events.
 public class FoundItemResponseDto
 {
     public Guid Id { get; set; }
@@ -13,5 +13,6 @@ public class FoundItemResponseDto
     public string LocationFound { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public List<string> PhotoUrls { get; set; } = [];
+    public ItemPhotoDto? Photo { get; set; }
     public DateTime CreatedAt { get; set; }
 }

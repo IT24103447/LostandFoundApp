@@ -5,6 +5,8 @@ namespace ItemService.Repositories;
 public interface IFoundItemsRepository
 {
     Task CreateAsync(FoundItem item, CancellationToken ct = default);
-    Task AddPhotosAsync(Guid foundItemId, IEnumerable<string> photoUrls, CancellationToken ct = default);
+    Task<FoundItemPhoto> AddPhotoAsync(Guid foundItemId, string photoUrl, CancellationToken ct = default);
     Task<FoundItem?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task UpdateAsync(FoundItem item, CancellationToken ct = default);
+    Task DeletePhotosAsync(Guid foundItemId, CancellationToken ct = default);
 }

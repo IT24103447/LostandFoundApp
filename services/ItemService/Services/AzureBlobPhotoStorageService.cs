@@ -1,5 +1,6 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 using ItemService.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -68,5 +69,19 @@ public class AzureBlobPhotoStorageService : IPhotoStorageService
         _logger.LogDebug("Uploaded photo for lost item {LostItemId} to blob {BlobName}.", lostItemId, blobName);
 
         return blobClient.Uri.ToString();
+    }
+
+    public async Task DeleteAsync(string photoUrl, CancellationToken ct = default)
+    {
+        var container = await _containerClient.Value;
+
+        var uriBuilder = new BlobUriBuilder(new Uri(photoUrl));
+        var blobClient = container.GetBlobClient(uriBuilder.BlobName);
+
+        var response = await blobClient.DeleteIfExistsAsync(cancellationToken: ct);
+
+        _logger.LogDebug(
+            "Delete requested for blob {BlobName}. Existed: {Existed}.",
+            uriBuilder.BlobName, response.Value);
     }
 }

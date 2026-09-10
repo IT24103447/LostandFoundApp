@@ -6,7 +6,7 @@ public class ItemSettings
 
     public string PhotoPublicPath { get; set; } = "/photos";
 
-    public int MaxPhotosPerItem { get; set; } = 5;
+    public int MaxPhotosPerItem { get; set; } = 1;
 
     public long MaxPhotoSizeBytes { get; set; } = 5 * 1024 * 1024; // 5 MB
 

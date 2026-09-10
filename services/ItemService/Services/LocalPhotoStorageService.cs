@@ -42,4 +42,21 @@ public class LocalPhotoStorageService : IPhotoStorageService
         var publicPath = $"{_settings.PhotoPublicPath}/{lostItemId}/{fileName}";
         return publicPath;
     }
+
+    public Task DeleteAsync(string photoUrl, CancellationToken ct = default)
+    {
+        var publicPrefix = _settings.PhotoPublicPath.TrimEnd('/');
+        var relativePath = photoUrl.StartsWith(publicPrefix, StringComparison.OrdinalIgnoreCase)
+            ? photoUrl[publicPrefix.Length..].TrimStart('/')
+            : photoUrl.TrimStart('/');
+
+        var absolutePath = Path.Combine(_env.ContentRootPath, _settings.PhotoStoragePath, relativePath);
+
+        if (File.Exists(absolutePath))
+        {
+            File.Delete(absolutePath);
+        }
+
+        return Task.CompletedTask;
+    }
 }

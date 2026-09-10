@@ -12,7 +12,7 @@ public class FoundItemsRepository : IFoundItemsRepository
     {
         _db = db;
     }
-
+    
     // HiddenInformation is stored internally and not exposed to frontend DTOs.
     public async Task CreateAsync(FoundItem item, CancellationToken ct = default)
     {
@@ -37,10 +37,15 @@ public class FoundItemsRepository : IFoundItemsRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task AddPhotosAsync(Guid foundItemId, IEnumerable<string> photoUrls, CancellationToken ct = default)
+    public async Task<FoundItemPhoto> AddPhotoAsync(Guid foundItemId, string photoUrl, CancellationToken ct = default)
     {
-        var urls = photoUrls.ToList();
-        if (urls.Count == 0) return;
+        var photo = new FoundItemPhoto
+        {
+            Id = Guid.NewGuid(),
+            FoundItemId = foundItemId,
+            Url = photoUrl,
+            CreatedAt = DateTime.UtcNow
+        };
 
         const string sql = """
             INSERT INTO found_item_photos (id, found_item_id, url)
@@ -48,15 +53,50 @@ public class FoundItemsRepository : IFoundItemsRepository
             """;
         await using var conn = _db.Create();
         await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", photo.Id.ToString());
+        cmd.Parameters.AddWithValue("@foundItemId", foundItemId.ToString());
+        cmd.Parameters.AddWithValue("@url", photoUrl);
+        await cmd.ExecuteNonQueryAsync(ct);
 
-        foreach (var url in urls)
-        {
-            await using var cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@id", Guid.NewGuid().ToString());
-            cmd.Parameters.AddWithValue("@foundItemId", foundItemId.ToString());
-            cmd.Parameters.AddWithValue("@url", url);
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
+        return photo;
+    }
+
+    public async Task DeletePhotosAsync(Guid foundItemId, CancellationToken ct = default)
+    {
+        const string sql = "DELETE FROM found_item_photos WHERE found_item_id = @foundItemId;";
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@foundItemId", foundItemId.ToString());
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task UpdateAsync(FoundItem item, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE found_items
+            SET title = @title,
+                category = @category,
+                description = @description,
+                date_found = @dateFound,
+                location_found = @locationFound,
+                hidden_information = @hiddenInformation,
+                updated_at = @updatedAt
+            WHERE id = @id;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", item.Id.ToString());
+        cmd.Parameters.AddWithValue("@title", item.Title);
+        cmd.Parameters.AddWithValue("@category", item.Category);
+        cmd.Parameters.AddWithValue("@description", item.Description);
+        cmd.Parameters.AddWithValue("@dateFound", item.DateFound.ToDateTime(TimeOnly.MinValue));
+        cmd.Parameters.AddWithValue("@locationFound", item.LocationFound);
+        cmd.Parameters.AddWithValue("@hiddenInformation", item.HiddenInformation);
+        cmd.Parameters.AddWithValue("@updatedAt", item.UpdatedAt);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     public async Task<FoundItem?> GetByIdAsync(Guid id, CancellationToken ct = default)
