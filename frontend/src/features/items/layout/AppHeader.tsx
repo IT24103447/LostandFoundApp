@@ -4,7 +4,7 @@ import { MapPin, Bell, ChevronDown, LogOut, User as UserIcon } from "lucide-reac
 import { useAuth } from "../../auth/AuthContext";
 
 const NAV_LINKS = [
-  { label: "Dashboard", to: "/" },
+  { label: "Home", to: "/" },
   { label: "My Reports", to: "/my-reports" },
   { label: "Found Items", to: "/found-items" },
 ];

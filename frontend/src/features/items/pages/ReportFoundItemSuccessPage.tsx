@@ -149,7 +149,7 @@ export function ReportFoundItemSuccessPage() {
           className="mt-4 flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
+          Back to Home
         </button>
 
         <p className="mt-6 flex items-center gap-1.5 text-xs text-gray-400">

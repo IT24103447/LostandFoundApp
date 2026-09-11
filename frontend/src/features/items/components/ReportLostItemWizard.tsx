@@ -110,8 +110,8 @@ export function ReportLostItemWizard() {
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="mx-auto max-w-[1600px] px-6 pb-16 pt-8 lg:px-10">
           <p className="text-sm text-gray-400">
-            <button type="button" onClick={() => navigate("/")} className="hover:text-gray-600">
-              Dashboard
+            <button type="button" onClick={() => navigate("/my-reports")} className="hover:text-gray-600">
+              My Reports
             </button>{" "}
             / Report Lost Item
           </p>
