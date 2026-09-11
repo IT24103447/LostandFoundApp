@@ -22,8 +22,6 @@ import { EditFoundItemPage } from "./features/items/pages/EditFoundItemPage";
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/home" element={<Navigate to="/" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -31,6 +29,8 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/home" element={<Navigate to="/" replace />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/report-lost-item" element={<ReportLostItemPage />} />
         <Route path="/report-lost-item/success" element={<ReportLostItemSuccessPage />} />
