@@ -83,6 +83,226 @@ public sealed class ReportFoundItemWizardTests : IDisposable
     }
 
     [Fact]
+    public void FoundWizard_BlocksContinue_WhenTitleIsEmpty()
+    {
+        SignInAndOpenFoundWizard();
+        SelectCategory("Accessories");
+        _driver.FindElement(By.Id("description")).SendKeys("A valid description.");
+        ClickContinue();
+
+        AssertFieldError("title", "Item title is required.");
+    }
+
+    [Fact]
+    public void FoundWizard_BlocksContinue_WhenCategoryIsEmpty()
+    {
+        SignInAndOpenFoundWizard();
+        _driver.FindElement(By.Id("title")).SendKeys("Found item");
+        _driver.FindElement(By.Id("description")).SendKeys("A valid description.");
+        ClickContinue();
+
+        _wait.Until(d => d.PageSource.Contains("Please select a category.", StringComparison.Ordinal));
+        Assert.Contains("report-found-item", _driver.Url, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FoundWizard_BlocksContinue_WhenLocationFoundIsEmpty()
+    {
+        SignInAndOpenFoundWizard();
+        FillStep1();
+        ClickContinue();
+        SetDate(DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd"));
+        ClickContinue();
+
+        AssertFieldError("locationFound", "Location found is required.");
+    }
+
+    [Fact]
+    public void FoundWizard_BlocksSubmission_WhenHiddenInformationIsEmpty()
+    {
+        SignInAndOpenFoundWizard();
+        GoToVerificationStep();
+
+        SubmitFoundItem();
+
+        AssertFieldError("hiddenInformation", "Hidden information is required.");
+        Assert.DoesNotContain("/success", _driver.Url, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("title", "   ", "Item title is required.")]
+    [InlineData("description", "   ", "Description is required.")]
+    public void FoundWizard_BlocksWhitespaceOnlyStepOneFields(string fieldId, string value, string expectedError)
+    {
+        SignInAndOpenFoundWizard();
+        if (fieldId != "title") _driver.FindElement(By.Id("title")).SendKeys("Found item");
+        SelectCategory("Accessories");
+        if (fieldId != "description") _driver.FindElement(By.Id("description")).SendKeys("Valid description");
+        _driver.FindElement(By.Id(fieldId)).SendKeys(value);
+        ClickContinue();
+
+        AssertFieldError(fieldId, expectedError);
+    }
+
+    [Theory]
+    [InlineData("locationFound", "Location found is required.")]
+    [InlineData("hiddenInformation", "Hidden information is required.")]
+    public void FoundWizard_BlocksWhitespaceOnlyLaterFields(string fieldId, string expectedError)
+    {
+        SignInAndOpenFoundWizard();
+        GoToVerificationStep();
+
+        if (fieldId == "locationFound")
+        {
+            // Return to step 2, replace the value with whitespace, and validate that step.
+            _driver.FindElement(By.XPath("//button[contains(text(),'Back')]")).Click();
+            var location = _wait.Until(d => d.FindElement(By.Id("locationFound")));
+            location.Clear();
+            location.SendKeys("   ");
+            ClickContinue();
+        }
+        else
+        {
+            _driver.FindElement(By.Id("hiddenInformation")).SendKeys("   ");
+            SubmitFoundItem();
+        }
+
+        AssertFieldError(fieldId, expectedError);
+    }
+
+    [Theory]
+    [InlineData("title", 150, "Title must be at most 150 characters.")]
+    [InlineData("description", 2000, "Description must be at most 2000 characters.")]
+    public void FoundWizard_EnforcesStepOneMaximumLengths(string fieldId, int maximum, string expectedError)
+    {
+        SignInAndOpenFoundWizard();
+        _driver.FindElement(By.Id("title")).SendKeys(fieldId == "title" ? new string('a', maximum) : "Found item");
+        SelectCategory("Accessories");
+        _driver.FindElement(By.Id("description")).SendKeys(fieldId == "description" ? new string('a', maximum) : "Valid description");
+        ClickContinue();
+        _wait.Until(d => d.FindElement(By.Id("dateFound"))); // Exact maximum is accepted.
+
+        _driver.FindElement(By.XPath("//button[contains(text(),'Back')]")).Click();
+        _wait.Until(d => d.FindElement(By.Id(fieldId))).SendKeys("x");
+        ClickContinue();
+        AssertFieldError(fieldId, expectedError);
+    }
+
+    [Theory]
+    [InlineData("locationFound", 255, "Location found must be at most 255 characters.")]
+    [InlineData("hiddenInformation", 500, "Hidden information must be at most 500 characters.")]
+    public void FoundWizard_EnforcesLaterMaximumLengths(string fieldId, int maximum, string expectedError)
+    {
+        SignInAndOpenFoundWizard();
+        FillStep1();
+        ClickContinue();
+        SetDate(DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd"));
+        _driver.FindElement(By.Id("locationFound")).SendKeys(fieldId == "locationFound" ? new string('a', maximum) : "Library");
+        ClickContinue();
+
+        if (fieldId == "hiddenInformation")
+        {
+            _driver.FindElement(By.Id("hiddenInformation")).SendKeys(new string('a', maximum));
+            SubmitFoundItem();
+            _wait.Until(d => d.Url.Contains("/success", StringComparison.Ordinal)); // Exact maximum is accepted.
+            return;
+        }
+
+        _driver.FindElement(By.XPath("//button[contains(text(),'Back')]")).Click();
+        _wait.Until(d => d.FindElement(By.Id("locationFound"))).SendKeys("x");
+        ClickContinue();
+        AssertFieldError("locationFound", expectedError);
+    }
+
+    [Fact]
+    public void FoundWizard_RejectsHiddenInformationOverMaximumLength()
+    {
+        SignInAndOpenFoundWizard();
+        GoToVerificationStep();
+        _driver.FindElement(By.Id("hiddenInformation")).SendKeys(new string('a', 501));
+
+        SubmitFoundItem();
+
+        AssertFieldError("hiddenInformation", "Hidden information must be at most 500 characters.");
+        Assert.DoesNotContain("/success", _driver.Url, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FoundWizard_CapsAtOnePhoto()
+    {
+        SignInAndOpenFoundWizard();
+        GoToVerificationStep();
+        var files = Enumerable.Range(1, 2)
+            .Select(i => CreateTempFile($"found-{i}.jpg", "jpeg placeholder"));
+
+        _driver.FindElement(By.CssSelector("input[type=file]")).SendKeys(string.Join("\n", files));
+
+        _wait.Until(d => d.FindElements(By.CssSelector(".overflow-hidden img")).Count == 1);
+        Assert.Contains("1 added", _driver.PageSource, StringComparison.Ordinal);
+        Assert.Empty(_driver.FindElements(By.CssSelector("input[type=file]")));
+    }
+
+    [Fact]
+    public void FoundWizard_RejectsNonImageFileWithoutAddingPreview()
+    {
+        SignInAndOpenFoundWizard();
+        GoToVerificationStep();
+
+        _driver.FindElement(By.CssSelector("input[type=file]"))
+            .SendKeys(CreateTempFile("not-an-image.pdf", "not a PDF image"));
+
+        Assert.Empty(_driver.FindElements(By.CssSelector(".overflow-hidden img")));
+        Assert.Contains("0 added", _driver.PageSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FoundWizard_RejectsEmptyImageAtServer()
+    {
+        SignInAndOpenFoundWizard();
+        GoToVerificationStep();
+        _driver.FindElement(By.Id("hiddenInformation")).SendKeys("Private verification detail");
+        _driver.FindElement(By.CssSelector("input[type=file]"))
+            .SendKeys(CreateTempFile("empty.jpg", string.Empty));
+
+        SubmitFoundItem();
+
+        _wait.Until(d => d.PageSource.Contains("The photo file is empty.", StringComparison.Ordinal));
+        Assert.DoesNotContain("/success", _driver.Url, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FoundWizard_RejectsPhotoOverFiveMegabytes()
+    {
+        SignInAndOpenFoundWizard();
+        GoToVerificationStep();
+        _driver.FindElement(By.Id("hiddenInformation")).SendKeys("Private verification detail");
+        _driver.FindElement(By.CssSelector("input[type=file]"))
+            .SendKeys(CreateTempBinaryFile("oversized.jpg", 5 * 1024 * 1024 + 1));
+
+        SubmitFoundItem();
+
+        _wait.Until(d => d.PageSource.Contains("Each photo must be at most 5 MB.", StringComparison.Ordinal));
+        Assert.DoesNotContain("/success", _driver.Url, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FoundWizard_MapsServerInvalidImageErrorWithoutShowingSuccess()
+    {
+        SignInAndOpenFoundWizard();
+        GoToVerificationStep();
+        _driver.FindElement(By.Id("hiddenInformation")).SendKeys("Private verification detail");
+        _driver.FindElement(By.CssSelector("input[type=file]"))
+            .SendKeys(CreateTempFile("forged.jpg", "these bytes are not a JPEG"));
+
+        SubmitFoundItem();
+
+        _wait.Until(d => d.PageSource.Contains(
+            "The photo file does not match a supported image format.", StringComparison.Ordinal));
+        Assert.Contains("report-found-item", _driver.Url, StringComparison.Ordinal);
+        Assert.DoesNotContain("/success", _driver.Url, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FoundWizard_DateFieldUsesTodayAsMaximum()
     {
         SignInAndOpenFoundWizard();
@@ -148,8 +368,17 @@ public sealed class ReportFoundItemWizardTests : IDisposable
 
     private void FillStep2()
     {
-        SetDate(DateTime.UtcNow.ToString("yyyy-MM-dd"));
+        SetDate(DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd"));
         _driver.FindElement(By.Id("locationFound")).SendKeys("Main library entrance");
+    }
+
+    private void GoToVerificationStep()
+    {
+        FillStep1();
+        ClickContinue();
+        FillStep2();
+        ClickContinue();
+        _wait.Until(d => d.FindElement(By.Id("hiddenInformation")));
     }
 
     private void SelectCategory(string category)
@@ -161,6 +390,16 @@ public sealed class ReportFoundItemWizardTests : IDisposable
 
     private void ClickContinue() =>
         _driver.FindElement(By.XPath("//button[contains(text(),'Continue')]")).Click();
+
+    private void SubmitFoundItem() =>
+        _driver.FindElement(By.XPath("//button[contains(text(),'Report Found Item')]")).Click();
+
+    private void AssertFieldError(string fieldId, string expectedError)
+    {
+        var error = _wait.Until(d => d.FindElement(
+            By.XPath($"//label[@for='{fieldId}']/ancestor::div[1]/following-sibling::p")));
+        Assert.Equal(expectedError, error.Text);
+    }
 
     private void SetDate(string date)
     {
@@ -181,6 +420,13 @@ public sealed class ReportFoundItemWizardTests : IDisposable
     {
         var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}-{name}");
         File.WriteAllText(path, contents);
+        return path;
+    }
+
+    private static string CreateTempBinaryFile(string name, int byteCount)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}-{name}");
+        File.WriteAllBytes(path, new byte[byteCount]);
         return path;
     }
 }

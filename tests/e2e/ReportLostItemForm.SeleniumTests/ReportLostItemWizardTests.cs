@@ -196,17 +196,17 @@ public class ReportLostItemWizardTests : IDisposable
 
     // E2E-06
     [Fact]
-    public void PhotoDropzone_CapsAtFivePhotos()
+    public void PhotoDropzone_CapsAtOnePhoto()
     {
         SignInAndOpenWizard();
         NavigateToStep3();
-        var paths = Enumerable.Range(1, 6)
+        var paths = Enumerable.Range(1, 2)
             .Select(i => CreateTempFile($"photo-{i}.jpg", "jpeg placeholder"))
             .ToArray();
         _driver.FindElement(By.CssSelector("input[type=file]")).SendKeys(string.Join(Environment.NewLine, paths));
 
-        _wait.Until(d => d.FindElements(By.CssSelector("[class*='aspect-square'] img")).Count == 5);
-        Assert.Equal(5, _driver.FindElements(By.CssSelector("[class*='aspect-square'] img")).Count);
+        _wait.Until(d => d.FindElements(By.CssSelector("[class*='aspect-square'] img")).Count == 1);
+        Assert.Single(_driver.FindElements(By.CssSelector("[class*='aspect-square'] img")));
         Assert.Empty(_driver.FindElements(By.XPath("//button[contains(.,'Add another photo')]")));
     }
 
@@ -221,10 +221,10 @@ public class ReportLostItemWizardTests : IDisposable
         var counter = _wait.Until(d =>
         {
             var element = d.FindElement(By.XPath("//label[@for='description']/parent::div/span"));
-            return element.Text == "22 / 1000" ? element : null;
+            return element.Text == "22 / 2000" ? element : null;
         });
         Assert.NotNull(counter);
-        Assert.Equal("22 / 1000", counter!.Text);
+        Assert.Equal("22 / 2000", counter!.Text);
     }
 
     // E2E-10 — hidden info value must never appear in the rendered DOM
@@ -250,7 +250,7 @@ public class ReportLostItemWizardTests : IDisposable
         SelectCategory("Accessories");
         _driver.FindElement(By.Id("description")).SendKeys("Description to preserve");
         _driver.FindElement(By.XPath("//button[contains(text(),'Continue')]")).Click();
-        SetTodayDate();
+        SetSafePastDate();
         _wait.Until(d => d.FindElement(By.Id("lastKnownLocation")));
 
         _driver.FindElement(By.XPath("//button[contains(text(),'Back')]")).Click();
@@ -265,15 +265,15 @@ public class ReportLostItemWizardTests : IDisposable
         SelectCategory("Accessories");
         _driver.FindElement(By.Id("description")).SendKeys("Test item description");
         _driver.FindElement(By.XPath("//button[contains(text(),'Continue')]")).Click();
-        SetTodayDate();
+        SetSafePastDate();
         _wait.Until(d => d.FindElement(By.Id("lastKnownLocation"))).SendKeys("Test location");
         _driver.FindElement(By.XPath("//button[contains(text(),'Continue')]")).Click();
         _wait.Until(d => d.FindElement(By.Id("hiddenInformation")));
     }
 
-    private void SetTodayDate()
+    private void SetSafePastDate()
     {
-        SetDate(DateTime.UtcNow.ToString("yyyy-MM-dd"));
+        SetDate(DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd"));
     }
 
     private void SetDate(string date)

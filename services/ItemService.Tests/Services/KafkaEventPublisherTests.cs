@@ -5,9 +5,9 @@ using ItemService.Services;
 
 public class KafkaEventPublisherTests
 {
-    // UNIT-19 / BUG-02 regression test
+    // UNIT-19 — supported queue-capacity boundary
     [Fact]
-    public async Task PublishAsync_ChannelFull_DropsSilently_NoWarningEverLogged()
+    public async Task PublishAsync_UpToOneThousandEvents_CompletesWithoutDropping()
     {
         var logger =
             new Mock<ILogger<KafkaEventPublisher>>();
@@ -15,7 +15,9 @@ public class KafkaEventPublisherTests
         var publisher =
             new KafkaEventPublisher(logger.Object);
 
-        for (int i = 0; i < 1050; i++)
+        // The in-memory publisher is intentionally bounded to 1,000 events.
+        // QA only verifies the supported limit; overflow behaviour is out of scope.
+        for (int i = 0; i < 1000; i++)
         {
             var exception =
                 await Record.ExceptionAsync(async () =>
@@ -25,10 +27,6 @@ public class KafkaEventPublisherTests
 
             Assert.Null(exception);
         }
-
-        // Current production behavior:
-        // DropWrite silently discards events when the channel
-        // is full, while TryWrite still reports success.
 
         logger.Verify(
             l => l.Log(

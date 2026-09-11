@@ -21,7 +21,7 @@ public class LostItemsControllerTests
     private readonly Mock<ILogger<LostItemsController>> _logger = new();
 
     private LostItemsController BuildController(
-        int maxPhotos = 5,
+        int maxPhotos = 1,
         long maxPhotoSize = 5 * 1024 * 1024,
         Guid? userId = null)
     {
@@ -54,7 +54,7 @@ public class LostItemsControllerTests
     private static ReportLostItemRequest ValidRequest() => new()
     {
         Title = "Black leather wallet",
-        Category = "Wallets",
+        Category = "Accessories",
         Description = "Bifold wallet, slightly worn.",
         DateLost = DateTime.UtcNow.ToString("yyyy-MM-dd"),
         LastKnownLocation = "Colombo City Centre",
@@ -142,13 +142,12 @@ public class LostItemsControllerTests
     [Fact]
     public async Task ReportLostItem_TooManyPhotos_ReturnsValidationProblem()
     {
-        var controller = BuildController(maxPhotos: 2);
+        var controller = BuildController();
         var req = ValidRequest();
         req.Photos = new List<IFormFile>
         {
-            MockPhoto("a.jpg", "image/jpeg", 1024),
-            MockPhoto("b.jpg", "image/jpeg", 1024),
-            MockPhoto("c.jpg", "image/jpeg", 1024)
+            MockRealJpeg("a.jpg"),
+            MockRealJpeg("b.jpg")
         };
 
         var result = await controller.ReportLostItem(req, CancellationToken.None);
@@ -205,7 +204,7 @@ public class LostItemsControllerTests
 
     // API-08 / UNIT-05 — photos truly optional
     [Fact]
-    public async Task ReportLostItem_NoPhotos_StillSucceeds_AndSkipsAddPhotosCall()
+    public async Task ReportLostItem_NoPhotos_StillSucceeds_AndSkipsAddPhotoCall()
     {
         var controller = BuildController();
         var req = ValidRequest();
@@ -214,7 +213,7 @@ public class LostItemsControllerTests
         var result = await controller.ReportLostItem(req, CancellationToken.None);
 
         Assert.IsType<CreatedAtActionResult>(result.Result);
-        _repo.Verify(r => r.AddPhotosAsync(It.IsAny<Guid>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _repo.Verify(r => r.AddPhotoAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // UNIT-13 / API-22 — Kafka event carries hidden information
@@ -250,29 +249,51 @@ public class LostItemsControllerTests
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 
-    // BUG-01 regression test disabled temporarily so the known production defect
-    // does not fail the pipeline. Re-enable after server-side whitespace validation is fixed.
-    // [Fact]
-    // public async Task ReportLostItem_WhitespaceOnlyTitle_ShouldBeRejected()
-    // {
-    //     var controller = BuildController();
-    //     var req = ValidRequest();
-    //     req.Title = "   ";
-    //
-    //     var result = await controller.ReportLostItem(req, CancellationToken.None);
-    //
-    //     var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-    //     var problem = Assert.IsType<ValidationProblemDetails>(badRequest.Value);
-    //     Assert.Contains("Title", problem.Errors.Keys);
-    // }
+    [Fact]
+    public async Task ReportLostItem_WhitespaceOnlyTitle_IsRejected()
+    {
+        var controller = BuildController();
+        var req = ValidRequest();
+        req.Title = "   ";
 
-    private static IFormFile MockPhoto(string fileName, string contentType, long length)
+        var result = await controller.ReportLostItem(req, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        var problem = Assert.IsType<ValidationProblemDetails>(badRequest.Value);
+        Assert.Contains("Title", problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task ReportLostItem_UnsupportedCategory_IsRejected()
+    {
+        var controller = BuildController();
+        var req = ValidRequest();
+        req.Category = "not-a-supported-category";
+
+        var result = await controller.ReportLostItem(req, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        var problem = Assert.IsType<ValidationProblemDetails>(badRequest.Value);
+        Assert.Contains("Category", problem.Errors.Keys);
+    }
+
+    private static IFormFile MockRealJpeg(string fileName, long length = 1024) =>
+        MockPhoto(fileName, "image/jpeg", length, validImageSignature: true);
+
+    private static IFormFile MockPhoto(string fileName, string contentType, long length, bool validImageSignature = false)
     {
         var mock = new Mock<IFormFile>();
         mock.Setup(f => f.FileName).Returns(fileName);
         mock.Setup(f => f.ContentType).Returns(contentType);
         mock.Setup(f => f.Length).Returns(length);
-        mock.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(new byte[Math.Max(length, 1)]));
+        var bytes = new byte[Math.Max(length, 1)];
+        if (validImageSignature && length >= 3 && contentType == "image/jpeg")
+        {
+            bytes[0] = 0xFF;
+            bytes[1] = 0xD8;
+            bytes[2] = 0xFF;
+        }
+        mock.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(bytes));
         return mock.Object;
     }
 }

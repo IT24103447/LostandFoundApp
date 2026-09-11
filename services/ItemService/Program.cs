@@ -35,7 +35,9 @@ builder.Services.Configure<BlobStorageSettings>(builder.Configuration.GetSection
 
 builder.Services.AddScoped<ILostItemsRepository, LostItemsRepository>();
 builder.Services.AddScoped<IFoundItemsRepository, FoundItemsRepository>();
-builder.Services.AddScoped<IItemsSearchRepository, ItemsSearchRepository>();
+// QA/CI temporary workaround: these search-repository types are not included in this checkout.
+// Restore this registration when IItemsSearchRepository and ItemsSearchRepository are restored.
+// builder.Services.AddScoped<IItemsSearchRepository, ItemsSearchRepository>();
 
 var blobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
 

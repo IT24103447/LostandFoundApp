@@ -482,6 +482,10 @@ yarn-error.log*
 # General / misc
 *.log
 
+# Local QA working documents (not submitted to GitHub)
+/QA-Test-Cases-01-Report-Lost-Item.md
+/QA-Test-Cases-02-Report-Found-Item.md
+
 # .NET
 bin/
 obj/
@@ -489,3 +493,4 @@ obj/
 # Local photo uploads (dev fallback storage - not for git)
 services/ItemService/wwwroot/photos/*
 !services/ItemService/wwwroot/photos/.gitkeep
+services/ItemService/wwwroot/photos-test/

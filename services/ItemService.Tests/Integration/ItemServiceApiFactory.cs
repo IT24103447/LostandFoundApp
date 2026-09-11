@@ -28,7 +28,7 @@ public class ItemServiceApiFactory : WebApplicationFactory<Program>, IAsyncLifet
             _mysql = new MySqlBuilder()
                 .WithImage("mysql:8")
                 .WithDatabase("item_service")
-                .WithUsername("root")
+                .WithUsername("item_service_test")
                 .WithPassword("test_password")
                 .Build();
 
@@ -36,7 +36,7 @@ public class ItemServiceApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         }
         catch
         {
-            // Docker is not available in local environment; fallback to default config connection string
+            // Docker is unavailable; the test host will expose the setup failure on execution.
             _mysql = null;
         }
     }
@@ -60,7 +60,7 @@ public class ItemServiceApiFactory : WebApplicationFactory<Program>, IAsyncLifet
                 ["BlobStorage:ConnectionString"] = "",
                 ["Item:PhotoStoragePath"] = "wwwroot/photos-test",
                 ["Item:PhotoPublicPath"] = "/photos",
-                ["Item:MaxPhotosPerItem"] = "5",
+                ["Item:MaxPhotosPerItem"] = "1",
                 ["Item:MaxPhotoSizeBytes"] = "5242880",
 
                 ["Cors:AllowedOrigins:0"] = "http://localhost:5173"

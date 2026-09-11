@@ -21,7 +21,7 @@ public class FoundItemsControllerTests
     private readonly Mock<ILogger<FoundItemsController>> _logger = new();
 
     private FoundItemsController BuildController(
-        int maxPhotos = 5,
+        int maxPhotos = 1,
         long maxPhotoSize = 5 * 1024 * 1024,
         Guid? userId = null)
     {
@@ -149,9 +149,9 @@ public class FoundItemsControllerTests
     [Fact]
     public async Task ReportFoundItem_TooManyPhotos_ReturnsValidationProblem()
     {
-        var controller = BuildController(maxPhotos: 1);
+        var controller = BuildController();
         var request = ValidRequest();
-        request.Photos = [MockPhoto("a.jpg", "image/jpeg", 10), MockPhoto("b.jpg", "image/jpeg", 10)];
+        request.Photos = [MockRealJpeg("a.jpg"), MockRealJpeg("b.jpg")];
 
         var result = await controller.ReportFoundItem(request, CancellationToken.None);
 
@@ -200,34 +200,32 @@ public class FoundItemsControllerTests
     }
 
     [Fact]
-    public async Task ReportFoundItem_SpoofedJpegContentType_IsAcceptedByCurrentMimeOnlyValidation()
+    public async Task ReportFoundItem_SpoofedJpegContentType_IsRejected()
     {
         var controller = BuildController();
         var request = ValidRequest();
-        request.Photos = [MockPhoto("not-an-image.jpg", "image/jpeg", 4)];
-        _photoStorage.Setup(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("/photos/found.jpg");
+        request.Photos = [MockPhoto("not-an-image.jpg", "image/jpeg", 4, validImageSignature: false)];
 
         var result = await controller.ReportFoundItem(request, CancellationToken.None);
 
-        Assert.IsType<CreatedAtActionResult>(result.Result);
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Contains("Photos", problem.Errors.Keys);
+        _photoStorage.Verify(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task ReportFoundItem_AcceptsFivePhotosWhileFoundUiAllowsOne()
+    public async Task ReportFoundItem_MultiplePhotosProvided_ExceedsMaxIsRejected()
     {
-        var controller = BuildController(maxPhotos: 5);
+        var controller = BuildController();
         var request = ValidRequest();
-        request.Photos = Enumerable.Range(1, 5)
-            .Select(index => MockPhoto($"found-{index}.jpg", "image/jpeg", 4))
-            .ToList();
-        _photoStorage.Setup(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Guid id, IFormFile file, CancellationToken _) => $"/photos/{file.FileName}");
+        request.Photos = [MockRealJpeg("found-1.jpg"), MockRealJpeg("found-2.jpg")];
 
         var result = await controller.ReportFoundItem(request, CancellationToken.None);
 
-        Assert.IsType<CreatedAtActionResult>(result.Result);
-        _photoStorage.Verify(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()), Times.Exactly(5));
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Contains("Photos", problem.Errors.Keys);
+        _repo.Verify(r => r.CreateAsync(It.IsAny<FoundItem>(), It.IsAny<CancellationToken>()), Times.Never);
+        _photoStorage.Verify(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -235,7 +233,7 @@ public class FoundItemsControllerTests
     {
         var controller = BuildController();
         var request = ValidRequest();
-        request.Photos = [MockPhoto("found.jpg", "image/jpeg", 4)];
+        request.Photos = [MockRealJpeg("found.jpg")];
         _photoStorage.Setup(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new IOException("storage unavailable"));
 
@@ -254,42 +252,49 @@ public class FoundItemsControllerTests
         _repo.Verify(r => r.CreateAsync(It.IsAny<FoundItem>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    // FND-03 regression tests are temporarily commented out because the current
-    // production validation does not yet enforce these rules. Re-enable after
-    // the server-side whitespace and category validation fixes are implemented.
-    // [Fact]
-    // public async Task ReportFoundItem_WhitespaceOnlyTitle_IsRejected()
-    // {
-    //     var controller = BuildController();
-    //     var request = ValidRequest();
-    //     request.Title = "   ";
-    //
-    //     var result = await controller.ReportFoundItem(request, CancellationToken.None);
-    //
-    //     var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
-    //     Assert.Contains("Title", problem.Errors.Keys);
-    // }
-    //
-    // [Fact]
-    // public async Task ReportFoundItem_UnsupportedCategory_IsRejected()
-    // {
-    //     var controller = BuildController();
-    //     var request = ValidRequest();
-    //     request.Category = "not-a-supported-category";
-    //
-    //     var result = await controller.ReportFoundItem(request, CancellationToken.None);
-    //
-    //     var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
-    //     Assert.Contains("Category", problem.Errors.Keys);
-    // }
+    [Fact]
+    public async Task ReportFoundItem_WhitespaceOnlyTitle_IsRejected()
+    {
+        var controller = BuildController();
+        var request = ValidRequest();
+        request.Title = "   ";
 
-    private static IFormFile MockPhoto(string fileName, string contentType, long length)
+        var result = await controller.ReportFoundItem(request, CancellationToken.None);
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Contains("Title", problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task ReportFoundItem_UnsupportedCategory_IsRejected()
+    {
+        var controller = BuildController();
+        var request = ValidRequest();
+        request.Category = "not-a-supported-category";
+
+        var result = await controller.ReportFoundItem(request, CancellationToken.None);
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Contains("Category", problem.Errors.Keys);
+    }
+
+    private static IFormFile MockRealJpeg(string fileName, long length = 1024) =>
+        MockPhoto(fileName, "image/jpeg", length, validImageSignature: true);
+
+    private static IFormFile MockPhoto(string fileName, string contentType, long length, bool validImageSignature = false)
     {
         var mock = new Mock<IFormFile>();
         mock.Setup(f => f.FileName).Returns(fileName);
         mock.Setup(f => f.ContentType).Returns(contentType);
         mock.Setup(f => f.Length).Returns(length);
-        mock.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(new byte[Math.Max(length, 1)]));
+        var bytes = new byte[Math.Max(length, 1)];
+        if (validImageSignature && length >= 3 && contentType == "image/jpeg")
+        {
+            bytes[0] = 0xFF;
+            bytes[1] = 0xD8;
+            bytes[2] = 0xFF;
+        }
+        mock.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(bytes));
         return mock.Object;
     }
 }
