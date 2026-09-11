@@ -35,8 +35,18 @@ builder.Services.Configure<BlobStorageSettings>(builder.Configuration.GetSection
 
 builder.Services.AddScoped<ILostItemsRepository, LostItemsRepository>();
 builder.Services.AddScoped<IFoundItemsRepository, FoundItemsRepository>();
+builder.Services.AddScoped<IItemsSearchRepository, ItemsSearchRepository>();
 
 var blobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
+
+if (string.IsNullOrWhiteSpace(blobConnectionString) && builder.Environment.IsProduction())
+{
+    throw new InvalidOperationException(
+        "BlobStorage:ConnectionString is required in Production. " +
+        "Refusing to fall back to local disk storage, which does not persist across " +
+        "restarts/redeploys and is not shared across instances.");
+}
+
 if (!string.IsNullOrWhiteSpace(blobConnectionString))
 {
     builder.Services.AddSingleton<IPhotoStorageService, AzureBlobPhotoStorageService>();

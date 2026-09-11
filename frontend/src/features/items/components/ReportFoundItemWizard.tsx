@@ -92,7 +92,7 @@ export function ReportFoundItemWizard() {
         for (const [field, messages] of Object.entries(fieldErrors)) {
           const key = (field.charAt(0).toLowerCase() + field.slice(1)) as keyof ReportFoundItemFormValues;
           setError(key, { type: "server", message: messages.join(" ") });
-          const stepForField = (Object.keys(STEP_FIELDS) as unknown as WizardStep[]).find((s) =>
+          const stepForField = (Object.keys(STEP_FIELDS).map(Number) as WizardStep[]).find((s) =>
             STEP_FIELDS[s].includes(key),
           );
           if (stepForField && (firstInvalidStep === null || stepForField < firstInvalidStep)) {
