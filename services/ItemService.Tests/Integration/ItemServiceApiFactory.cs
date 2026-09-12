@@ -70,7 +70,10 @@ public class ItemServiceApiFactory : WebApplicationFactory<Program>, IAsyncLifet
             {
                 var connectionString = new MySqlConnectionStringBuilder(_mysql.GetConnectionString())
                 {
-                    AllowUserVariables = true
+                    AllowUserVariables = true,
+                    // The disposable local MySQL container does not need TLS. Disabling it
+                    // keeps the integration suite independent of host SSPI credentials.
+                    SslMode = MySqlSslMode.None
                 }.ConnectionString;
 
                 dict["ConnectionStrings:MySql"] = connectionString;

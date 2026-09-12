@@ -17,6 +17,9 @@
 mysql-data/
 kafka-data/
 
+# Local Kafka resource overrides
+infra/kafka/docker-compose.override.yml
+
 # User-specific files
 *.rsuser
 *.suo
@@ -483,8 +486,13 @@ yarn-error.log*
 *.log
 
 # Local QA working documents (not submitted to GitHub)
-/QA-Test-Cases-01-Report-Lost-Item.md
-/QA-Test-Cases-02-Report-Found-Item.md
+/QA-Test-Cases-*.md
+
+# QA-generated run artifacts (test source stays tracked)
+/tests/**/TestResults/
+/tests/**/screenshots/
+/tests/performance/results/
+/tests/performance/*.jtl
 
 # .NET
 bin/

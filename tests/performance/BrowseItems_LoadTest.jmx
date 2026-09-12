@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Story 4 - Browse Items Performance">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">REPLACE_WITH_VALID_JWT</stringProp></elementProp></collectionProp></elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="PERF-01 Baseline active browse">
+        <stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">1</stringProp><stringProp name="ThreadGroup.on_sample_error">stopthread</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">1</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HeaderManager testname="JWT"><collectionProp name="HeaderManager.headers"><elementProp name="Cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp></collectionProp></HeaderManager><hashTree/>
+        <HTTPSamplerProxy testname="GET active items"><stringProp name="HTTPSampler.domain">localhost</stringProp><stringProp name="HTTPSampler.port">5001</stringProp><stringProp name="HTTPSampler.path">/api/items?page=1&amp;pageSize=20</stringProp><stringProp name="HTTPSampler.method">GET</stringProp></HTTPSamplerProxy>
+        <hashTree><ResponseAssertion testname="Expect 200"><collectionProp name="Asserion.test_strings"><stringProp name="200">200</stringProp></collectionProp><stringProp name="Assertion.test_field">Assertion.response_code</stringProp><intProp name="Assertion.test_type">8</intProp></ResponseAssertion><hashTree/><DurationAssertion testname="500 ms SLA"><stringProp name="DurationAssertion.duration">500</stringProp></DurationAssertion><hashTree/></hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="PERF-02 Keyword search load">
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,100)}</stringProp><stringProp name="ThreadGroup.ramp_time">${__P(ramp_seconds,10)}</stringProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">${__P(loops,1)}</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HeaderManager testname="JWT"><collectionProp name="HeaderManager.headers"><elementProp name="Cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp></collectionProp></HeaderManager><hashTree/>
+        <HTTPSamplerProxy testname="GET keyword search"><stringProp name="HTTPSampler.domain">localhost</stringProp><stringProp name="HTTPSampler.port">5001</stringProp><stringProp name="HTTPSampler.path">/api/items?q=wallet&amp;category=Accessories&amp;page=1&amp;pageSize=20</stringProp><stringProp name="HTTPSampler.method">GET</stringProp></HTTPSamplerProxy>
+        <hashTree><ResponseAssertion testname="Expect 200"><collectionProp name="Asserion.test_strings"><stringProp name="200">200</stringProp></collectionProp><stringProp name="Assertion.test_field">Assertion.response_code</stringProp><intProp name="Assertion.test_type">8</intProp></ResponseAssertion><hashTree/></hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

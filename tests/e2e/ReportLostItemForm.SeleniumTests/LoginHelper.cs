@@ -6,14 +6,15 @@ namespace ReportLostItemForm.SeleniumTests;
 /// <summary>
 /// Drives the real login UI at /login so that tests run as an authenticated user.
 /// Requires:
-///   1. A test account to exist in the database (email + password below).
+///   1. A test account to exist in the database. Set SELENIUM_TEST_EMAIL and
+///      SELENIUM_TEST_PASSWORD in the terminal before starting the test run.
 ///   2. The frontend running at the given baseUrl (npm run dev).
 ///   3. The AuthService (local/deployed) to be reachable from the frontend.
 /// </summary>
 public static class LoginHelper
 {
-    private const string TestEmail    = "selenium.test@example.com";
-    private const string TestPassword = "Str0ngPass1";
+    public static string TestEmail => GetRequiredSetting("SELENIUM_TEST_EMAIL");
+    private static string TestPassword => GetRequiredSetting("SELENIUM_TEST_PASSWORD");
 
     public static string AuthToken { get; set; } = string.Empty;
 
@@ -41,6 +42,13 @@ public static class LoginHelper
         {
             AuthToken = authCookie.Value;
         }
+    }
+
+    private static string GetRequiredSetting(string name)
+    {
+        return Environment.GetEnvironmentVariable(name)
+            ?? throw new InvalidOperationException(
+                $"Set the {name} environment variable before running the Selenium tests.");
     }
 }
 

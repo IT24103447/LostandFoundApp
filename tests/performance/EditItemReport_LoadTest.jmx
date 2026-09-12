@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Story 3 - Edit Item Report Performance">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="BASE_URL" elementType="Argument"><stringProp name="Argument.name">BASE_URL</stringProp><stringProp name="Argument.value">http://localhost:5001</stringProp></elementProp>
+          <elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">REPLACE_WITH_OWNER_JWT</stringProp></elementProp>
+          <elementProp name="TARGET_ITEM_ID" elementType="Argument"><stringProp name="Argument.name">TARGET_ITEM_ID</stringProp><stringProp name="Argument.value">REPLACE_WITH_OWNER_LOST_ITEM_ID</stringProp></elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="PERF-01 Baseline owner update">
+        <stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">1</stringProp><stringProp name="ThreadGroup.on_sample_error">stopthread</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">1</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HeaderManager testname="Owner JWT and JSON"><collectionProp name="HeaderManager.headers"><elementProp name="Cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp><elementProp name="Content-Type" elementType="Header"><stringProp name="Header.name">Content-Type</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp></collectionProp></HeaderManager>
+        <hashTree/>
+        <HTTPSamplerProxy testname="PUT owner update"><stringProp name="HTTPSampler.domain">localhost</stringProp><stringProp name="HTTPSampler.port">5001</stringProp><stringProp name="HTTPSampler.path">/api/items/lost/${TARGET_ITEM_ID}</stringProp><stringProp name="HTTPSampler.method">PUT</stringProp><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="body" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{&quot;title&quot;:&quot;JMeter corrected item&quot;,&quot;category&quot;:&quot;Accessories&quot;,&quot;description&quot;:&quot;Baseline update.&quot;,&quot;dateLost&quot;:&quot;2026-09-01&quot;,&quot;lastKnownLocation&quot;:&quot;JMeter location&quot;,&quot;hiddenInformation&quot;:&quot;jmeter-private-marker&quot;}</stringProp></elementProp></collectionProp></elementProp></HTTPSamplerProxy>
+        <hashTree><ResponseAssertion testname="Expect 200"><collectionProp name="Asserion.test_strings"><stringProp name="200">200</stringProp></collectionProp><stringProp name="Assertion.test_field">Assertion.response_code</stringProp><intProp name="Assertion.test_type">8</intProp></ResponseAssertion><hashTree/><DurationAssertion testname="500 ms SLA"><stringProp name="DurationAssertion.duration">500</stringProp></DurationAssertion><hashTree/></hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="PERF-02 Concurrent owner updates">
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,50)}</stringProp><stringProp name="ThreadGroup.ramp_time">${__P(ramp_seconds,10)}</stringProp><stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">${__P(loops,1)}</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HeaderManager testname="Owner JWT and JSON"><collectionProp name="HeaderManager.headers"><elementProp name="Cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp><elementProp name="Content-Type" elementType="Header"><stringProp name="Header.name">Content-Type</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp></collectionProp></HeaderManager>
+        <hashTree/>
+        <HTTPSamplerProxy testname="PUT concurrent update"><stringProp name="HTTPSampler.domain">localhost</stringProp><stringProp name="HTTPSampler.port">5001</stringProp><stringProp name="HTTPSampler.path">/api/items/lost/${TARGET_ITEM_ID}</stringProp><stringProp name="HTTPSampler.method">PUT</stringProp><boolProp name="HTTPSampler.postBodyRaw">true</boolProp><elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="body" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{&quot;title&quot;:&quot;JMeter concurrent ${__threadNum}&quot;,&quot;category&quot;:&quot;Accessories&quot;,&quot;description&quot;:&quot;Concurrent update.&quot;,&quot;dateLost&quot;:&quot;2026-09-01&quot;,&quot;lastKnownLocation&quot;:&quot;JMeter location&quot;,&quot;hiddenInformation&quot;:&quot;jmeter-private-${__threadNum}&quot;}</stringProp></elementProp></collectionProp></elementProp></HTTPSamplerProxy>
+        <hashTree><ResponseAssertion testname="Expect 200"><collectionProp name="Asserion.test_strings"><stringProp name="200">200</stringProp></collectionProp><stringProp name="Assertion.test_field">Assertion.response_code</stringProp><intProp name="Assertion.test_type">8</intProp></ResponseAssertion><hashTree/></hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

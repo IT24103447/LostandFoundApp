@@ -388,8 +388,27 @@ public sealed class ReportFoundItemWizardTests : IDisposable
         _wait.Until(d => d.FindElement(By.Id("category")).Text.Contains(category, StringComparison.Ordinal));
     }
 
-    private void ClickContinue() =>
-        _driver.FindElement(By.XPath("//button[contains(text(),'Continue')]")).Click();
+    private void ClickContinue()
+    {
+        _wait.Until(d =>
+        {
+            try
+            {
+                var button = d.FindElement(By.XPath("//button[contains(text(),'Continue')]"));
+                if (!button.Displayed || !button.Enabled)
+                    return false;
+
+                button.Click();
+                return true;
+            }
+            catch (StaleElementReferenceException)
+            {
+                // React can replace the button after a field-validation rerender.
+                // Re-find it on the next wait attempt rather than failing the test.
+                return false;
+            }
+        });
+    }
 
     private void SubmitFoundItem() =>
         _driver.FindElement(By.XPath("//button[contains(text(),'Report Found Item')]")).Click();
