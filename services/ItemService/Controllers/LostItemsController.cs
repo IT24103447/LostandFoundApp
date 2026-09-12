@@ -354,6 +354,60 @@ public class LostItemsController : ControllerBase
         return Ok(ToDto(item));
     }
 
+    [HttpPost("{id:guid}/resolve")]
+    public async Task<ActionResult<LostItemResponseDto>> ResolveLostItem(Guid id, CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { error = "Invalid session." });
+        }
+
+        var item = await _items.GetByIdAsync(id, ct);
+        if (item is null)
+        {
+            return NotFound(new { error = "Lost item not found." });
+        }
+
+        // Scenario 2 - Unauthorized Resolution Attempt: only the original reporter may resolve.
+        if (item.UserId != userId)
+        {
+            return StatusCode(403, new { error = "You are not allowed to resolve this report." });
+        }
+
+        if (item.Status != LostItemStatus.ACTIVE)
+        {
+            return Conflict(new { error = "Only active items can be marked as resolved." });
+        }
+
+        item.Status = LostItemStatus.RESOLVED;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await _items.UpdateStatusAsync(item.Id, item.Status, item.UpdatedAt, ct);
+
+        // Scenario 1 - publish the FULL current item state, including HiddenInformation,
+        // so the Matching Service can remove or finalize any related match records.
+        await _publisher.PublishAsync($"{_kafka.TopicPrefix}.lost_item.resolved", new LostItemResolvedEvent
+        {
+            UserId = userId,
+            LostItemId = item.Id,
+            Title = item.Title,
+            Category = item.Category,
+            Description = item.Description,
+            DateLost = item.DateLost,
+            LastKnownLocation = item.LastKnownLocation,
+            HiddenInformation = item.HiddenInformation,
+            Status = item.Status.ToString(),
+            PhotoUrls = item.Photos.Select(p => p.Url).ToList(),
+            ResolvedAt = item.UpdatedAt
+        }, ct);
+
+        _logger.LogInformation("User {UserId} marked lost item {LostItemId} as resolved.", userId, item.Id);
+
+        return Ok(ToDto(item));
+    }
+
     private async Task PublishUpdatedEvent(LostItem item, Guid userId, CancellationToken ct)
     {
         // Scenario 1 - publish the FULL current item state, including HiddenInformation,
