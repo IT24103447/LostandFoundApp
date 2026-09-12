@@ -18,6 +18,7 @@ export const API_BASE_URLS = {
 export type ApiService = keyof typeof API_BASE_URLS;
 
 //Resolves a photo URL returned by ItemService into something an <img> tag can load.
+//In prod the item base URL is baked at build time by frontend-ci-cd (VITE_ITEM_API_BASE_URL).
 export function resolvePhotoUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) {
     return url;
