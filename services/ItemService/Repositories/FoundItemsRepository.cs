@@ -154,6 +154,62 @@ public class FoundItemsRepository : IFoundItemsRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task<List<FoundItem>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
+    {
+        const string itemsSql = """
+            SELECT id, user_id, title, category, description, date_found, location_found,
+                   hidden_information, status, created_at, updated_at
+            FROM found_items
+            WHERE user_id = @userId
+            ORDER BY created_at DESC;
+            """;
+
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+
+        var items = new List<FoundItem>();
+        await using (var cmd = new MySqlCommand(itemsSql, conn))
+        {
+            cmd.Parameters.AddWithValue("@userId", userId.ToString());
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                items.Add(MapItem(reader));
+            }
+        }
+
+        if (items.Count == 0) return items;
+
+        var ids = items.Select(i => i.Id).ToList();
+        var inClause = string.Join(",", ids.Select((_, i) => $"@id{i}"));
+        var photosSql = $"""
+            SELECT id, found_item_id, url, created_at
+            FROM found_item_photos
+            WHERE found_item_id IN ({inClause})
+            ORDER BY created_at ASC;
+            """;
+
+        await using (var cmd = new MySqlCommand(photosSql, conn))
+        {
+            for (var i = 0; i < ids.Count; i++)
+            {
+                cmd.Parameters.AddWithValue($"@id{i}", ids[i].ToString());
+            }
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            var byItemId = items.ToDictionary(i => i.Id);
+            while (await reader.ReadAsync(ct))
+            {
+                var photo = MapPhoto(reader);
+                if (byItemId.TryGetValue(photo.FoundItemId, out var owner))
+                {
+                    owner.Photos.Add(photo);
+                }
+            }
+        }
+
+        return items;
+    }
+
     private static FoundItem MapItem(MySqlDataReader r) => new()
     {
         Id = r.GetGuid(0),
