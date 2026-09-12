@@ -17,6 +17,7 @@ builder.Services.AddControllers()
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddTransient<IDbConnectionFactory, DbConnectionFactory>();
 
 const string DevCorsPolicy = "dev-cors";
