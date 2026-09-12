@@ -153,6 +153,66 @@ public class LostItemsRepository : ILostItemsRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task<List<LostItem>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
+    {
+        // filtering by user_id at the SQL level, sourced only from the
+        // JWT-derived userId the controller passes in, is what makes it impossible
+        // to retrieve another user's reports - there is no id parameter accepted
+        // anywhere in this call path.
+        const string itemsSql = """
+            SELECT id, user_id, title, category, description, date_lost, last_known_location,
+                   hidden_information, status, created_at, updated_at
+            FROM lost_items
+            WHERE user_id = @userId
+            ORDER BY created_at DESC;
+            """;
+
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+
+        var items = new List<LostItem>();
+        await using (var cmd = new MySqlCommand(itemsSql, conn))
+        {
+            cmd.Parameters.AddWithValue("@userId", userId.ToString());
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                items.Add(MapItem(reader));
+            }
+        }
+
+        if (items.Count == 0) return items;
+
+        var ids = items.Select(i => i.Id).ToList();
+        var inClause = string.Join(",", ids.Select((_, i) => $"@id{i}"));
+        var photosSql = $"""
+            SELECT id, lost_item_id, url, created_at
+            FROM lost_item_photos
+            WHERE lost_item_id IN ({inClause})
+            ORDER BY created_at ASC;
+            """;
+
+        await using (var cmd = new MySqlCommand(photosSql, conn))
+        {
+            for (var i = 0; i < ids.Count; i++)
+            {
+                cmd.Parameters.AddWithValue($"@id{i}", ids[i].ToString());
+            }
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            var byItemId = items.ToDictionary(i => i.Id);
+            while (await reader.ReadAsync(ct))
+            {
+                var photo = MapPhoto(reader);
+                if (byItemId.TryGetValue(photo.LostItemId, out var owner))
+                {
+                    owner.Photos.Add(photo);
+                }
+            }
+        }
+
+        return items;
+    }
+
     private static LostItem MapItem(MySqlDataReader r) => new()
     {
         Id = r.GetGuid(0),
