@@ -137,6 +137,23 @@ public class FoundItemsRepository : IFoundItemsRepository
         return item;
     }
 
+    public async Task UpdateStatusAsync(Guid id, FoundItemStatus status, DateTime updatedAt, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE found_items
+            SET status = @status,
+                updated_at = @updatedAt
+            WHERE id = @id;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", id.ToString());
+        cmd.Parameters.AddWithValue("@status", status.ToString());
+        cmd.Parameters.AddWithValue("@updatedAt", updatedAt);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     private static FoundItem MapItem(MySqlDataReader r) => new()
     {
         Id = r.GetGuid(0),
