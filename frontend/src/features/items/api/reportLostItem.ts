@@ -1,4 +1,4 @@
-import { apiGet, apiPut, apiPutForm, apiPostForm, apiDelete } from "../../../lib/apiClient";
+import { apiGet, apiPost, apiPut, apiPutForm, apiPostForm, apiDelete } from "../../../lib/apiClient";
 export type ItemPhoto = { id: string; url: string };
 
 export type UpdateLostItemPayload = {
@@ -35,6 +35,15 @@ export const deleteLostItemPhoto = (
   signal?: AbortSignal,
 ): Promise<LostItemResponse> =>
   apiDelete<undefined, LostItemResponse>("items", `/api/items/lost/${id}/photo`, undefined, signal);
+
+// Marks the caller's own lost-item report as resolved. Backend enforces
+// ownership (403) and that the item is currently ACTIVE (409) — this call
+// carries no body, the id in the path is all the server needs.
+export const resolveLostItem = (
+  id: string,
+  signal?: AbortSignal,
+): Promise<LostItemResponse> =>
+  apiPost<Record<string, never>, LostItemResponse>("items", `/api/items/lost/${id}/resolve`, {}, signal);
 
 
 export type ReportLostItemPayload = {
