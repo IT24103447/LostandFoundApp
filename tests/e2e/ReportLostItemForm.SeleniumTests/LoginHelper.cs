@@ -19,6 +19,9 @@ public static class LoginHelper
     public static string AuthToken { get; set; } = string.Empty;
 
     public static void LoginAsTestUser(IWebDriver driver, string baseUrl)
+        => LoginAs(driver, baseUrl, TestEmail, TestPassword);
+
+    public static void LoginAs(IWebDriver driver, string baseUrl, string email, string password)
     {
         driver.Navigate().GoToUrl($"{baseUrl}/login");
 
@@ -27,10 +30,10 @@ public static class LoginHelper
         wait.Until(d => d.FindElement(By.Id("email")));
 
         driver.FindElement(By.Id("email")).Clear();
-        driver.FindElement(By.Id("email")).SendKeys(TestEmail);
+        driver.FindElement(By.Id("email")).SendKeys(email);
 
         driver.FindElement(By.Id("password")).Clear();
-        driver.FindElement(By.Id("password")).SendKeys(TestPassword);
+        driver.FindElement(By.Id("password")).SendKeys(password);
 
         driver.FindElement(By.CssSelector("button[type='submit']")).Click();
 

@@ -32,15 +32,15 @@ public class ReportLostItemFixture : IDisposable
         // Modern browsers do not reliably send it cross-port to localhost:5001.
         // Fix: plant the same cookie value on localhost:5001 via CDP so that
         // ItemService's OnMessageReceived handler can read it from the request.
-        SyncAuthCookieToItemService();
+        SyncAuthCookieToItemService(Driver, LoginHelper.AuthToken);
     }
 
-    private void SyncAuthCookieToItemService()
+    public static void SyncAuthCookieToItemService(IWebDriver driver, string authToken)
     {
-        if (string.IsNullOrEmpty(LoginHelper.AuthToken))
+        if (string.IsNullOrEmpty(authToken))
             return;
 
-        var chrome = Driver as ChromiumDriver;
+        var chrome = driver as ChromiumDriver;
         if (chrome == null) return;
 
         // Enable the Network domain so CDP cookie commands work.
@@ -51,7 +51,7 @@ public class ReportLostItemFixture : IDisposable
         chrome.ExecuteCdpCommand("Network.setCookie", new Dictionary<string, object>
         {
             { "name",     "auth_token"          },
-            { "value",    LoginHelper.AuthToken  },
+            { "value",    authToken              },
             { "domain",   "localhost"            },
             { "path",     "/"                   },
             { "httpOnly", true                   },
