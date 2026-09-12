@@ -35,7 +35,7 @@ jobs:
         working-directory: frontend
         env:
           VITE_AUTH_API_BASE_URL: https://lostfound-auth-service.azurewebsites.net
-          VITE_ITEM_API_BASE_URL: ${{ vars.ITEM_API_BASE_URL }}
+          VITE_ITEM_API_BASE_URL: https://lostfound-item-service-f9htesh2drbkd0dh.southeastasia-01.azurewebsites.net
           VITE_MATCHING_API_BASE_URL: http://localhost:5002
           VITE_ADMIN_API_BASE_URL: http://localhost:5003
 
