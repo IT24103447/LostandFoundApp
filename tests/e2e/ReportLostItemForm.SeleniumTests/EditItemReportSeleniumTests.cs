@@ -199,8 +199,15 @@ public class EditItemReportSeleniumTests : IClassFixture<ReportLostItemFixture>
 
     private void Save() => _driver.FindElement(By.XPath("//button[normalize-space()='Save Changes']")).Click();
 
+    // WizardField deliberately has no QA-only error ID. The validation message is
+    // the first paragraph immediately after the field in its existing UI wrapper.
     private IWebElement ValidationErrorFor(string fieldId) =>
-        _wait.Until(d => d.FindElement(By.Id($"{fieldId}-error")));
+        _wait.Until(d =>
+        {
+            var field = d.FindElement(By.Id(fieldId));
+            return field.FindElements(By.XPath("following-sibling::p[1]"))
+                .FirstOrDefault(error => !string.IsNullOrWhiteSpace(error.Text));
+        })!;
 
     private void WaitForSaveConfirmation() =>
         _wait.Until(d => d.FindElement(By.XPath("//div[contains(normalize-space(), 'Changes saved.')]")).Displayed);
