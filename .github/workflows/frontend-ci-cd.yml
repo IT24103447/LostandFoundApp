@@ -1,4 +1,4 @@
-name: frontend-ci-cd
+﻿name: frontend-ci-cd
 on:
   push:
     branches: [develop, main, 'feature/**']
@@ -35,7 +35,7 @@ jobs:
         working-directory: frontend
         env:
           VITE_AUTH_API_BASE_URL: https://lostfound-auth-service.azurewebsites.net
-          VITE_ITEM_API_BASE_URL: http://localhost:5001
+          VITE_ITEM_API_BASE_URL: ${{ vars.ITEM_API_BASE_URL }}
           VITE_MATCHING_API_BASE_URL: http://localhost:5002
           VITE_ADMIN_API_BASE_URL: http://localhost:5003
 
