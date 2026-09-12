@@ -408,6 +408,20 @@ public class LostItemsController : ControllerBase
         return Ok(ToDto(item));
     }
 
+    [HttpGet("mine")]
+    public async Task<ActionResult<List<LostItemResponseDto>>> GetMine(CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { error = "Invalid session." });
+        }
+
+        var items = await _items.GetByUserIdAsync(userId, ct);
+        return Ok(items.Select(ToDto).ToList());
+    }
+
     private async Task PublishUpdatedEvent(LostItem item, Guid userId, CancellationToken ct)
     {
         // Scenario 1 - publish the FULL current item state, including HiddenInformation,
