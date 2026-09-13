@@ -18,6 +18,7 @@ import { ReportFoundItemSuccessPage } from "./features/items/pages/ReportFoundIt
 import { MyReportsPage } from "./features/items/pages/MyReportsPage";
 import { EditLostItemPage } from "./features/items/pages/EditLostItemPage";
 import { EditFoundItemPage } from "./features/items/pages/EditFoundItemPage";
+import { ItemDetailsPage } from "./features/items/pages/ItemDetailsPage";
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/my-reports" element={<MyReportsPage />} />
         <Route path="/edit-lost-item/:id" element={<EditLostItemPage />} />
         <Route path="/edit-found-item/:id" element={<EditFoundItemPage />} />
+        <Route path="/items/:id" element={<ItemDetailsPage />} />
       </Route>
 
       <Route element={<ProtectedRoute roles={["Admin"]} />}>

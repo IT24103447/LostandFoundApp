@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { MapPin, Smartphone, ShoppingBag, Shirt, Watch, FileText, KeyRound, Package, type LucideIcon } from "lucide-react";
 import { resolvePhotoUrl } from "../../../config/env";
 import type { ItemSummary } from "../../items/api/browseItems";
@@ -32,7 +33,9 @@ export function ItemCard({ item }: { item: ItemSummary }) {
   const PlaceholderIcon = categoryIcon(item.category);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+    <Link
+      to={`/items/${item.id}`}
+      className="block overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       <div className="relative aspect-[4/3] w-full bg-gray-900">
         {item.photoUrl ? (
           <img
@@ -77,11 +80,10 @@ export function ItemCard({ item }: { item: ItemSummary }) {
             <CalendarIcon />
             {formatDisplay(item.date)}
           </span>
-          {/* TODO: wire to an item-detail page once that story exists */}
           <span className="font-medium text-indigo-600">View Details →</span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
