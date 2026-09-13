@@ -5,6 +5,8 @@ namespace ItemService.Tests.Dtos;
 
 public class UpdateItemRequestValidationTests
 {
+    // Story 3 DTO contract: edited values use the same safe maximum lengths as report creation.
+    // Verifies all lost-item edit fields accept their exact maximum length.
     [Fact]
     public void UpdateLostItemRequest_ExactMaximumLengthsAreValid()
     {
@@ -21,6 +23,7 @@ public class UpdateItemRequestValidationTests
         Assert.Empty(Validate(request));
     }
 
+    // Verifies all found-item edit fields accept their exact maximum length.
     [Fact]
     public void UpdateFoundItemRequest_ExactMaximumLengthsAreValid()
     {
@@ -37,6 +40,7 @@ public class UpdateItemRequestValidationTests
         Assert.Empty(Validate(request));
     }
 
+    // Verifies lost-item edit fields reject values above their maximum length.
     [Theory]
     [InlineData("Title", 151)]
     [InlineData("Category", 51)]
@@ -55,6 +59,7 @@ public class UpdateItemRequestValidationTests
         Assert.Contains(Validate(request), r => r.MemberNames.Contains(property));
     }
 
+    // Verifies found-item edit fields reject values above their maximum length.
     [Theory]
     [InlineData("Title", 151)]
     [InlineData("Category", 51)]

@@ -11,6 +11,7 @@ namespace ReportLostItemForm.SeleniumTests;
 [Trait("Requires", "NonOwnerCredentials")]
 public sealed class EditItemReportAuthorizationSeleniumTests : IDisposable
 {
+    // Story 3 authorization flow: a second authenticated user must not save another owner's report.
     private readonly BrowserFixture _fixture = new();
     private readonly IWebDriver _driver;
     private readonly WebDriverWait _wait;

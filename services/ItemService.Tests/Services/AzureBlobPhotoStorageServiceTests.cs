@@ -6,6 +6,7 @@ using Moq;
 
 public class AzureBlobPhotoStorageServiceTests
 {
+    // Stories 1-2 storage configuration checks: stable container defaults and fail-fast secret validation.
     [Fact]
     public void BlobStorageSettings_DefaultContainerName_IsStable()
     {

@@ -2,6 +2,7 @@ using ItemService.Models;
 
 public class ItemPhotoModelsTests
 {
+    // Stories 1-2 model checks: photo associations retain item IDs, URLs, and timestamps.
     [Fact]
     public void FoundItemPhoto_PreservesAssociationUrlAndCreationTime()
     {

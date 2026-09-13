@@ -6,6 +6,8 @@ namespace ItemService.Tests.Dtos;
 
 public class ReportFoundItemRequestValidationTests
 {
+    // Story 2 DTO contract: required fields and field-length limits are enforced before creation.
+    // Verifies a request missing all required found-item fields is invalid.
     [Fact]
     public void MissingRequiredFields_AreRejected()
     {
@@ -19,6 +21,7 @@ public class ReportFoundItemRequestValidationTests
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(ReportFoundItemRequest.HiddenInformation)));
     }
 
+    // Verifies each found-item field accepts its exact maximum length.
     [Theory]
     [InlineData(nameof(ReportFoundItemRequest.Title), 150)]
     [InlineData(nameof(ReportFoundItemRequest.Category), 50)]
@@ -33,6 +36,7 @@ public class ReportFoundItemRequestValidationTests
         Assert.Empty(Validate(request));
     }
 
+    // Verifies each found-item field rejects one character over its maximum length.
     [Theory]
     [InlineData(nameof(ReportFoundItemRequest.Title), 151)]
     [InlineData(nameof(ReportFoundItemRequest.Category), 51)]

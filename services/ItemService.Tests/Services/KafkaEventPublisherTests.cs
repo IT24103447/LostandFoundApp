@@ -5,6 +5,7 @@ using ItemService.Services;
 
 public class KafkaEventPublisherTests
 {
+    // Stories 1-5 producer check: supported in-memory queue capacity does not drop events.
     // UNIT-19 — supported queue-capacity boundary
     [Fact]
     public async Task PublishAsync_UpToOneThousandEvents_CompletesWithoutDropping()

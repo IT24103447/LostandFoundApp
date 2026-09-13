@@ -4,6 +4,7 @@ using Xunit;
 [Collection(ItemServiceIntegrationCollection.Name)]
 public class LostItemsApiIntegrationTests
 {
+    // Story 1 API/MySQL checks: create contracts, validation, auth, privacy, and Kafka event shape.
     private readonly ItemServiceApiFactory _factory;
 
     public LostItemsApiIntegrationTests(

@@ -17,6 +17,7 @@ using Xunit;
 
 public class ItemServiceApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    // Shared xUnit infrastructure: starts a disposable MySQL-backed API and replaces real Kafka with a recording publisher.
     private MySqlContainer? _mysql;
 
     public FakeEventPublisher FakeEvents { get; } = new();

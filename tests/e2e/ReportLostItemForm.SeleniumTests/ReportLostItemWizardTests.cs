@@ -10,6 +10,7 @@ namespace ReportLostItemForm.SeleniumTests;
 
 public sealed class BrowserFixture : IDisposable
 {
+    // Shared browser setup: uses a ChromeDriver matching the locally installed Chrome browser.
     public const string BaseUrl = "http://localhost:5173";
     public IWebDriver Driver { get; }
 
@@ -34,6 +35,7 @@ public sealed class BrowserFixture : IDisposable
 
 public class ReportLostItemWizardTests : IDisposable
 {
+    // Story 1 browser flow: successful reporting, required-field checks, photo selection, and privacy.
     private static string? _authToken;
     private readonly BrowserFixture _fixture;
     private readonly IWebDriver _driver;

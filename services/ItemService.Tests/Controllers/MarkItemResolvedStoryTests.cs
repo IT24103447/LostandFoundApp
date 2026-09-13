@@ -17,9 +17,11 @@ namespace ItemService.Tests.Controllers;
 /// <summary>Story 5 contract tests: resolution is owner-only, durable, and publishes full private state.</summary>
 public sealed class MarkItemResolvedStoryTests
 {
+    // Story 5: resolution changes, authorization, state rules, and complete Kafka resolution events.
     private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid NonOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
+    // Verifies an owner can resolve a lost report and publish its full private event.
     [Fact]
     public async Task ResolveLostItem_Owner_ChangesStatusPersistsAndPublishesFullPrivateEvent()
     {
@@ -47,6 +49,7 @@ public sealed class MarkItemResolvedStoryTests
         Assert.DoesNotContain(typeof(LostItemResponseDto).GetProperties(), p => p.Name.Contains("Hidden", StringComparison.OrdinalIgnoreCase));
     }
 
+    // Verifies an owner can resolve a found report and publish its full private event.
     [Fact]
     public async Task ResolveFoundItem_Owner_ChangesStatusPersistsAndPublishesFullPrivateEvent()
     {
@@ -74,6 +77,7 @@ public sealed class MarkItemResolvedStoryTests
         Assert.DoesNotContain(typeof(FoundItemResponseDto).GetProperties(), p => p.Name.Contains("Hidden", StringComparison.OrdinalIgnoreCase));
     }
 
+    // Verifies a non-owner cannot resolve a lost report.
     [Fact]
     public async Task ResolveLostItem_NonOwner_Returns403WithoutMutationOrEvent()
     {
@@ -86,6 +90,7 @@ public sealed class MarkItemResolvedStoryTests
         publisher.Verify(x => x.PublishAsync(It.IsAny<string>(), It.IsAny<LostItemResolvedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies a non-owner cannot resolve a found report.
     [Fact]
     public async Task ResolveFoundItem_NonOwner_Returns403WithoutMutationOrEvent()
     {
@@ -98,6 +103,7 @@ public sealed class MarkItemResolvedStoryTests
         publisher.Verify(x => x.PublishAsync(It.IsAny<string>(), It.IsAny<FoundItemResolvedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies unauthenticated resolution is rejected before lookup.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -117,6 +123,7 @@ public sealed class MarkItemResolvedStoryTests
         }
     }
 
+    // Verifies missing or already-resolved reports do not cause another write or event.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -144,6 +151,7 @@ public sealed class MarkItemResolvedStoryTests
         }
     }
 
+    // Verifies malformed JWT subjects are rejected before accessing the report.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -163,6 +171,7 @@ public sealed class MarkItemResolvedStoryTests
         }
     }
 
+    // Verifies closed reports cannot be resolved again.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -184,6 +193,7 @@ public sealed class MarkItemResolvedStoryTests
         }
     }
 
+    // Verifies a failed status persistence prevents event publication.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -207,6 +217,7 @@ public sealed class MarkItemResolvedStoryTests
         }
     }
 
+    // Verifies publisher failure happens only after the resolved status is persisted.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]

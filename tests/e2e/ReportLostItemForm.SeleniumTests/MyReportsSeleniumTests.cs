@@ -12,6 +12,7 @@ namespace ReportLostItemForm.SeleniumTests;
 [Trait("Requires", "MyReportsTestData")]
 public sealed class MyReportsSeleniumTests : IClassFixture<ReportLostItemFixture>
 {
+    // Story 8 browser flow: owner history shows both report types, current state, and resolved filtering.
     private readonly IWebDriver _driver;
     private readonly WebDriverWait _wait;
 
@@ -21,6 +22,7 @@ public sealed class MyReportsSeleniumTests : IClassFixture<ReportLostItemFixture
         _wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(15));
     }
 
+    // Verifies visible lost/found cards and their configured current statuses.
     [Fact]
     public void MyReports_OwnerSeesOwnLostAndFoundReportsWithCurrentStatuses()
     {
@@ -35,6 +37,7 @@ public sealed class MyReportsSeleniumTests : IClassFixture<ReportLostItemFixture
         FindReportAcrossPages(foundTitle, foundStatus, "FOUND");
     }
 
+    // Verifies the resolved filter retains the configured resolved report.
     [Fact]
     public void MyReports_ResolvedFilterShowsTheConfiguredResolvedOwnerReport()
     {

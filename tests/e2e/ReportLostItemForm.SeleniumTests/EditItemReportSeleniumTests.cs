@@ -12,6 +12,7 @@ namespace ReportLostItemForm.SeleniumTests;
 /// </summary>
 public class EditItemReportSeleniumTests : IClassFixture<ReportLostItemFixture>
 {
+    // Story 3 browser flow: owner edit access, client validation, save persistence, and private-field handling.
     private readonly IWebDriver _driver;
     private readonly WebDriverWait _wait;
 

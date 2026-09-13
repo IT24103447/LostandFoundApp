@@ -16,9 +16,11 @@ namespace ItemService.Tests.Controllers;
 /// <summary>Story 8: a history request is scoped exclusively to the JWT subject.</summary>
 public sealed class MyReportsStoryTests
 {
+    // Story 8: owner-scoped report history, visible statuses, privacy, and JWT isolation.
     private static readonly Guid OwnerId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid OtherUserId = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
+    // Verifies an owner receives all own lost rows with current status but no hidden information.
     [Fact]
     public async Task GetMyLostReports_ReturnsEveryRepositoryRowWithCurrentStatusesAndNoPrivateData()
     {
@@ -40,6 +42,7 @@ public sealed class MyReportsStoryTests
         repo.Verify(r => r.GetByUserIdAsync(OtherUserId, It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies an owner receives all own found rows with current status but no hidden information.
     [Fact]
     public async Task GetMyFoundReports_ReturnsEveryRepositoryRowWithCurrentStatusesAndNoPrivateData()
     {
@@ -61,6 +64,7 @@ public sealed class MyReportsStoryTests
         repo.Verify(r => r.GetByUserIdAsync(OtherUserId, It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies an authenticated user with no reports receives a successful empty history.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -82,6 +86,7 @@ public sealed class MyReportsStoryTests
         }
     }
 
+    // Verifies missing or malformed JWT subjects are rejected before querying history.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -109,6 +114,7 @@ public sealed class MyReportsStoryTests
         }
     }
 
+    // Verifies only the JWT subject, not another identity claim, scopes the history query.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]

@@ -15,6 +15,7 @@ using Xunit;
 
 public class FoundItemsControllerTests
 {
+    // Story 2: found-report creation, validation, privacy, photo, and event behaviour.
     private readonly Mock<IFoundItemsRepository> _repo = new();
     private readonly Mock<IPhotoStorageService> _photoStorage = new();
     private readonly Mock<IEventPublisher> _publisher = new();
@@ -59,6 +60,7 @@ public class FoundItemsControllerTests
         HiddenInformation = "Small scratch beside the clasp"
     };
 
+    // Verifies a valid request creates an ACTIVE found report for the JWT user.
     [Fact]
     public async Task ReportFoundItem_ValidRequest_CreatesActiveItemForClaimUser()
     {
@@ -85,6 +87,7 @@ public class FoundItemsControllerTests
         Assert.NotEqual(default, created.UpdatedAt);
     }
 
+    // Verifies hidden information is omitted from the browser-facing response.
     [Fact]
     public async Task ReportFoundItem_ResponseNeverContainsHiddenInformation()
     {
@@ -99,6 +102,7 @@ public class FoundItemsControllerTests
         Assert.DoesNotContain("HiddenInformation", typeof(FoundItemResponseDto).GetProperties().Select(p => p.Name));
     }
 
+    // Verifies the Kafka event contains complete internal report data, including hidden information.
     [Fact]
     public async Task ReportFoundItem_PublishesCompleteEventIncludingHiddenInformation()
     {
@@ -118,6 +122,7 @@ public class FoundItemsControllerTests
         Assert.Equal("ACTIVE", published.Status);
     }
 
+    // Verifies future found dates are rejected without saving.
     [Fact]
     public async Task ReportFoundItem_FutureDate_ReturnsValidationProblemAndDoesNotWrite()
     {
@@ -133,6 +138,7 @@ public class FoundItemsControllerTests
         _repo.Verify(r => r.CreateAsync(It.IsAny<FoundItem>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies malformed found dates return validation feedback.
     [Fact]
     public async Task ReportFoundItem_MalformedDate_ReturnsValidationProblem()
     {
@@ -146,6 +152,7 @@ public class FoundItemsControllerTests
         Assert.Contains("DateFound", problem.Errors.Keys);
     }
 
+    // Verifies the maximum photo count is enforced.
     [Fact]
     public async Task ReportFoundItem_TooManyPhotos_ReturnsValidationProblem()
     {
@@ -159,6 +166,7 @@ public class FoundItemsControllerTests
         Assert.Contains("Photos", problem.Errors.Keys);
     }
 
+    // Verifies invalid photo type, size, or empty-file inputs are rejected.
     [Theory]
     [InlineData("empty.jpg", "image/jpeg", 0)]
     [InlineData("large.jpg", "image/jpeg", 1025)]
@@ -175,6 +183,7 @@ public class FoundItemsControllerTests
         Assert.Contains("Photos", problem.Errors.Keys);
     }
 
+    // Verifies unknown public report IDs return 404.
     [Fact]
     public async Task GetById_MissingItem_ReturnsNotFound()
     {
@@ -187,6 +196,7 @@ public class FoundItemsControllerTests
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 
+    // Verifies an invalid session cannot create a found report.
     [Fact]
     public async Task ReportFoundItem_InvalidSession_ReturnsUnauthorized()
     {
@@ -199,6 +209,7 @@ public class FoundItemsControllerTests
         _repo.Verify(r => r.CreateAsync(It.IsAny<FoundItem>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies file signatures are checked, not only the declared JPEG MIME type.
     [Fact]
     public async Task ReportFoundItem_SpoofedJpegContentType_IsRejected()
     {
@@ -213,6 +224,7 @@ public class FoundItemsControllerTests
         _photoStorage.Verify(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies multiple uploaded photos are rejected under the one-photo contract.
     [Fact]
     public async Task ReportFoundItem_MultiplePhotosProvided_ExceedsMaxIsRejected()
     {
@@ -228,6 +240,7 @@ public class FoundItemsControllerTests
         _photoStorage.Verify(s => s.SaveAsync(It.IsAny<Guid>(), It.IsAny<IFormFile>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Documents the storage-after-database-write failure path for regression coverage.
     [Fact]
     public async Task ReportFoundItem_PhotoStorageFailureOccursAfterDatabaseCreate()
     {
@@ -241,6 +254,7 @@ public class FoundItemsControllerTests
         _repo.Verify(r => r.CreateAsync(It.IsAny<FoundItem>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    // Documents the event-publisher-after-database-write failure path for regression coverage.
     [Fact]
     public async Task ReportFoundItem_EventFailureOccursAfterDatabaseCreate()
     {
@@ -252,6 +266,7 @@ public class FoundItemsControllerTests
         _repo.Verify(r => r.CreateAsync(It.IsAny<FoundItem>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    // Verifies whitespace-only titles are rejected.
     [Fact]
     public async Task ReportFoundItem_WhitespaceOnlyTitle_IsRejected()
     {
@@ -265,6 +280,7 @@ public class FoundItemsControllerTests
         Assert.Contains("Title", problem.Errors.Keys);
     }
 
+    // Verifies unsupported categories are rejected.
     [Fact]
     public async Task ReportFoundItem_UnsupportedCategory_IsRejected()
     {

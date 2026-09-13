@@ -1,0 +1,65 @@
+Summary
+  Generated on: 9/14/2026 - 1:30:57 AM
+  Coverage date: 9/14/2026 - 1:29:52 AM
+  Parser: Cobertura
+  Assemblies: 1
+  Classes: 43
+  Files: 42
+  Line coverage: 81.1%
+  Covered lines: 1511
+  Uncovered lines: 350
+  Coverable lines: 1861
+  Total lines: 2984
+  Branch coverage: 76.7% (522 of 680)
+  Covered branches: 522
+  Total branches: 680
+  Method coverage: 94.6% (266 of 281)
+  Full method coverage: 88.2% (248 of 281)
+  Covered methods: 266
+  Fully covered methods: 248
+  Total methods: 281
+
+ItemService                                            81.1%
+  ItemService.Configuration.BlobStorageSettings         100%
+  ItemService.Configuration.ItemSettings                100%
+  ItemService.Configuration.JwtSettings                 100%
+  ItemService.Configuration.KafkaSettings               100%
+  ItemService.Controllers.FoundItemsController         82.4%
+  ItemService.Controllers.ItemsController               100%
+  ItemService.Controllers.LostItemsController            81%
+  ItemService.Databases.DbConnectionFactory            81.8%
+  ItemService.Databases.DbInitializer                    87%
+  ItemService.Models.Dtos.FoundItemResponseDto          100%
+  ItemService.Models.Dtos.ItemDetailDto                 100%
+  ItemService.Models.Dtos.ItemPhotoDto                  100%
+  ItemService.Models.Dtos.ItemSummaryDto                 80%
+  ItemService.Models.Dtos.LostItemResponseDto           100%
+  ItemService.Models.Dtos.PagedResultDto<T>             100%
+  ItemService.Models.Dtos.ReportFoundItemRequest        100%
+  ItemService.Models.Dtos.ReportLostItemRequest         100%
+  ItemService.Models.Dtos.UpdateFoundItemRequest        100%
+  ItemService.Models.Dtos.UpdateLostItemRequest         100%
+  ItemService.Models.Events.BaseEvent                   100%
+  ItemService.Models.Events.FoundItemCreatedEvent       100%
+  ItemService.Models.Events.FoundItemResolvedEvent      100%
+  ItemService.Models.Events.FoundItemUpdatedEvent      90.9%
+  ItemService.Models.Events.ItemDeleteRequestedEvent    100%
+  ItemService.Models.Events.LostItemCreatedEvent        100%
+  ItemService.Models.Events.LostItemResolvedEvent       100%
+  ItemService.Models.Events.LostItemUpdatedEvent       90.9%
+  ItemService.Models.FoundItem                          100%
+  ItemService.Models.FoundItemPhoto                     100%
+  ItemService.Models.ItemCategories                     100%
+  ItemService.Models.ItemSearchQuery                    100%
+  ItemService.Models.LostItem                           100%
+  ItemService.Models.LostItemPhoto                      100%
+  ItemService.Repositories.FoundItemsRepository        82.1%
+  ItemService.Repositories.ItemsSearchRepository       87.1%
+  ItemService.Repositories.LostItemsRepository         82.1%
+  ItemService.Services.AzureBlobPhotoStorageService      23%
+  ItemService.Services.ImageSignatureValidator          100%
+  ItemService.Services.KafkaEventProducerService          0%
+  ItemService.Services.KafkaEventPublisher             80.7%
+  ItemService.Services.LocalPhotoStorageService          50%
+  ItemService.Services.OutboundEvent                    100%
+  Program                                              85.3%

@@ -13,6 +13,7 @@ namespace ReportLostItemForm.SeleniumTests;
 /// </summary>
 public static class LoginHelper
 {
+    // Shared login flow: reads test-only credentials from the terminal and establishes the browser session.
     public static string TestEmail => GetRequiredSetting("SELENIUM_TEST_EMAIL");
     private static string TestPassword => GetRequiredSetting("SELENIUM_TEST_PASSWORD");
 

@@ -10,6 +10,7 @@ namespace ReportLostItemForm.SeleniumTests;
 
 public class ReportLostItemFixture : IDisposable
 {
+    // Shared authenticated browser fixture for stories that require an existing owner report.
     public const string BaseUrl     = "http://localhost:5173";
     private const string ItemApiUrl = "http://localhost:5001";
 

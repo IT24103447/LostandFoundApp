@@ -9,6 +9,7 @@ namespace ReportLostItemForm.SeleniumTests;
 [Trait("Requires", "ItemDetailsTestData")]
 public sealed class ViewItemDetailsSeleniumTests : IClassFixture<ReportLostItemFixture>
 {
+    // Story 6 browser flow: render public data and keep unavailable/private data hidden.
     private readonly IWebDriver _driver;
     private readonly WebDriverWait _wait;
 
@@ -18,6 +19,7 @@ public sealed class ViewItemDetailsSeleniumTests : IClassFixture<ReportLostItemF
         _wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(15));
     }
 
+    // Verifies active reports show configured public fields but never the private marker.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -51,6 +53,7 @@ public sealed class ViewItemDetailsSeleniumTests : IClassFixture<ReportLostItemF
         Assert.DoesNotContain("HiddenInformation", _driver.PageSource, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Verifies invalid IDs show a friendly not-found state.
     [Fact]
     public void Details_InvalidItemIdShowsFriendlyNotFoundState()
     {
@@ -61,6 +64,7 @@ public sealed class ViewItemDetailsSeleniumTests : IClassFixture<ReportLostItemF
         Assert.NotEmpty(_driver.FindElements(By.XPath("//button[normalize-space()='Back to Results']")));
     }
 
+    // Verifies another user's resolved report shows a friendly not-found state.
     [Fact]
     public void Details_ResolvedItemOwnedByAnotherUserShowsFriendlyNotFoundState()
     {

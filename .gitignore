@@ -505,6 +505,11 @@ coverage*.xml
 **/CoverageReport/
 **/coverage/
 
+# Commit only the published Item Service HTML coverage evidence. Raw Coverlet
+# XML remains under TestResults and is still ignored above.
+!services/ItemService.Tests/CoverageReport/
+!services/ItemService.Tests/CoverageReport/**
+
 # Local Selenium configuration and browser diagnostics (may include test credentials)
 /tests/e2e/**/.env
 /tests/e2e/**/.env.*

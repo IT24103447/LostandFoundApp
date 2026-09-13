@@ -13,6 +13,8 @@ namespace ItemService.Tests.Controllers;
 /// <summary>Story 6: public detail retrieval and privacy/ownership boundaries.</summary>
 public sealed class ViewItemDetailsStoryTests
 {
+    // Story 6: public item details, private-data exclusion, and correct not-found/authorization rules.
+    // Verifies a valid lost item returns every public detail but no private field.
     [Fact]
     public async Task Details_ValidLostItem_ReturnsAllPublicFieldsAndNeverThePrivateFields()
     {
@@ -44,6 +46,7 @@ public sealed class ViewItemDetailsStoryTests
         AssertPublicJsonNeverLeaks(dto, secret);
     }
 
+    // Verifies a valid found item returns every public detail but no private field.
     [Fact]
     public async Task Details_ValidFoundItem_ReturnsAllPublicFieldsAndNeverThePrivateFields()
     {
@@ -72,6 +75,7 @@ public sealed class ViewItemDetailsStoryTests
         AssertPublicJsonNeverLeaks(dto, secret);
     }
 
+    // Verifies unknown and soft-deleted items are hidden behind 404.
     [Fact]
     public async Task Details_MissingOrRepositoryFilteredSoftDeletedItem_Returns404()
     {
@@ -86,6 +90,7 @@ public sealed class ViewItemDetailsStoryTests
         found.Verify(x => x.GetByIdAsync(id, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    // Verifies a resolved lost item is hidden from a non-owner.
     [Fact]
     public async Task Details_ResolvedLostItem_Is404ForANonOwner()
     {
@@ -98,6 +103,7 @@ public sealed class ViewItemDetailsStoryTests
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 
+    // Verifies a resolved found item is hidden from a non-owner.
     [Fact]
     public async Task Details_ResolvedFoundItem_Is404ForANonOwner()
     {
@@ -110,6 +116,7 @@ public sealed class ViewItemDetailsStoryTests
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 
+    // Verifies the original reporter can still view their own resolved report.
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -129,6 +136,7 @@ public sealed class ViewItemDetailsStoryTests
         Assert.Equal("RESOLVED", Ok(result).Status);
     }
 
+    // Verifies invalid authentication fails before repository access.
     [Fact]
     public async Task Details_MissingOrInvalidAuthenticatedSubject_Returns401WithoutRepositoryLookup()
     {
@@ -143,6 +151,7 @@ public sealed class ViewItemDetailsStoryTests
         found.Verify(x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies the public details DTO has neither hidden information nor user ID.
     [Fact]
     public void DetailsDto_ContainsNeitherHiddenInformationNorUserId()
     {

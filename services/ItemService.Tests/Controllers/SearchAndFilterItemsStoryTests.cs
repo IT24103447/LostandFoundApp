@@ -10,6 +10,8 @@ namespace ItemService.Tests.Controllers;
 
 public class SearchAndFilterItemsStoryTests
 {
+    // Story 4: search input normalization, validation, privacy, and paging contract behaviour.
+    // Verifies browsing with no filters uses the safe default page and page size.
     [Fact]
     public async Task Search_WithoutFilters_UsesFirstPageAndDefaultPageSize()
     {
@@ -24,6 +26,7 @@ public class SearchAndFilterItemsStoryTests
         Assert.Null(captured.Value.Keyword);
     }
 
+    // Verifies valid combined filters are normalized and passed to the repository.
     [Fact]
     public async Task Search_ValidCombinedFilters_NormalizesAndForwardsEveryFilter()
     {
@@ -42,6 +45,7 @@ public class SearchAndFilterItemsStoryTests
         Assert.Equal(12, query.PageSize);
     }
 
+    // Verifies invalid categories stop the request before a database search.
     [Theory]
     [InlineData("Unsupported")]
     [InlineData("  invalid  ")]
@@ -55,6 +59,7 @@ public class SearchAndFilterItemsStoryTests
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies invalid item types stop the request before a database search.
     [Theory]
     [InlineData("ARCHIVED")]
     [InlineData("lost-and-found")]
@@ -68,6 +73,7 @@ public class SearchAndFilterItemsStoryTests
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies malformed date filters are rejected before a database search.
     [Theory]
     [InlineData("2026/09/01", null, "DateFrom")]
     [InlineData(null, "12-09-2026", "DateTo")]
@@ -81,6 +87,7 @@ public class SearchAndFilterItemsStoryTests
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies an inverted date range is rejected.
     [Fact]
     public async Task Search_DateFromAfterDateTo_ReturnsValidationProblemWithoutQueryingRepository()
     {
@@ -92,6 +99,7 @@ public class SearchAndFilterItemsStoryTests
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies invalid page numbers and page sizes are rejected.
     [Theory]
     [InlineData(0, 20, "Page")]
     [InlineData(1, 0, "PageSize")]
@@ -106,6 +114,7 @@ public class SearchAndFilterItemsStoryTests
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies no matches produce a successful empty page rather than an error.
     [Fact]
     public async Task Search_RepositoryReturnsNoMatches_ReturnsSuccessfulEmptyPage()
     {
@@ -121,12 +130,14 @@ public class SearchAndFilterItemsStoryTests
         Assert.Equal(0, page.TotalPages);
     }
 
+    // Verifies item cards/summaries never include hidden information.
     [Fact]
     public void BrowseSummaryContract_NeverContainsHiddenInformation()
     {
         Assert.DoesNotContain(typeof(ItemSummaryDto).GetProperties(), p => p.Name.Contains("Hidden", StringComparison.OrdinalIgnoreCase));
     }
 
+    // Verifies SQL wildcard characters are passed as literal search text.
     [Fact]
     public async Task Search_KeywordWithWildcardCharacters_IsForwardedAsLiteralInputToRepository()
     {
@@ -138,6 +149,7 @@ public class SearchAndFilterItemsStoryTests
         Assert.Equal("50%_off", captured.Value!.Keyword);
     }
 
+    // Verifies allowed pagination boundaries are accepted.
     [Fact]
     public async Task Search_ValidBoundaryPagination_IsAccepted()
     {
@@ -150,6 +162,7 @@ public class SearchAndFilterItemsStoryTests
         Assert.Equal(50, captured.Value.PageSize);
     }
 
+    // Verifies equal date bounds search one inclusive day.
     [Fact]
     public async Task Search_EqualDateBounds_AreAcceptedAsAnInclusiveSingleDayFilter()
     {
@@ -162,6 +175,7 @@ public class SearchAndFilterItemsStoryTests
         Assert.Equal(new DateOnly(2026, 9, 12), captured.Value.DateTo);
     }
 
+    // Verifies the LOST type is normalized for repository filtering.
     [Fact]
     public async Task Search_LostType_IsNormalizedBeforeReachingRepository()
     {
@@ -173,6 +187,7 @@ public class SearchAndFilterItemsStoryTests
         Assert.Equal("LOST", captured.Value!.ItemType);
     }
 
+    // Verifies a valid repository result keeps its paging metadata.
     [Fact]
     public async Task Search_ValidRepositoryPage_IsReturnedWithoutAlteringItsMetadata()
     {
@@ -195,6 +210,7 @@ public class SearchAndFilterItemsStoryTests
         Assert.Equal(2, actual.TotalPages);
     }
 
+    // Verifies whitespace-only keywords become an empty search.
     [Fact]
     public async Task Search_WhitespaceOnlyKeyword_IsNormalizedToAnEmptySearch()
     {

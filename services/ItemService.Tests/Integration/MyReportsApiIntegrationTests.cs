@@ -4,9 +4,11 @@ using Xunit;
 [Collection(ItemServiceIntegrationCollection.Name)]
 public sealed class MyReportsApiIntegrationTests
 {
+    // Story 8 API/MySQL checks: history is JWT-scoped and deletion is verified through the real endpoint.
     private readonly ItemServiceApiFactory _factory;
     public MyReportsApiIntegrationTests(ItemServiceApiFactory factory) => _factory = factory;
 
+    // Verifies one owner sees only their lost/found reports, current statuses, and no private values.
     [Fact]
     public async Task MyReports_OwnerReceivesOwnLostAndFoundReportsWithActiveAndResolvedStatuses_PrivateSafe()
     {
@@ -38,6 +40,7 @@ public sealed class MyReportsApiIntegrationTests
         Assert.DoesNotContain(foundSecret, foundJson, StringComparison.Ordinal);
     }
 
+    // Verifies a user-ID query string cannot bypass JWT-scoped history access.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -60,6 +63,7 @@ public sealed class MyReportsApiIntegrationTests
         Assert.DoesNotContain(ownerSecret, json, StringComparison.Ordinal);
     }
 
+    // Verifies anonymous history requests return 401.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -68,5 +72,25 @@ public sealed class MyReportsApiIntegrationTests
         using var client = _factory.CreateClient();
         var response = await client.GetAsync($"/api/items/{kind}/mine");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    // Verifies the owner delete endpoint succeeds and public details become unavailable.
+    [Theory]
+    [InlineData("lost")]
+    [InlineData("found")]
+    public async Task MyReports_OwnerCanDeleteOwnReportThroughTheBackendEndpoint(string kind)
+    {
+        var ownerId = Guid.NewGuid();
+        using var owner = TestAuthHelper.CreateClientWithValidCookie(_factory, ownerId);
+        const string hidden = "deleted-history-private";
+        using var form = kind == "lost" ? TestMultipartHelper.BuildValidForm(hidden) : TestMultipartHelper.BuildValidFoundForm(hidden);
+        var created = await owner.PostAsync($"/api/items/{kind}", form);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        var id = created.Headers.Location!.Segments.Last().Trim('/');
+        var delete = await owner.DeleteAsync($"/api/items/{kind}/{id}");
+        Assert.Equal(HttpStatusCode.OK, delete.StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/api/items/{id}")).StatusCode);
     }
 }

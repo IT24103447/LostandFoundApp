@@ -4,10 +4,12 @@ using Xunit;
 [Collection(ItemServiceIntegrationCollection.Name)]
 public sealed class MarkItemResolvedApiIntegrationTests
 {
+    // Story 5 API/MySQL checks: owner resolution, state changes, authorization, and event publication.
     private readonly ItemServiceApiFactory _factory;
 
     public MarkItemResolvedApiIntegrationTests(ItemServiceApiFactory factory) => _factory = factory;
 
+    // Verifies owner resolution of a lost report persists RESOLVED and emits a private-safe response/event pair.
     [Fact]
     public async Task ResolveLost_AsOwner_PersistsResolvedStatusReturnsPrivateSafeResponseAndPublishesEvent()
     {
@@ -31,6 +33,7 @@ public sealed class MarkItemResolvedApiIntegrationTests
         Assert.Contains("\"status\":\"RESOLVED\"", evt.JsonPayload, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Verifies owner resolution of a found report persists RESOLVED and emits a private-safe response/event pair.
     [Fact]
     public async Task ResolveFound_AsOwner_PersistsResolvedStatusReturnsPrivateSafeResponseAndPublishesEvent()
     {
@@ -54,6 +57,7 @@ public sealed class MarkItemResolvedApiIntegrationTests
         Assert.Contains("\"status\":\"RESOLVED\"", evt.JsonPayload, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Verifies a non-owner cannot resolve another user's active report.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -78,6 +82,7 @@ public sealed class MarkItemResolvedApiIntegrationTests
         Assert.Empty(_factory.FakeEvents.Published);
     }
 
+    // Verifies an unknown report cannot be resolved or publish an event.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -90,6 +95,7 @@ public sealed class MarkItemResolvedApiIntegrationTests
         Assert.Empty(_factory.FakeEvents.Published);
     }
 
+    // Verifies duplicate resolution returns 409 without a second event.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -109,6 +115,7 @@ public sealed class MarkItemResolvedApiIntegrationTests
         Assert.Single(_factory.FakeEvents.Published);
     }
 
+    // Verifies anonymous resolution is rejected with 401.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]

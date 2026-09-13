@@ -8,6 +8,7 @@ public record PublishedEvent(string Topic, string JsonPayload);
 
 public class FakeEventPublisher : IEventPublisher
 {
+    // Shared fake: records event topic and JSON so API tests can verify event contracts without a live Kafka broker.
     private readonly ConcurrentBag<PublishedEvent> _published = new();
 
     public ValueTask PublishAsync<T>(string topic, T payload, CancellationToken ct = default)

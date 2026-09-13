@@ -6,9 +6,11 @@ using Xunit;
 [Collection(ItemServiceIntegrationCollection.Name)]
 public sealed class ViewItemDetailsApiIntegrationTests
 {
+    // Story 6 API/MySQL checks: public details, privacy, 404 rules, and reporter access to resolved reports.
     private readonly ItemServiceApiFactory _factory;
     public ViewItemDetailsApiIntegrationTests(ItemServiceApiFactory factory) => _factory = factory;
 
+    // Verifies active lost and found reports return complete public details without private data.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -42,6 +44,7 @@ public sealed class ViewItemDetailsApiIntegrationTests
         Assert.DoesNotContain("userId", json, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Verifies malformed and unknown IDs return 404.
     [Theory]
     [InlineData("00000000-0000-0000-0000-000000000001")]
     [InlineData("not-a-guid")]
@@ -52,6 +55,7 @@ public sealed class ViewItemDetailsApiIntegrationTests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    // Verifies resolved reports are hidden from other users but remain available to their reporter.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -70,6 +74,7 @@ public sealed class ViewItemDetailsApiIntegrationTests
         Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync($"/api/items/{id}")).StatusCode);
     }
 
+    // Verifies soft-deleted rows cannot be retrieved through the public endpoint.
     [Theory]
     [InlineData("lost", "lost_items")]
     [InlineData("found", "found_items")]
@@ -92,6 +97,7 @@ public sealed class ViewItemDetailsApiIntegrationTests
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/items/{id}")).StatusCode);
     }
 
+    // Verifies the endpoint requires authentication.
     [Fact]
     public async Task Details_AnonymousRequest_Returns401()
     {

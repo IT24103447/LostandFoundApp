@@ -10,6 +10,7 @@ namespace ReportLostItemForm.SeleniumTests;
 
 public sealed class ReportFoundItemWizardTests : IDisposable
 {
+    // Story 2 browser flow: successful reporting, validation, photo handling, and privacy.
     private static string? _authToken;
     private readonly IWebDriver _driver;
     private readonly WebDriverWait _wait;
