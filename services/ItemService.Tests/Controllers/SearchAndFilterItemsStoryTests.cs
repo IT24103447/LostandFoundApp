@@ -15,7 +15,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = ReturningEmpty(out var captured);
 
-        var result = await new ItemsController(repo.Object).Search(null, null, null, null, null, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, null, null, null, null, ct: CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.NotNull(captured.Value);
@@ -29,7 +29,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = ReturningEmpty(out var captured);
 
-        var result = await new ItemsController(repo.Object).Search("  WALLET  ", "Accessories", "found", "2026-09-01", "2026-09-12", 2, 12, CancellationToken.None);
+        var result = await CreateController(repo.Object).Search("  WALLET  ", "Accessories", "found", "2026-09-01", "2026-09-12", 2, 12, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
         var query = Assert.IsType<ItemSearchQuery>(captured.Value);
@@ -49,7 +49,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = new Mock<IItemsSearchRepository>();
 
-        var result = await new ItemsController(repo.Object).Search(null, category, null, null, null, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, category, null, null, null, ct: CancellationToken.None);
 
         AssertValidationError(result, "Category");
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -62,7 +62,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = new Mock<IItemsSearchRepository>();
 
-        var result = await new ItemsController(repo.Object).Search(null, null, type, null, null, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, null, type, null, null, ct: CancellationToken.None);
 
         AssertValidationError(result, "Type");
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -75,7 +75,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = new Mock<IItemsSearchRepository>();
 
-        var result = await new ItemsController(repo.Object).Search(null, null, null, dateFrom, dateTo, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, null, null, dateFrom, dateTo, ct: CancellationToken.None);
 
         AssertValidationError(result, errorKey);
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -86,7 +86,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = new Mock<IItemsSearchRepository>();
 
-        var result = await new ItemsController(repo.Object).Search(null, null, null, "2026-09-12", "2026-09-01", ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, null, null, "2026-09-12", "2026-09-01", ct: CancellationToken.None);
 
         AssertValidationError(result, "DateRange");
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -100,7 +100,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = new Mock<IItemsSearchRepository>();
 
-        var result = await new ItemsController(repo.Object).Search(null, null, null, null, null, page, pageSize, CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, null, null, null, null, page, pageSize, CancellationToken.None);
 
         AssertValidationError(result, errorKey);
         repo.Verify(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -113,7 +113,7 @@ public class SearchAndFilterItemsStoryTests
         repo.Setup(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PagedResultDto<ItemSummaryDto> { Items = [], Page = 1, PageSize = 20, TotalCount = 0, TotalPages = 0 });
 
-        var result = await new ItemsController(repo.Object).Search("not-present", null, null, null, null, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search("not-present", null, null, null, null, ct: CancellationToken.None);
 
         var page = Assert.IsType<PagedResultDto<ItemSummaryDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Empty(page.Items);
@@ -132,7 +132,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = ReturningEmpty(out var captured);
 
-        var result = await new ItemsController(repo.Object).Search("  50%_off  ", null, null, null, null, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search("  50%_off  ", null, null, null, null, ct: CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.Equal("50%_off", captured.Value!.Keyword);
@@ -143,7 +143,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = ReturningEmpty(out var captured);
 
-        var result = await new ItemsController(repo.Object).Search(null, null, null, null, null, page: 1, pageSize: 50, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, null, null, null, null, page: 1, pageSize: 50, ct: CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.Equal(1, captured.Value!.Page);
@@ -155,7 +155,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = ReturningEmpty(out var captured);
 
-        var result = await new ItemsController(repo.Object).Search(null, null, null, "2026-09-12", "2026-09-12", ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, null, null, "2026-09-12", "2026-09-12", ct: CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.Equal(new DateOnly(2026, 9, 12), captured.Value!.DateFrom);
@@ -167,7 +167,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = ReturningEmpty(out var captured);
 
-        var result = await new ItemsController(repo.Object).Search(null, null, "lost", null, null, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, null, "lost", null, null, ct: CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.Equal("LOST", captured.Value!.ItemType);
@@ -187,7 +187,7 @@ public class SearchAndFilterItemsStoryTests
         var repo = new Mock<IItemsSearchRepository>();
         repo.Setup(r => r.SearchAsync(It.IsAny<ItemSearchQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync(expected);
 
-        var result = await new ItemsController(repo.Object).Search(null, null, null, null, null, page: 2, pageSize: 12, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search(null, null, null, null, null, page: 2, pageSize: 12, ct: CancellationToken.None);
 
         var actual = Assert.IsType<PagedResultDto<ItemSummaryDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Same(expected, actual);
@@ -200,7 +200,7 @@ public class SearchAndFilterItemsStoryTests
     {
         var repo = ReturningEmpty(out var captured);
 
-        var result = await new ItemsController(repo.Object).Search("   ", null, null, null, null, ct: CancellationToken.None);
+        var result = await CreateController(repo.Object).Search("   ", null, null, null, null, ct: CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.Equal(string.Empty, captured.Value!.Keyword);
@@ -216,6 +216,9 @@ public class SearchAndFilterItemsStoryTests
             .ReturnsAsync(new PagedResultDto<ItemSummaryDto>());
         return repo;
     }
+
+    private static ItemsController CreateController(IItemsSearchRepository search) =>
+        new(search, Mock.Of<ILostItemsRepository>(), Mock.Of<IFoundItemsRepository>());
 
     private static void AssertValidationError(ActionResult<PagedResultDto<ItemSummaryDto>> result, string key)
     {
