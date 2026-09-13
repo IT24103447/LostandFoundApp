@@ -19,6 +19,7 @@ public class ItemsSearchRepository : IItemsSearchRepository
     // parameter always has a concrete, correctly-typed value bound to it.
     private const string LostWhere = """
         li.status = 'ACTIVE'
+          AND li.deleted_at IS NULL
           AND (@hasType = 0 OR @typeValue = 'LOST')
           AND (@hasCategory = 0 OR li.category = @category)
           AND (@hasDateFrom = 0 OR li.date_lost >= @dateFrom)
@@ -31,6 +32,7 @@ public class ItemsSearchRepository : IItemsSearchRepository
 
     private const string FoundWhere = """
         fi.status = 'ACTIVE'
+          AND fi.deleted_at IS NULL
           AND (@hasType = 0 OR @typeValue = 'FOUND')
           AND (@hasCategory = 0 OR fi.category = @category)
           AND (@hasDateFrom = 0 OR fi.date_found >= @dateFrom)
