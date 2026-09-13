@@ -2,7 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using Xunit;
 
-public class FoundItemsApiIntegrationTests : IClassFixture<ItemServiceApiFactory>
+[Collection(ItemServiceIntegrationCollection.Name)]
+public class FoundItemsApiIntegrationTests
 {
     private readonly ItemServiceApiFactory _factory;
 

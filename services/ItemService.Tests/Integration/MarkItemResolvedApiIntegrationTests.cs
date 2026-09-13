@@ -1,7 +1,8 @@
 using System.Net;
 using Xunit;
 
-public sealed class MarkItemResolvedApiIntegrationTests : IClassFixture<ItemServiceApiFactory>
+[Collection(ItemServiceIntegrationCollection.Name)]
+public sealed class MarkItemResolvedApiIntegrationTests
 {
     private readonly ItemServiceApiFactory _factory;
 

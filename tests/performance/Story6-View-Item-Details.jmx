@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Story 6 - View Item Details" enabled="true">
+      <stringProp name="TestPlan.comments">Read-only public-details endpoint. Kafka is not applicable.</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="item_id" elementType="Argument"><stringProp name="Argument.name">item_id</stringProp><stringProp name="Argument.value">${__P(item_id,SET_AT_RUN_TIME)}</stringProp></elementProp>
+          <elementProp name="auth_token" elementType="Argument"><stringProp name="Argument.name">auth_token</stringProp><stringProp name="Argument.value">${__P(auth_token,SET_AT_RUN_TIME)}</stringProp></elementProp>
+          <elementProp name="expected_title" elementType="Argument"><stringProp name="Argument.name">expected_title</stringProp><stringProp name="Argument.value">${__P(expected_title,SET_AT_RUN_TIME)}</stringProp></elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Authenticated item-detail retrieval" enabled="true">
+        <stringProp name="ThreadGroup.num_threads">10</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">10</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true"><stringProp name="LoopController.loops">5</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET public item details" enabled="true">
+          <stringProp name="HTTPSampler.domain">localhost</stringProp><stringProp name="HTTPSampler.port">5001</stringProp><stringProp name="HTTPSampler.protocol">http</stringProp><stringProp name="HTTPSampler.path">/api/items/${item_id}</stringProp><stringProp name="HTTPSampler.method">GET</stringProp><boolProp name="HTTPSampler.follow_redirects">true</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"/></elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Authenticated request" enabled="true"><collectionProp name="HeaderManager.headers"><elementProp name="Cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${auth_token}</stringProp></elementProp></collectionProp></HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="HTTP 200" enabled="true"><collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp><stringProp name="Assertion.test_field">Assertion.response_code</stringProp><intProp name="Assertion.test_type">8</intProp></ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Expected public title" enabled="true"><collectionProp name="Asserion.test_strings"><stringProp name="1">${expected_title}</stringProp></collectionProp><stringProp name="Assertion.test_field">Assertion.response_data</stringProp><intProp name="Assertion.test_type">2</intProp></ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="No private field name" enabled="true"><collectionProp name="Asserion.test_strings"><stringProp name="1">hiddenInformation</stringProp></collectionProp><stringProp name="Assertion.test_field">Assertion.response_data</stringProp><intProp name="Assertion.test_type">6</intProp></ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

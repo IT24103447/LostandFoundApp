@@ -1,7 +1,8 @@
 using System.Net;
 using Xunit;
 
-public sealed class MyReportsApiIntegrationTests : IClassFixture<ItemServiceApiFactory>
+[Collection(ItemServiceIntegrationCollection.Name)]
+public sealed class MyReportsApiIntegrationTests
 {
     private readonly ItemServiceApiFactory _factory;
     public MyReportsApiIntegrationTests(ItemServiceApiFactory factory) => _factory = factory;

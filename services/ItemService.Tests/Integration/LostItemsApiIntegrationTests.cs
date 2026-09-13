@@ -1,8 +1,8 @@
 using System.Net;
 using Xunit;
 
+[Collection(ItemServiceIntegrationCollection.Name)]
 public class LostItemsApiIntegrationTests
-    : IClassFixture<ItemServiceApiFactory>
 {
     private readonly ItemServiceApiFactory _factory;
 
