@@ -104,7 +104,7 @@ public class FoundItemsRepository : IFoundItemsRepository
         const string itemSql = """
             SELECT id, user_id, title, category, description, date_found, location_found,
                    hidden_information, status, created_at, updated_at
-            FROM found_items WHERE id = @id LIMIT 1;
+            FROM found_items WHERE id = @id AND deleted_at IS NULL LIMIT 1;
             """;
         await using var conn = _db.Create();
         await conn.OpenAsync(ct);

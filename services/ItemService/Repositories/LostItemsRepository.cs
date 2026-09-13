@@ -103,7 +103,7 @@ public class LostItemsRepository : ILostItemsRepository
         const string itemSql = """
             SELECT id, user_id, title, category, description, date_lost, last_known_location,
                    hidden_information, status, created_at, updated_at
-            FROM lost_items WHERE id = @id LIMIT 1;
+            FROM lost_items WHERE id = @id AND deleted_at IS NULL LIMIT 1;
             """;
         await using var conn = _db.Create();
         await conn.OpenAsync(ct);
