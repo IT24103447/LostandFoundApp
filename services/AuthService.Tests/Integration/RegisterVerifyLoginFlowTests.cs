@@ -79,6 +79,11 @@ public class RegisterVerifyLoginFlowTests : IClassFixture<CustomWebApplicationFa
         var authCookieAfterVerify = verifyResponse.ExtractCookieValue("auth_token");
         Assert.False(string.IsNullOrEmpty(authCookieAfterVerify)); // verify-email logs the user straight in
 
+        // The JWT must also be returned in the body (not only as the cookie) so the
+        // cross-service frontend can re-attach it as a Bearer header on other hosts.
+        var verifyBody = await verifyResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.False(string.IsNullOrEmpty(verifyBody.GetProperty("token").GetString()));
+
         // Real Kafka publish was attempted with the right topic (captured, not sent to a real broker).
         Assert.True(_factory.FakeEvents.WasPublishedTo("user.verified"));
 
@@ -90,6 +95,7 @@ public class RegisterVerifyLoginFlowTests : IClassFixture<CustomWebApplicationFa
         var profile = await meResponse.Content.ReadFromJsonAsync<UserProfileDto>();
         Assert.Equal(email, profile!.Email);
         Assert.True(profile.IsEmailVerified);
+        Assert.False(string.IsNullOrEmpty(profile.Token));
 
         // --- 4. Logout, then confirm the old cookie no longer works implicitly (client discards it) ---
         var logoutRequest = CookieTestHelpers.NewJsonRequest(HttpMethod.Post, "/api/auth/logout")
@@ -106,6 +112,7 @@ public class RegisterVerifyLoginFlowTests : IClassFixture<CustomWebApplicationFa
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
         var loginBody = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
         Assert.Equal(email, loginBody!.Email);
+        Assert.False(string.IsNullOrEmpty(loginBody.Token));
 
         var authCookieAfterLogin = loginResponse.ExtractCookieValue("auth_token");
         Assert.False(string.IsNullOrEmpty(authCookieAfterLogin));

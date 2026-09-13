@@ -9,4 +9,5 @@ public class UserProfileDto
     public bool IsAdmin { get; set; }
     public bool IsEmailVerified { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string Token { get; set; } = string.Empty;
 }

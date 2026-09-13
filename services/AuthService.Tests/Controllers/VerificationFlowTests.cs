@@ -127,6 +127,11 @@ public class VerificationFlowTests
 
         Assert.IsType<OkObjectResult>(result);
 
+        // The JWT must be returned in the body (not only as the cookie) so the
+        // cross-service frontend can re-attach it as a Bearer header on other hosts.
+        var verifyBodyJson = System.Text.Json.JsonSerializer.Serialize(((OkObjectResult)result).Value);
+        Assert.Contains("fake.jwt.token", verifyBodyJson);
+
         _users.Verify(u => u.MarkEmailVerifiedAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
         _tokens.Verify(t => t.MarkUsedAsync(token.Id, It.IsAny<CancellationToken>()), Times.Once);
 

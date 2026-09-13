@@ -98,10 +98,11 @@ public class ProfileControllerTests
     // ---------- Scenario 1: View Profile ----------
 
     [Fact]
-    public async Task GetMe_AuthenticatedActiveVerifiedUser_ReturnsNameEmailAndPhone()
+    public async Task GetMe_AuthenticatedActiveVerifiedUser_ReturnsNameEmailPhoneAndFreshToken()
     {
         var user = ActiveVerifiedUser();
         _users.Setup(u => u.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _jwtTokenService.Setup(j => j.IssueLoginToken(user)).Returns("signed-jwt");
 
         var controller = BuildController(authenticatedUserId: user.Id);
         var result = await controller.GetMe(CancellationToken.None);
@@ -112,6 +113,10 @@ public class ProfileControllerTests
         Assert.Equal(user.Name, body.Name);
         Assert.Equal(user.Email, body.Email);
         Assert.Equal(user.PhoneNo, body.PhoneNo);
+
+        // /me mints a fresh JWT for the same user so the frontend can restore cross-service
+        // auth after a page refresh using "Authorization: Bearer <token>".
+        Assert.Equal("signed-jwt", body.Token);
     }
 
     [Fact]

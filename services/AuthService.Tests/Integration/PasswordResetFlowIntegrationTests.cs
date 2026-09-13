@@ -53,6 +53,10 @@ public class PasswordResetFlowIntegrationTests : IClassFixture<CustomWebApplicat
         Assert.Equal(HttpStatusCode.OK, resetResponse.StatusCode);
         // User was already verified, so a successful reset logs them straight in.
         Assert.False(string.IsNullOrEmpty(resetResponse.ExtractCookieValue("auth_token")));
+        // The JWT must also be returned in the body (not only as the cookie) so the
+        // cross-service frontend can re-attach it as a Bearer header on other hosts.
+        var resetBody = await resetResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(string.IsNullOrEmpty(resetBody.GetProperty("token").GetString()));
 
         // --- 3. Old password no longer works ---
         var loginWithOldPassword = await _client.PostAsJsonAsync("/api/auth/login", new LoginRequest

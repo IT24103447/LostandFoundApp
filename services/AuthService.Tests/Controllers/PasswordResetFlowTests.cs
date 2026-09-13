@@ -220,7 +220,12 @@ public class PasswordResetFlowTests
             NewPassword = "NewPass123"
         }, CancellationToken.None);
 
-        Assert.IsType<OkObjectResult>(result);
+Assert.IsType<OkObjectResult>(result);
+
+        // The JWT must be returned in the response body (not only as the cookie) so the
+        // cross-service frontend can re-attach it as a Bearer header on other hosts.
+        var resetBodyJson = System.Text.Json.JsonSerializer.Serialize(((OkObjectResult)result).Value);
+        Assert.Contains("fake.jwt.token", resetBodyJson);
 
         // Per AC: validates the OTP, hashes and stores the new password.
         _users.Verify(u => u.UpdatePasswordHashAsync(user.Id, "new-hash", It.IsAny<CancellationToken>()), Times.Once);

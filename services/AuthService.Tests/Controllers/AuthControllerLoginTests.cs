@@ -124,6 +124,11 @@ public class AuthControllerLoginTests
         Assert.False(body.IsAdmin); // client uses this flag to redirect to the user dashboard
         Assert.True(body.IsEmailVerified);
 
+        // The signed JWT must also be returned in the response body so the cross-service
+        // frontend (which can't receive the host-only cookie on other service origins) can
+        // attach it as "Authorization: Bearer <token>" on item/matching/admin calls.
+        Assert.Equal("signed-jwt-for-user", body.Token);
+
         // Credentials were checked against the hashed password, not compared in plaintext.
         _passwordHasher.Verify(h => h.Verify(ValidLoginRequest().Password, user.PasswordHash), Times.Once);
 

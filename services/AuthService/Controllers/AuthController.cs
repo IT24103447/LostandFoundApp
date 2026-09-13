@@ -240,7 +240,7 @@ public class AuthController : ControllerBase
 
         _logger.LogInformation("User {UserId} email verified and logged in.", userId.Value);
 
-        return Ok(new { verified = true, email = user.Email });
+        return Ok(new { verified = true, email = user.Email, token = jwtToken });
     }
 
     /// <summary>
@@ -348,7 +348,8 @@ public class AuthController : ControllerBase
 
     /// <summary>
     /// Authenticate a user by email + password. On success, issues a JWT as an httpOnly cookie
-    /// and returns the user's profile (no token in the response body).
+    /// AND returns the same JWT in the response body so the cross-service frontend can attach it
+    /// as "Authorization: Bearer <token>" on services that can't receive the host-only cookie.
     ///</summary>
     [HttpPost("login")]
     [EnableRateLimiting("login")]
@@ -419,7 +420,8 @@ public class AuthController : ControllerBase
             PhoneNo = user.PhoneNo,
             IsAdmin = user.IsAdmin,
             IsEmailVerified = user.IsEmailVerified,
-            CreatedAt = user.CreatedAt
+            CreatedAt = user.CreatedAt,
+            Token = token
         });
     }
 
@@ -734,7 +736,7 @@ public class AuthController : ControllerBase
 
         _logger.LogInformation("User {UserId} reset their password and logged in.", userId.Value);
 
-        return Ok(new { success = true });
+        return Ok(new { success = true, token = jwtToken });
     }
 
     private async Task<ActionResult<UserProfileDto>> GetUserProfileFromToken(CancellationToken ct)
@@ -770,7 +772,8 @@ public class AuthController : ControllerBase
             PhoneNo = user.PhoneNo,
             IsAdmin = user.IsAdmin,
             IsEmailVerified = user.IsEmailVerified,
-            CreatedAt = user.CreatedAt
+            CreatedAt = user.CreatedAt,
+            Token = _jwtTokenService.IssueLoginToken(user)
         });
     }
 
