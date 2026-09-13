@@ -7,6 +7,21 @@ export type ApiError = {
 
 let onAuthFailure: (() => void) | null = null;
 
+// In-memory cross-service JWT. Held ONLY in memory (never localStorage) so it keeps the
+// same XSS exposure profile as HttpOnly cookies. AuthService's own calls stay cookie-based;
+// other services get "Authorization: Bearer <token>" because they can't receive the
+// host-only auth cookie on their own origins.
+let apiAuthToken: string | null = null;
+
+export function setApiAuthToken(token: string | null) {
+  apiAuthToken = token;
+}
+
+function authHeaders(service: ApiService): Record<string, string> {
+  if (service === "auth" || !apiAuthToken) return {};
+  return { Authorization: `Bearer ${apiAuthToken}` };
+}
+
 export function setOnAuthFailure(cb: (() => void) | null) {
   onAuthFailure = cb;
 }
@@ -20,7 +35,7 @@ export async function apiPost<TReq, TRes>(
   const url = `${API_BASE_URLS[service]}${path}`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(service) },
     body: JSON.stringify(body),
     signal,
     credentials: "include",
@@ -51,6 +66,7 @@ export async function apiPostForm<TRes>(
   const res = await fetch(url, {
     method: "POST",
     body: formData,
+    headers: authHeaders(service),
     signal,
     credentials: "include",
   });
@@ -80,6 +96,7 @@ export async function apiPutForm<TRes>(
   const res = await fetch(url, {
     method: "PUT",
     body: formData,
+    headers: authHeaders(service),
     signal,
     credentials: "include",
   });
@@ -100,7 +117,7 @@ export async function apiGet<TRes>(
   signal?: AbortSignal,
 ): Promise<TRes> {
   const url = `${API_BASE_URLS[service]}${path}`;
-  const res = await fetch(url, { method: "GET", signal, credentials: "include" });
+  const res = await fetch(url, { method: "GET", headers: authHeaders(service), signal, credentials: "include" });
   const text = await res.text();
   const respBody = text ? safeParseJson(text) : null;
   if (!res.ok) {
@@ -119,7 +136,7 @@ export async function apiPut<TReq, TRes>(
   const url = `${API_BASE_URLS[service]}${path}`;
   const res = await fetch(url, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(service) },
     body: JSON.stringify(body),
     signal,
     credentials: "include",
@@ -144,7 +161,7 @@ export async function apiDelete<TReq, TRes>(
   const url = `${API_BASE_URLS[service]}${path}`;
   const res = await fetch(url, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(service) },
     body: JSON.stringify(body),
     signal,
     credentials: "include",

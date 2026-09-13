@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import type { UserProfile } from "./api/auth";
 import { getMe, logout as logoutApi, login as loginApi } from "./api/auth";
-import { setOnAuthFailure } from "../../lib/apiClient";
+import { setOnAuthFailure, setApiAuthToken } from "../../lib/apiClient";
 
 type AuthContextType = {
   user: UserProfile | null;
@@ -32,6 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const restore = async () => {
       try {
         const profile = await getMe();
+        // /me returns a fresh JWT — set it synchronously so any cross-service call made
+        // by a child component (mounted only after isLoading becomes false) already has it.
+        if (profile.token) setApiAuthToken(profile.token);
         if (!cancelled) setUser(profile);
       } catch {
         if (!cancelled) setUser(null);
@@ -47,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<UserProfile> => {
     const profile = await loginApi({ email, password });
+    if (profile.token) setApiAuthToken(profile.token);
     setUser(profile);
     return profile;
   };
@@ -57,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore logout errors — clear local state regardless
     }
+    setApiAuthToken(null);
     setUser(null);
   };
 
@@ -74,7 +79,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const interval = setInterval(async () => {
       try {
-        await getMe();
+        const profile = await getMe();
+        // Refresh the in-memory bearer token on the kick-detection poll so it never
+        // expires while the tab is open.
+        if (profile.token) setApiAuthToken(profile.token);
       } catch (err) {
         const status = typeof err === "object" && err !== null && "status" in err
           ? (err as { status: number }).status
@@ -90,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = async (): Promise<UserProfile | null> => {
     try {
       const profile = await getMe();
+      if (profile.token) setApiAuthToken(profile.token);
       setUser(profile);
       return profile;
     } catch {

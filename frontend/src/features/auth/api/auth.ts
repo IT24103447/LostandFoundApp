@@ -18,6 +18,7 @@ export type UserProfile = {
   isAdmin: boolean;
   isEmailVerified: boolean;
   createdAt: string;
+  token?: string | null;
 };
 
 export const login = (body: LoginRequest, signal?: AbortSignal) =>
