@@ -154,13 +154,34 @@ public class FoundItemsRepository : IFoundItemsRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task SoftDeleteAsync(Guid id, DateTime deletedAt, CancellationToken ct = default)
+    {
+        // "AND deleted_at IS NULL" makes this a no-op if the item was already
+        // deleted, instead of stomping the original deletion timestamp.
+        const string sql = """
+            UPDATE found_items
+            SET deleted_at = @deletedAt,
+                updated_at = @deletedAt
+            WHERE id = @id AND deleted_at IS NULL;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", id.ToString());
+        cmd.Parameters.AddWithValue("@deletedAt", deletedAt);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     public async Task<List<FoundItem>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
     {
+        // "AND deleted_at IS NULL" - without this, a soft-deleted item reappears
+        // here on the next fetch even though it was correctly removed from the
+        // database, because deleting an item never changes its status.
         const string itemsSql = """
             SELECT id, user_id, title, category, description, date_found, location_found,
                    hidden_information, status, created_at, updated_at
             FROM found_items
-            WHERE user_id = @userId
+            WHERE user_id = @userId AND deleted_at IS NULL
             ORDER BY created_at DESC;
             """;
 

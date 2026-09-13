@@ -153,17 +153,33 @@ public class LostItemsRepository : ILostItemsRepository
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task SoftDeleteAsync(Guid id, DateTime deletedAt, CancellationToken ct = default)
+    {
+        // "AND deleted_at IS NULL" makes this a no-op if the item was already
+        // deleted, instead of stomping the original deletion timestamp.
+        const string sql = """
+            UPDATE lost_items
+            SET deleted_at = @deletedAt,
+                updated_at = @deletedAt
+            WHERE id = @id AND deleted_at IS NULL;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", id.ToString());
+        cmd.Parameters.AddWithValue("@deletedAt", deletedAt);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     public async Task<List<LostItem>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
     {
-        // filtering by user_id at the SQL level, sourced only from the
-        // JWT-derived userId the controller passes in, is what makes it impossible
-        // to retrieve another user's reports - there is no id parameter accepted
-        // anywhere in this call path.
+        // Filters by user_id from the JWT, so a user can only ever see their own
+        // reports. "deleted_at IS NULL" keeps soft-deleted items out of this list.
         const string itemsSql = """
             SELECT id, user_id, title, category, description, date_lost, last_known_location,
                    hidden_information, status, created_at, updated_at
             FROM lost_items
-            WHERE user_id = @userId
+            WHERE user_id = @userId AND deleted_at IS NULL
             ORDER BY created_at DESC;
             """;
 

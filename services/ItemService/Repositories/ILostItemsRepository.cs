@@ -11,4 +11,5 @@ public interface ILostItemsRepository
     Task UpdateAsync(LostItem item, CancellationToken ct = default);
     Task DeletePhotosAsync(Guid lostItemId, CancellationToken ct = default);
     Task UpdateStatusAsync(Guid id, LostItemStatus status, DateTime updatedAt, CancellationToken ct = default);
+    Task SoftDeleteAsync(Guid id, DateTime deletedAt, CancellationToken ct = default);
 }

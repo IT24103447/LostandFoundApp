@@ -11,4 +11,5 @@ public interface IFoundItemsRepository
     Task DeletePhotosAsync(Guid foundItemId, CancellationToken ct = default);
     Task UpdateStatusAsync(Guid id, FoundItemStatus status, DateTime updatedAt, CancellationToken ct = default);
     Task<List<FoundItem>> GetByUserIdAsync(Guid userId, CancellationToken ct = default);
+    Task SoftDeleteAsync(Guid id, DateTime deletedAt, CancellationToken ct = default);
 }
