@@ -408,6 +408,55 @@ public class LostItemsController : ControllerBase
         return Ok(ToDto(item));
     }
 
+    /// Delete an Item Report story.
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteLostItem(Guid id, CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { error = "Invalid session." });
+        }
+
+        var item = await _items.GetByIdAsync(id, ct);
+        if (item is null)
+        {
+            return NotFound(new { error = "Lost item not found." });
+        }
+
+        // Scenario 2 - Unauthorized Deletion Attempt: only the original reporter may delete.
+        if (item.UserId != userId)
+        {
+            return StatusCode(403, new { error = "You are not allowed to delete this report." });
+        }
+
+        // Scenario 3 - Deletion Blocked by Confirmed Match.
+        if (item.Status == LostItemStatus.MATCHED)
+        {
+            return Conflict(new
+            {
+                error = "This item has a confirmed match and can't be deleted. Please resolve it instead."
+            });
+        }
+
+        var deletedAt = DateTime.UtcNow;
+        await _items.SoftDeleteAsync(item.Id, deletedAt, ct);
+
+        // Scenario 1 - notify the Matching Service so it can remove any related
+        // match records. Only the item ID and type are needed here.
+        await _publisher.PublishAsync($"{_kafka.TopicPrefix}.item.delete_requested", new ItemDeleteRequestedEvent
+        {
+            UserId = userId,
+            ItemId = item.Id,
+            ItemType = "LOST"
+        }, ct);
+
+        _logger.LogInformation("User {UserId} deleted lost item {LostItemId}.", userId, item.Id);
+
+        return Ok(new { message = "Item deleted." });
+    }
+
     [HttpGet("mine")]
     public async Task<ActionResult<List<LostItemResponseDto>>> GetMine(CancellationToken ct)
     {
