@@ -24,16 +24,18 @@ import {
   Watch,
   FileText,
   KeyRound,
+  Trash2,
 } from "lucide-react";
 import { AppHeader } from "../layout/AppHeader";
 import { LOST_ITEM_CATEGORIES } from "../schemas/reportLostItemSchema";
 import { FOUND_ITEM_CATEGORIES } from "../schemas/reportFoundItemSchema";
 import { getMyLostItems, getMyFoundItems } from "../api/myReports";
-import { resolveLostItem, type LostItemResponse } from "../api/reportLostItem";
-import { resolveFoundItem, type FoundItemResponse } from "../api/reportFoundItem";
+import { resolveLostItem, deleteLostItem, type LostItemResponse } from "../api/reportLostItem";
+import { resolveFoundItem, deleteFoundItem, type FoundItemResponse } from "../api/reportFoundItem";
 import { resolvePhotoUrl } from "../../../config/env";
 import type { ApiError } from "../../../lib/apiClient";
 import { ResolveConfirmModal } from "../components/ResolveConfirmModal";
+import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
 
 type ReportRow = {
   id: string;
@@ -116,6 +118,18 @@ function describeResolveError(err: unknown): string {
   return "We couldn't resolve this report right now. Please try again.";
 }
 
+// Turns a failed delete call into a message the user can act on.
+function describeDeleteError(err: unknown): string {
+  const apiErr = err as Partial<ApiError>;
+  if (apiErr?.status === 403) return "You're not allowed to delete this report.";
+  if (apiErr?.status === 409) {
+    const body = apiErr.body as { error?: string } | undefined;
+    return body?.error ?? "This item has a confirmed match and can't be deleted. Please resolve it instead.";
+  }
+  if (apiErr?.status === 404) return "This report couldn't be found. It may have already been deleted.";
+  return "We couldn't delete this report right now. Please try again.";
+}
+
 export function MyReportsPage() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<ReportRow[] | null>(null);
@@ -128,6 +142,10 @@ export function MyReportsPage() {
   const [resolveTarget, setResolveTarget] = useState<ReportRow | null>(null);
   const [isResolving, setIsResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<ReportRow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -216,6 +234,33 @@ export function MyReportsPage() {
     if (isResolving) return;
     setResolveTarget(null);
     setResolveError(null);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      if (deleteTarget.kind === "lost") {
+        await deleteLostItem(deleteTarget.id);
+      } else {
+        await deleteFoundItem(deleteTarget.id);
+      }
+      setRows((prev) =>
+        prev ? prev.filter((r) => !(r.id === deleteTarget.id && r.kind === deleteTarget.kind)) : prev,
+      );
+      setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(describeDeleteError(err));
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  function closeDeleteModal() {
+    if (isDeleting) return;
+    setDeleteTarget(null);
+    setDeleteError(null);
   }
 
   return (
@@ -484,6 +529,14 @@ export function MyReportsPage() {
                         >
                           Mark as Resolved
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(row)}
+                          aria-label="Delete report"
+                          className="flex-shrink-0 rounded-xl border-2 border-gray-300 px-3 py-2.5 text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -547,6 +600,25 @@ export function MyReportsPage() {
               role="alert"
             >
               {resolveError}
+            </div>
+          )}
+        </>
+      )}
+
+      {deleteTarget && (
+        <>
+          <DeleteConfirmModal
+            item={deleteTarget}
+            isSubmitting={isDeleting}
+            onConfirm={confirmDelete}
+            onCancel={closeDeleteModal}
+          />
+          {deleteError && (
+            <div
+              className="fixed inset-x-0 bottom-6 z-[60] mx-auto w-fit rounded-xl bg-red-600 px-5 py-3 text-sm font-medium text-white shadow-lg"
+              role="alert"
+            >
+              {deleteError}
             </div>
           )}
         </>

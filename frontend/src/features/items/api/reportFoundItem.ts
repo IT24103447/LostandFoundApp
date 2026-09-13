@@ -45,6 +45,15 @@ export const resolveFoundItem = (
 ): Promise<FoundItemResponse> =>
   apiPost<Record<string, never>, FoundItemResponse>("items", `/api/items/found/${id}/resolve`, {}, signal);
 
+// Delete an Item Report story. Backend enforces ownership (403) and blocks
+// deletion of items with a confirmed match (409) — this call carries no body,
+// the id in the path is all the server needs.
+export const deleteFoundItem = (
+  id: string,
+  signal?: AbortSignal,
+): Promise<{ message: string }> =>
+  apiDelete<undefined, { message: string }>("items", `/api/items/found/${id}`, undefined, signal);
+
 export type ReportFoundItemPayload = {
   title: string;
   category: string;
