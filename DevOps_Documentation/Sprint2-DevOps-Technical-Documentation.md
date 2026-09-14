@@ -2,7 +2,7 @@
 
 **Service:** Item Service
 **Sprint:** 2
-**Status:** Deployed, verified live; functional smoke tests pending
+**Status:** Deployed, verified end-to-end (live API, UI smoke tests, all 7 Kafka topics confirmed).
 
 ---
 
@@ -12,7 +12,7 @@
 Microservice architecture, 4 independently deployable services (Auth, Item, Matching, Admin Verify - Item built by Sprint 2), each with its own MySQL schema. No API gateway - the frontend calls each service's App Service URL directly over REST. Services communicate with each other asynchronously via a shared, self-hosted Kafka broker, never via direct synchronous calls to one another. Item Service adds one infrastructure piece Auth Service never needed: **Azure Blob Storage** for uploaded item photos.
 
 Key architectural facts established during Sprint 2:
-- **One-way event flow.** Item Service **produces** its own events, and **nothing in the repo consumes any event yet** - Matching Service (Sprint 3) is the intended consumer.
+- **One-way event flow.** Item Service **produces** its own events (all 7 `items.*` topics confirmed publishing on the live broker), and **nothing in the repo consumes any event yet** - Matching Service (Sprint 3) is the intended consumer.
 - **How Item Service authenticates users:** it does NOT consume Auth events. It validates the caller's JWT synchronously via `JwtBearer` middleware using the shared secret, and reads `UserId` from the token's `sub` claim. The cross-service Bearer flow (section 6) makes this work.
 
 ### 1.2 Technology choices retained from Sprint 1
@@ -84,7 +84,7 @@ Identical gating to Sprint 1: migration/seed logic in `Program.cs` runs **only u
 
 - **V001-V004** - consolidated into `DevOps_Documentation/azure-item_db-migration.sql` and run once against Azure `item_db`
 - **V005 + V006** - `deleted_at DATETIME(3) NULL` plus `ix_lost_items_deleted_at` / `ix_found_items_deleted_at`, consolidated into `DevOps_Documentation/azure-item_db-migration-v005-v006.sql` and **applied manually to `item_db`**
-  - **Important forward-compatibility note:** the *deployed* Item Service code does not yet reference `deleted_at` anywhere. That filtering ships with the LF-67/68 merge. The columns existing now is safe - nothing on the live app queries them, and the merge's code will find them ready.
+  - **Ordering note:** V005/V006 were applied to Azure *before* the LF-67/68 merge deployed, eliminating the pending-schema deploy risk. The deployed code now queries `deleted_at`; soft-delete is verified live (deleted items return **404** on subsequent GET and vanish from `/mine`).
 
 **Execution method:** direct `mysql` CLI (Azure Database for MySQL Flexible Server has no built-in Portal query editor):
 ```powershell
@@ -134,20 +134,15 @@ Topics are `{TopicPrefix}.{eventType}`. Early in Sprint 2 the prefix was inconsi
 
 ### 5.2 Events ITEM SERVICE PRODUCES
 
-
+All 7 topics below were confirmed producing on the live broker (per-topic `kafka-console-consumer --from-beginning` verification, section 9.3):
 
 | Topic | Event class | Triggered by | Key payload |
 |---|---|---|---|
 | `items.lost_item.created` | `LostItemCreatedEvent` | `POST /api/items/lost` | Full lost item: `LostItemId`, `Title`, `Category`, `Description`, `DateLost`, `LastKnownLocation`, `HiddenInformation`, `Status`, `PhotoUrls`, `CreatedAt` |
 | `items.lost_item.updated` | `LostItemUpdatedEvent` | `PUT /api/items/lost/{id}` | Full lost item + `UpdatedAt` |
+| `items.lost_item.resolved` | `LostItemResolvedEvent` | Resolve lost item | Full state incl. `ResolvedAt` |
 | `items.found_item.created` | `FoundItemCreatedEvent` | `POST /api/items/found` | Full found item incl. `HiddenInformation`, `LocationFound`, `PhotoUrls`, `CreatedAt` |
 | `items.found_item.updated` | `FoundItemUpdatedEvent` | `PUT /api/items/found/{id}` | Full found item + `UpdatedAt` |
-
-**Authored in code but NOT deployed (feature/Item-Service branch only - LF-66/LF-68):**
-
-| Topic | Event class | Triggered by | Key payload |
-|---|---|---|---|
-| `items.lost_item.resolved` | `LostItemResolvedEvent` | Resolve lost item | Full state incl. `ResolvedAt` |
 | `items.found_item.resolved` | `FoundItemResolvedEvent` | Resolve found item | Full state incl. `ResolvedAt` |
 | `items.item.delete_requested` | `ItemDeleteRequestedEvent` | Delete lost **or** found report (published from both controllers) | `ItemId`, `ItemType` ("LOST"/"FOUND") only |
 
@@ -178,6 +173,7 @@ Item Service authenticates callers with `JwtBearer` (shared secret, `Program.cs:
 - `GET /api/items?q=smoke` with a valid Bearer token -> **200** (search results returned)
 - Same endpoint **without** a token -> **401** 
 - Login against the live Auth Service returns a JWT in the response body (verified this session)
+- The new merged endpoints also return **200** with a Bearer token: item details (`GET /api/items/lost|found/{id}`), `/mine`, resolve, and delete - confirming auth holds across the whole LF-66..69 surface (section 9).
 
 **Design note:** this is a synchronous auth mechanism - Item Service and Auth Service have no `auth.*` consumer relationship (section 5.3). "Cross-service auth" here means *JWT validation*, not *event consumption*.
 
@@ -231,9 +227,23 @@ Direct HTTP checks against the deployed Azure endpoints
 | Login issues JWT in body | `POST /api/auth/login` (user1@example.com) | **200**, `token` present |
 | Browse/search with auth | `GET /api/items?q=smoke` + Bearer | **200**, results returned |
 | Browse/search without auth | `GET /api/items?q=smoke`, no header | **401** - auth enforced |
-| `/mine` endpoints | `GET /api/items/lost/mine` (+ Bearer) | **404** - expected: LF-69 merge not deployed |
+| `/mine` endpoints | `GET /api/items/lost/mine` / `/found/mine` + Bearer | **200** - LF-69 live after merge |
+| Item details | `GET /api/items/lost|found/{id}` + Bearer | **200** - LF-67 live after merge |
+| Resolve | `POST /api/items/lost|found/{id}/resolve` + Bearer | **200** (owner, ACTIVE); second call **409**; non-reporter **403**; unknown id **404**; no token **401** - LF-66 |
+| Delete | `DELETE /api/items/lost|found/{id}` + Bearer | **200**; subsequent GET by id **404** + absent from `/mine` (soft-delete); non-reporter **403** - LF-68 |
 | Swagger | `GET /swagger/index.html` | **404** - expected: disabled in Production |
 | Root path | `GET /` | **404** - expected: no content |
+
+### 9.2 UI smoke tests (manual, all passed)
+- Report a Lost Item end-to-end (wizard + photo) - appears in My Reports
+- Report a Found Item end-to-end (wizard + photo) - appears in My Reports
+- Edit/update a lost and a found report from My Reports - saves correctly
+- Mark reports as resolved from My Reports - status flips to RESOLVED
+- Delete reports from My Reports - removed, soft-deleted server-side
+- Homepage browse: search box and category/date filters return expected subsets
+
+### 9.3 Kafka event verification (all topics confirmed)
+One-shot capture per topic with `kafka-console-consumer --topic <t> --from-beginning --bootstrap-server lostfound-kafka.southeastasia.azurecontainer.io:9092` while exercising report/edit/resolve/delete live. Confirmed messages on all 7 topics - `items.lost_item.created` / `.updated` / `.resolved`, `items.found_item.created` / `.updated` / `.resolved`, `items.item.delete_requested` - with payloads matching the section 5.2 event shapes.
 
 
 
@@ -241,10 +251,10 @@ Direct HTTP checks against the deployed Azure endpoints
 
 ## 10. Known Limitations & Deliberate Deferrals
 
-- **Report/edit/photo smoke tests are pending** against live (section 9.2) - feature implementation is complete and CI-tested; only the manual live pass remains.
-- **`feature/Item-Service` merge is local-only.** The LF-66 (resolve), LF-67 (item details), LF-68 (delete/soft-delete), LF-69 (My Reports `/mine`) work plus the `deleted_at` code lives in the feature branch; `develop` is ahead of `origin/develop`. Deliberately not deployed this sprint; the `deleted_at` columns already exist in `item_db` so the later deployment is forward-compatible (section 3.2). The resolve/delete Kafka events from section 5.2 are authored but dormant until that merge ships.
-- **No Kafka consumers exist yet.** All `items.*` topics currently have zero subscribers; Matching Service (Sprint 3) is the intended consumer of `.created`/`.updated`/`.resolved`/`.delete_requested`. Admin/Matching services contain no Kafka code yet.
-- **Kafka broker may be stopped** (cost-saving `az container stop` is standard practice - it's the only continuously-billed resource). Check `az container show` before any event-dependent smoke test; start/stop of the *same* group preserves the public IP and FQDN.
+- **Details-page primary CTA is a deferred placeholder.** "I Found This Item" / "This Is My Item" on the item details page has no handler (`ItemDetailsPage.tsx` TODO) - the ownership-verification / matching conversation is a Sprint-3 Matching Service story. Item reports already capture `HiddenInformation` at create time, so the data needed for verification exists; only the participation/verification flow is missing. This is the one non-functional control in the shipped UI.
+- **`MATCHED` status can't be produced live.** Delete of a `MATCHED` item returns 409 by code, and resolve requires `ACTIVE`; both guarded branches are unit-tested but not exercisable end-to-end until Matching Service (Sprint 3) can create matches.
+- **No Kafka consumers exist yet.** All `items.*` topics are *verified publishing* (section 9.3) but have zero subscribers; Matching Service (Sprint 3) is the intended consumer of `.created`/`.updated`/`.resolved`/`.delete_requested`. Admin/Matching services contain no Kafka code yet.
+- **Kafka broker may be stopped** (cost-saving `az container stop` is standard practice - it's the only continuously-billed resource). Check `az container show` before any event-dependent test; start/stop of the *same* group preserves the public IP and FQDN.
 - **Blob container is public (`container` level)** - includes blob listing, broader than strictly needed; deliberate for the free static-URL pattern, no sensitive data (section 4.1). Tightening requires SAS + a code change (deferred).
 - **`HiddenInformation` crosses a public plaintext broker** in create/update/resolve events - accepted design risk for the future privileged Matching consumer (section 5.5).
 - **Matching Service and Admin Verify Service not yet built** (Sprints 3-4); their frontend base URLs are placeholder `localhost` values ported from Sprint 1 and unchanged.

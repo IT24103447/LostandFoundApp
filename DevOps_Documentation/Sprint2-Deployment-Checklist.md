@@ -1,8 +1,9 @@
 # Sprint 2 - Item Service Deployment Checklist
 
-**Scope:** covers what is ALREADY deployed to Azure and verified live. The
-`feature/Item-Service` merge (LF-66 resolve / LF-67 item details / LF-68 delete /
-LF-69 My Reports `/mine` endpoints) is intentionally NOT included - it is local-only
+**Scope:** covers what is ALREADY deployed to Azure and verified live end-to-end,
+including the `feature/Item-Service` merge (LF-66 resolve / LF-67 item details /
+LF-68 delete / LF-69 My Reports `/mine` endpoints) - merged to `develop`, deployed via
+CI/CD, and smoke-tested.
 
 ---
 
@@ -34,7 +35,7 @@ Selenium + JMeter test coverage. This was the functional work the deployment bel
 - [x] Migrations V001-V004 run against Azure `item_db` via consolidated `DevOps_Documentation/azure-item_db-migration.sql`
 - [x] Schema verified: `lost_items`, `lost_item_photos`, `found_items`, `found_item_photos` present with correct columns
 - [x] **V005 + V006 applied** (manual run on `item_db`): `deleted_at DATETIME(3) NULL` + `ix_lost_items_deleted_at` / `ix_found_items_deleted_at`
-  - Note: the *deployed* Item Service code does not reference `deleted_at` yet (it arrives with the LF-67/68 merge). Columns are present and forward-compatible; nothing on the live app queries them.
+  - Note: V005/V006 ran **before** the LF-67/68 merge deployed, so the live code now queries `deleted_at` - soft-delete is active and verified (deleted items 404 on subsequent GET).
 - [x] SSL/TLS (`SslMode=Required`) confirmed in the production connection string
 
 ## App Service Configuration (`lostfound-item-service`)
@@ -76,29 +77,38 @@ Selenium + JMeter test coverage. This was the functional work the deployment bel
 - [x] Login works against live Auth Service - returns a JWT in the response body
 - [x] `GET /api/items?q=smoke` with Bearer token -> **200**, returns search results
 - [x] `GET /api/items?q=smoke` **without** token -> **401** (auth is enforced)
-- [x] `GET /api/items/lost/mine` / `/found/mine` -> **404** (expected - `/mine` endpoints ship with the LF-69 merge, not yet deployed)
+- [x] `GET /api/items/lost/mine` / `/found/mine` -> **200** (LF-69 `/mine` deployed and working after the merge)
+- [x] Item details `GET /api/items/lost|found/{id}` -> **200** (LF-67, deployed after the merge)
+- [x] Resolve `POST /api/items/lost|found/{id}/resolve` -> **200** on owner/ACTIVE; re-resolve -> **409**; non-reporter -> **403**; unknown id -> **404**; no token -> **401** (LF-66)
+- [x] Delete `DELETE /api/items/lost|found/{id}` -> **200**; soft-deleted (GET by id then **404**, gone from `/mine`); non-reporter -> **403** (LF-68)
 - [x] `/swagger` and `/` on the Item Service -> **404** (expected - Swagger is intentionally disabled in Production; root has no content)
 
-## Live Smoke Tests to Complete
+## Live Smoke Tests - COMPLETE (all passed)
 
-These are implemented + CI-tested, but not yet manually exercised against the live
-deployment.
+Manual verification done against the live deployment (feature implementation had CI + unit tests).
 
 - [x] Report a Lost Item end-to-end (wizard + photo)
 - [x] Report a Found Item end-to-end (wizard + photo)
-- [ ] Edit/update a report
+- [x] Edit/update a report (lost + found) from My Reports
+- [x] Mark reports as resolved from My Reports (lost + found)
+- [x] Delete reports (disappear from My Reports, soft-deleted server-side)
 - [x] Browse/search with filters and pagination from the UI
-- [x] Confirm Item Service `items.*` Kafka topics on the broker.
+- [x] Confirm Item Service `items.*` Kafka topics on the broker - **all 7 topics verified**
+  (`items.lost_item.created/.updated/.resolved`, `items.found_item.created/.updated/.resolved`,
+  `items.item.delete_requested`) via per-topic `kafka-console-consumer --from-beginning`
 
 ## Known / Accepted Non-Blockers
 
-- Item Service **report/edit/photo** flows are implemented and CI-tested but not yet
-  manually smoke-tested against the live deployment (flagged above).
-- `feature/Item-Service` merge (LF-66/67/68/69 + V005-V006 *code*) is **local-only**
-  (`develop` is ahead of `origin/develop`); not deployed in this sprint by design.
+- **Details-page primary CTA is a deferred placeholder.** "I Found This Item" / "This Is My Item"
+  on the item details page has no handler (`ItemDetailsPage.tsx` TODO) - the ownership-verification
+  / matching flow depends on the Sprint-3 Matching Service. Data is ready on the Item Service side
+  (`HiddenInformation` is captured at report time). Expected, not a bug.
+- **`MATCHED` status can't be exercised live.** Delete of a MATCHED item returns 409 by design, but a
+  `MATCHED` record is only created by the Matching Service (Sprint 3) - that 409 branch is unit-tested only.
 - Kafka ACI is commonly stopped to save cost (`az container stop`); it bills
   continuously while running. Confirm broker state before event-dependent smoke tests.
 - Matching Service and Admin Verify Service are not yet built (Sprints 3-4); the
   frontend's `VITE_MATCHING_API_BASE_URL` / `VITE_ADMIN_API_BASE_URL` are placeholder
-  `localhost` values, and Kafka `items.*.resolved` / `*.delete_requested` events have no consumer yet - expected, not a bug.
+  `localhost` values, and the `items.*` topics have no in-repo consumer yet (broker publish is
+  verified; consumption arrives with Matching Service) - expected, not a bug.
 - Swagger is intentionally disabled in Production (`Program.cs` gates it to Development) - a 404 on `/swagger` is correct.
