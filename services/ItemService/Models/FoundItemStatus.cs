@@ -4,5 +4,6 @@ public enum FoundItemStatus
 {
     ACTIVE,
     MATCHED,
-    CLOSED
+    CLOSED,
+    RESOLVED
 }

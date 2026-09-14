@@ -48,3 +48,24 @@ export const browseItems = (
 
   return apiGet<PagedResult<ItemSummary>>("items", `/api/items?${qs.toString()}`, signal);
 };
+
+export type ItemPhoto = { id: string; url: string };
+
+// Shape returned by GET /api/items/{id} — the public item-details endpoint.
+// Never includes hiddenInformation or userId; the backend excludes both.
+export type ItemDetail = {
+  id: string;
+  type: ItemType;
+  title: string;
+  description: string;
+  category: string;
+  location: string;   // lastKnownLocation or locationFound
+  date: string;        // dateLost or dateFound, yyyy-MM-dd
+  status: string;
+  photoUrls: string[];
+  photo: ItemPhoto | null;
+  createdAt: string;
+};
+
+export const getItemDetails = (id: string, signal?: AbortSignal): Promise<ItemDetail> =>
+  apiGet<ItemDetail>("items", `/api/items/${id}`, signal);

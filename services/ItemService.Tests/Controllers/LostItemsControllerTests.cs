@@ -15,6 +15,7 @@ using ItemService.Services;
 
 public class LostItemsControllerTests
 {
+    // Story 1: valid-report, response-privacy, and date-validation behaviour.
     private readonly Mock<ILostItemsRepository> _repo = new();
     private readonly Mock<IPhotoStorageService> _photoStorage = new();
     private readonly Mock<IEventPublisher> _publisher = new();
@@ -62,6 +63,7 @@ public class LostItemsControllerTests
     };
 
     // UNIT-01
+    // Verifies that an authenticated reporter creates an ACTIVE lost report.
     [Fact]
     public async Task ReportLostItem_ValidRequest_ReturnsCreatedWithActiveStatus()
     {
@@ -77,6 +79,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-02 / API-20 (hidden info never exposed via DTO)
+    // Verifies that the browser-facing create response does not disclose hidden information.
     [Fact]
     public async Task ReportLostItem_ResponseDto_NeverContainsHiddenInformation()
     {
@@ -95,6 +98,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-09 (fixed: BadRequestObjectResult)
+    // Verifies that future lost dates are rejected before persistence.
     [Fact]
     public async Task ReportLostItem_FutureDateLost_ReturnsValidationProblem()
     {
@@ -111,6 +115,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-10 (boundary — today is allowed)
+    // Verifies the inclusive boundary: today's lost date is valid.
     [Fact]
     public async Task ReportLostItem_DateLostIsToday_IsAccepted()
     {
@@ -124,6 +129,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-08 (fixed: BadRequestObjectResult)
+    // Verifies malformed dates return a validation problem instead of being stored.
     [Fact]
     public async Task ReportLostItem_MalformedDateLost_ReturnsValidationProblem()
     {
@@ -139,6 +145,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-15 (fixed: BadRequestObjectResult)
+    // Verifies the one-photo limit is enforced.
     [Fact]
     public async Task ReportLostItem_TooManyPhotos_ReturnsValidationProblem()
     {
@@ -158,6 +165,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-16
+    // Verifies oversized photos are rejected before storage.
     [Fact]
     public async Task ReportLostItem_PhotoExceedsMaxSize_ReturnsValidationProblem()
     {
@@ -173,6 +181,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-17 (fixed: BadRequestObjectResult)
+    // Verifies unsupported photo media types are rejected.
     [Fact]
     public async Task ReportLostItem_DisallowedContentType_ReturnsValidationProblem()
     {
@@ -188,6 +197,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-18 (fixed: BadRequestObjectResult)
+    // Verifies zero-byte photos are rejected.
     [Fact]
     public async Task ReportLostItem_ZeroLengthPhoto_ReturnsValidationProblem()
     {
@@ -203,6 +213,7 @@ public class LostItemsControllerTests
     }
 
     // API-08 / UNIT-05 — photos truly optional
+    // Verifies a report without a photo still succeeds and does not create a photo association.
     [Fact]
     public async Task ReportLostItem_NoPhotos_StillSucceeds_AndSkipsAddPhotoCall()
     {
@@ -217,6 +228,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-13 / API-22 — Kafka event carries hidden information
+    // Verifies the created-event payload retains the private verification value for Matching Service.
     [Fact]
     public async Task ReportLostItem_PublishesEvent_ContainingHiddenInformation()
     {
@@ -237,6 +249,7 @@ public class LostItemsControllerTests
     }
 
     // UNIT-20
+    // Verifies an unknown report ID maps to a 404 response.
     [Fact]
     public async Task GetById_ItemDoesNotExist_ReturnsNotFound()
     {
@@ -249,6 +262,7 @@ public class LostItemsControllerTests
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 
+    // Verifies whitespace-only titles are invalid.
     [Fact]
     public async Task ReportLostItem_WhitespaceOnlyTitle_IsRejected()
     {
@@ -263,6 +277,7 @@ public class LostItemsControllerTests
         Assert.Contains("Title", problem.Errors.Keys);
     }
 
+    // Verifies categories outside the approved list are invalid.
     [Fact]
     public async Task ReportLostItem_UnsupportedCategory_IsRejected()
     {

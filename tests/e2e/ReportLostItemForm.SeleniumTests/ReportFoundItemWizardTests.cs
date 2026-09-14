@@ -10,6 +10,7 @@ namespace ReportLostItemForm.SeleniumTests;
 
 public sealed class ReportFoundItemWizardTests : IDisposable
 {
+    // Story 2 browser flow: successful reporting, validation, photo handling, and privacy.
     private static string? _authToken;
     private readonly IWebDriver _driver;
     private readonly WebDriverWait _wait;
@@ -46,6 +47,7 @@ public sealed class ReportFoundItemWizardTests : IDisposable
 
         _driver.FindElement(By.XPath("//button[contains(text(),'Report Found Item')]")).Click();
         _wait.Until(d => d.Url.Contains("/report-found-item/success", StringComparison.Ordinal));
+        _wait.Until(d => d.FindElement(By.XPath("//h1[normalize-space()='Found Item Reported Successfully']")).Displayed);
 
         Assert.Contains("Found Item Reported Successfully", _driver.PageSource);
         Assert.Contains("ACTIVE", _driver.PageSource);
@@ -64,6 +66,7 @@ public sealed class ReportFoundItemWizardTests : IDisposable
 
         _driver.FindElement(By.XPath("//button[contains(text(),'Report Found Item')]")).Click();
         _wait.Until(d => d.Url.Contains("/report-found-item/success", StringComparison.Ordinal));
+        _wait.Until(d => d.FindElement(By.XPath("//h1[normalize-space()='Found Item Reported Successfully']")).Displayed);
 
         Assert.DoesNotContain(secret, _driver.PageSource, StringComparison.Ordinal);
         Assert.Contains("Hidden", _driver.PageSource, StringComparison.Ordinal);

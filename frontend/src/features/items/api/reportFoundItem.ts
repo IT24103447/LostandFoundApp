@@ -1,4 +1,4 @@
-import { apiGet, apiPut, apiPutForm, apiPostForm, apiDelete } from "../../../lib/apiClient";
+import { apiGet, apiPost, apiPut, apiPutForm, apiPostForm, apiDelete } from "../../../lib/apiClient";
 import type { ItemPhoto } from "./reportLostItem";
 
 export type UpdateFoundItemPayload = {
@@ -35,6 +35,24 @@ export const deleteFoundItemPhoto = (
   signal?: AbortSignal,
 ): Promise<FoundItemResponse> =>
   apiDelete<undefined, FoundItemResponse>("items", `/api/items/found/${id}/photo`, undefined, signal);
+
+// Marks the caller's own found-item report as resolved. Backend enforces
+// ownership (403) and that the item is currently ACTIVE (409) — this call
+// carries no body, the id in the path is all the server needs.
+export const resolveFoundItem = (
+  id: string,
+  signal?: AbortSignal,
+): Promise<FoundItemResponse> =>
+  apiPost<Record<string, never>, FoundItemResponse>("items", `/api/items/found/${id}/resolve`, {}, signal);
+
+// Delete an Item Report story. Backend enforces ownership (403) and blocks
+// deletion of items with a confirmed match (409) — this call carries no body,
+// the id in the path is all the server needs.
+export const deleteFoundItem = (
+  id: string,
+  signal?: AbortSignal,
+): Promise<{ message: string }> =>
+  apiDelete<undefined, { message: string }>("items", `/api/items/found/${id}`, undefined, signal);
 
 export type ReportFoundItemPayload = {
   title: string;

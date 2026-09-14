@@ -5,6 +5,7 @@
 /// </summary>
 public static class TestFiles
 {
+    // Shared fixture-file paths used by the photo upload browser checks.
     // BaseDirectory is the bin/Debug/net8.0/ folder at runtime.
     private static readonly string AssetsDir =
         Path.Combine(AppContext.BaseDirectory, "TestAssets");

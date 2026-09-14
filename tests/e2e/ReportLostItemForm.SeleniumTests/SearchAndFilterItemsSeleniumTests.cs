@@ -7,6 +7,7 @@ namespace ReportLostItemForm.SeleniumTests;
 /// <summary>Story 4 browser checks for the authenticated Find an Item page.</summary>
 public class SearchAndFilterItemsSeleniumTests : IClassFixture<ReportLostItemFixture>
 {
+    // Story 4 browser flow: search inputs, filters, empty states, and private-data-safe result cards.
     private readonly IWebDriver _driver;
     private readonly WebDriverWait _wait;
 

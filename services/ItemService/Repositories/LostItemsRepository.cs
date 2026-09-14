@@ -103,7 +103,7 @@ public class LostItemsRepository : ILostItemsRepository
         const string itemSql = """
             SELECT id, user_id, title, category, description, date_lost, last_known_location,
                    hidden_information, status, created_at, updated_at
-            FROM lost_items WHERE id = @id LIMIT 1;
+            FROM lost_items WHERE id = @id AND deleted_at IS NULL LIMIT 1;
             """;
         await using var conn = _db.Create();
         await conn.OpenAsync(ct);
@@ -134,6 +134,99 @@ public class LostItemsRepository : ILostItemsRepository
         }
 
         return item;
+    }
+
+    public async Task UpdateStatusAsync(Guid id, LostItemStatus status, DateTime updatedAt, CancellationToken ct = default)
+    {
+        const string sql = """
+            UPDATE lost_items
+            SET status = @status,
+                updated_at = @updatedAt
+            WHERE id = @id;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", id.ToString());
+        cmd.Parameters.AddWithValue("@status", status.ToString());
+        cmd.Parameters.AddWithValue("@updatedAt", updatedAt);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task SoftDeleteAsync(Guid id, DateTime deletedAt, CancellationToken ct = default)
+    {
+        // "AND deleted_at IS NULL" makes this a no-op if the item was already
+        // deleted, instead of stomping the original deletion timestamp.
+        const string sql = """
+            UPDATE lost_items
+            SET deleted_at = @deletedAt,
+                updated_at = @deletedAt
+            WHERE id = @id AND deleted_at IS NULL;
+            """;
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", id.ToString());
+        cmd.Parameters.AddWithValue("@deletedAt", deletedAt);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<List<LostItem>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
+    {
+        // Filters by user_id from the JWT, so a user can only ever see their own
+        // reports. "deleted_at IS NULL" keeps soft-deleted items out of this list.
+        const string itemsSql = """
+            SELECT id, user_id, title, category, description, date_lost, last_known_location,
+                   hidden_information, status, created_at, updated_at
+            FROM lost_items
+            WHERE user_id = @userId AND deleted_at IS NULL
+            ORDER BY created_at DESC;
+            """;
+
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+
+        var items = new List<LostItem>();
+        await using (var cmd = new MySqlCommand(itemsSql, conn))
+        {
+            cmd.Parameters.AddWithValue("@userId", userId.ToString());
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                items.Add(MapItem(reader));
+            }
+        }
+
+        if (items.Count == 0) return items;
+
+        var ids = items.Select(i => i.Id).ToList();
+        var inClause = string.Join(",", ids.Select((_, i) => $"@id{i}"));
+        var photosSql = $"""
+            SELECT id, lost_item_id, url, created_at
+            FROM lost_item_photos
+            WHERE lost_item_id IN ({inClause})
+            ORDER BY created_at ASC;
+            """;
+
+        await using (var cmd = new MySqlCommand(photosSql, conn))
+        {
+            for (var i = 0; i < ids.Count; i++)
+            {
+                cmd.Parameters.AddWithValue($"@id{i}", ids[i].ToString());
+            }
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            var byItemId = items.ToDictionary(i => i.Id);
+            while (await reader.ReadAsync(ct))
+            {
+                var photo = MapPhoto(reader);
+                if (byItemId.TryGetValue(photo.LostItemId, out var owner))
+                {
+                    owner.Photos.Add(photo);
+                }
+            }
+        }
+
+        return items;
     }
 
     private static LostItem MapItem(MySqlDataReader r) => new()

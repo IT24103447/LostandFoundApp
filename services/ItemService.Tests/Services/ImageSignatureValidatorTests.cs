@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 
 public class ImageSignatureValidatorTests
 {
+    // Stories 1-2 security checks: file bytes must match the declared supported image type.
     [Theory]
     [InlineData("image/jpeg", "image.jpg", new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 })]
     [InlineData("image/png", "image.png", new byte[] { 0x89, 0x50, 0x4E, 0x47 })]

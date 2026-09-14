@@ -354,6 +354,123 @@ public class LostItemsController : ControllerBase
         return Ok(ToDto(item));
     }
 
+    [HttpPost("{id:guid}/resolve")]
+    public async Task<ActionResult<LostItemResponseDto>> ResolveLostItem(Guid id, CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { error = "Invalid session." });
+        }
+
+        var item = await _items.GetByIdAsync(id, ct);
+        if (item is null)
+        {
+            return NotFound(new { error = "Lost item not found." });
+        }
+
+        // Scenario 2 - Unauthorized Resolution Attempt: only the original reporter may resolve.
+        if (item.UserId != userId)
+        {
+            return StatusCode(403, new { error = "You are not allowed to resolve this report." });
+        }
+
+        if (item.Status != LostItemStatus.ACTIVE)
+        {
+            return Conflict(new { error = "Only active items can be marked as resolved." });
+        }
+
+        item.Status = LostItemStatus.RESOLVED;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await _items.UpdateStatusAsync(item.Id, item.Status, item.UpdatedAt, ct);
+
+        // Scenario 1 - publish the FULL current item state, including HiddenInformation,
+        // so the Matching Service can remove or finalize any related match records.
+        await _publisher.PublishAsync($"{_kafka.TopicPrefix}.lost_item.resolved", new LostItemResolvedEvent
+        {
+            UserId = userId,
+            LostItemId = item.Id,
+            Title = item.Title,
+            Category = item.Category,
+            Description = item.Description,
+            DateLost = item.DateLost,
+            LastKnownLocation = item.LastKnownLocation,
+            HiddenInformation = item.HiddenInformation,
+            Status = item.Status.ToString(),
+            PhotoUrls = item.Photos.Select(p => p.Url).ToList(),
+            ResolvedAt = item.UpdatedAt
+        }, ct);
+
+        _logger.LogInformation("User {UserId} marked lost item {LostItemId} as resolved.", userId, item.Id);
+
+        return Ok(ToDto(item));
+    }
+
+    /// Delete an Item Report story.
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteLostItem(Guid id, CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { error = "Invalid session." });
+        }
+
+        var item = await _items.GetByIdAsync(id, ct);
+        if (item is null)
+        {
+            return NotFound(new { error = "Lost item not found." });
+        }
+
+        // Scenario 2 - Unauthorized Deletion Attempt: only the original reporter may delete.
+        if (item.UserId != userId)
+        {
+            return StatusCode(403, new { error = "You are not allowed to delete this report." });
+        }
+
+        // Scenario 3 - Deletion Blocked by Confirmed Match.
+        if (item.Status == LostItemStatus.MATCHED)
+        {
+            return Conflict(new
+            {
+                error = "This item has a confirmed match and can't be deleted. Please resolve it instead."
+            });
+        }
+
+        var deletedAt = DateTime.UtcNow;
+        await _items.SoftDeleteAsync(item.Id, deletedAt, ct);
+
+        // Scenario 1 - notify the Matching Service so it can remove any related
+        // match records. Only the item ID and type are needed here.
+        await _publisher.PublishAsync($"{_kafka.TopicPrefix}.item.delete_requested", new ItemDeleteRequestedEvent
+        {
+            UserId = userId,
+            ItemId = item.Id,
+            ItemType = "LOST"
+        }, ct);
+
+        _logger.LogInformation("User {UserId} deleted lost item {LostItemId}.", userId, item.Id);
+
+        return Ok(new { message = "Item deleted." });
+    }
+
+    [HttpGet("mine")]
+    public async Task<ActionResult<List<LostItemResponseDto>>> GetMine(CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(new { error = "Invalid session." });
+        }
+
+        var items = await _items.GetByUserIdAsync(userId, ct);
+        return Ok(items.Select(ToDto).ToList());
+    }
+
     private async Task PublishUpdatedEvent(LostItem item, Guid userId, CancellationToken ct)
     {
         // Scenario 1 - publish the FULL current item state, including HiddenInformation,

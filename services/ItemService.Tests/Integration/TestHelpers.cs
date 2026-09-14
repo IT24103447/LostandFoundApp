@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 
 public static class TestAuthHelper
 {
+    // Shared test helper: creates authenticated clients without requiring a running Auth Service.
     public const string TestJwtSecret =
         "test-secret-key-at-least-32-characters-long!!";
 
@@ -119,6 +120,7 @@ public static class TestAuthHelper
 
 public static class TestMultipartHelper
 {
+    // Shared test helper: builds valid multipart forms so each test changes only the field it is meant to verify.
     public static MultipartFormDataContent BuildValidFoundFormExcept(
         string? fieldToOmit = null,
         string hiddenInfo = "default-found-hidden-info")

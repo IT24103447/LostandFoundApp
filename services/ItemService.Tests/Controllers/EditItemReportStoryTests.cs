@@ -16,9 +16,11 @@ namespace ItemService.Tests.Controllers;
 
 public class EditItemReportStoryTests
 {
+    // Story 3: owner updates, validation failures, privacy, photo authorization, and update-event contracts.
     private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid OtherUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
+    // Verifies an owner can update a lost report and publish its complete internal update event.
     [Fact]
     public async Task UpdateLostItem_OwnerWithValidPayload_PersistsAndPublishesCompletePrivateEvent()
     {
@@ -40,10 +42,19 @@ public class EditItemReportStoryTests
         repo.Verify(r => r.UpdateAsync(item, It.IsAny<CancellationToken>()), Times.Once);
         Assert.NotNull(published);
         Assert.Equal(item.Id, published!.LostItemId);
+        Assert.Equal(OwnerId, published.UserId);
+        Assert.Equal(item.Title, published.Title);
+        Assert.Equal(item.Category, published.Category);
+        Assert.Equal(item.Description, published.Description);
+        Assert.Equal(item.DateLost, published.DateLost);
+        Assert.Equal(item.LastKnownLocation, published.LastKnownLocation);
+        Assert.Equal(item.Status.ToString(), published.Status);
         Assert.Equal("changed private lost detail", published.HiddenInformation);
         Assert.Equal(item.Photos.Select(p => p.Url), published.PhotoUrls);
+        Assert.Equal(item.UpdatedAt, published.UpdatedAt);
     }
 
+    // Verifies an owner can update a found report and publish its complete internal update event.
     [Fact]
     public async Task UpdateFoundItem_OwnerWithValidPayload_PersistsAndPublishesCompletePrivateEvent()
     {
@@ -65,10 +76,19 @@ public class EditItemReportStoryTests
         repo.Verify(r => r.UpdateAsync(item, It.IsAny<CancellationToken>()), Times.Once);
         Assert.NotNull(published);
         Assert.Equal(item.Id, published!.FoundItemId);
+        Assert.Equal(OwnerId, published.UserId);
+        Assert.Equal(item.Title, published.Title);
+        Assert.Equal(item.Category, published.Category);
+        Assert.Equal(item.Description, published.Description);
+        Assert.Equal(item.DateFound, published.DateFound);
+        Assert.Equal(item.LocationFound, published.LocationFound);
+        Assert.Equal(item.Status.ToString(), published.Status);
         Assert.Equal("changed private found detail", published.HiddenInformation);
         Assert.Equal(item.Photos.Select(p => p.Url), published.PhotoUrls);
+        Assert.Equal(item.UpdatedAt, published.UpdatedAt);
     }
 
+    // Verifies a non-owner cannot change a lost report or produce an event.
     [Fact]
     public async Task UpdateLostItem_NonOwner_ReturnsForbiddenWithoutSavingOrPublishing()
     {
@@ -86,6 +106,7 @@ public class EditItemReportStoryTests
         Assert.Equal("Original lost title", item.Title);
     }
 
+    // Verifies a non-owner cannot change a found report or produce an event.
     [Fact]
     public async Task UpdateFoundItem_NonOwner_ReturnsForbiddenWithoutSavingOrPublishing()
     {
@@ -103,6 +124,7 @@ public class EditItemReportStoryTests
         Assert.Equal("Original found title", item.Title);
     }
 
+    // Verifies invalid lost-report input returns all relevant validation errors without a partial save.
     [Fact]
     public async Task UpdateLostItem_InvalidPayload_ReturnsAllRelevantValidationErrorsAndDoesNotPersist()
     {
@@ -127,6 +149,7 @@ public class EditItemReportStoryTests
         publisher.Verify(p => p.PublishAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies invalid found-report input cannot be persisted.
     [Fact]
     public async Task UpdateFoundItem_InvalidPayload_ReturnsValidationProblemAndDoesNotPersist()
     {
@@ -147,6 +170,7 @@ public class EditItemReportStoryTests
         publisher.Verify(p => p.PublishAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies an unknown lost or found report ID returns 404.
     [Theory]
     [InlineData("lost")]
     [InlineData("found")]
@@ -170,6 +194,7 @@ public class EditItemReportStoryTests
         }
     }
 
+    // Verifies lost update and read DTOs never expose hidden information.
     [Fact]
     public async Task UpdateLostItem_ResponseAndGetMappingNeverExposeHiddenInformation()
     {
@@ -188,6 +213,26 @@ public class EditItemReportStoryTests
         Assert.DoesNotContain(typeof(LostItemResponseDto).GetProperties(), p => p.Name.Contains("Hidden", StringComparison.OrdinalIgnoreCase));
     }
 
+    // Verifies found update and read DTOs never expose hidden information.
+    [Fact]
+    public async Task UpdateFoundItem_ResponseAndGetMappingNeverExposeHiddenInformation()
+    {
+        var item = FoundItemFor(OwnerId);
+        var repo = new Mock<IFoundItemsRepository>();
+        repo.Setup(r => r.GetByIdAsync(item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+
+        var controller = BuildFoundController(repo, new Mock<IEventPublisher>(), OwnerId);
+        var update = await controller.UpdateFoundItem(item.Id, ValidFoundUpdate(), CancellationToken.None);
+        var get = await controller.GetById(item.Id, CancellationToken.None);
+
+        var updateJson = System.Text.Json.JsonSerializer.Serialize(Assert.IsType<OkObjectResult>(update.Result).Value);
+        var getJson = System.Text.Json.JsonSerializer.Serialize(Assert.IsType<OkObjectResult>(get.Result).Value);
+        Assert.DoesNotContain(item.HiddenInformation, updateJson);
+        Assert.DoesNotContain(item.HiddenInformation, getJson);
+        Assert.DoesNotContain(typeof(FoundItemResponseDto).GetProperties(), p => p.Name.Contains("Hidden", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // Verifies each invalid lost field is rejected without repository, storage, or Kafka side effects.
     [Theory]
     [InlineData("Title", "   ", "Title")]
     [InlineData("Category", "not-supported", "Category")]
@@ -213,6 +258,76 @@ public class EditItemReportStoryTests
         publisher.Verify(p => p.PublishAsync(It.IsAny<string>(), It.IsAny<LostItemUpdatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies each invalid found field is rejected without repository, storage, or Kafka side effects.
+    [Theory]
+    [InlineData("Title", "   ", "Title")]
+    [InlineData("Category", "not-supported", "Category")]
+    [InlineData("Description", "   ", "Description")]
+    [InlineData("LocationFound", "   ", "LocationFound")]
+    [InlineData("HiddenInformation", "   ", "HiddenInformation")]
+    [InlineData("DateFound", "2026/09/01", "DateFound")]
+    [InlineData("DateFound", "2999-01-01", "DateFound")]
+    public async Task UpdateFoundItem_InvalidIndividualField_IsRejectedWithoutSideEffects(string field, string value, string errorKey)
+    {
+        var item = FoundItemFor(OwnerId);
+        var repo = new Mock<IFoundItemsRepository>();
+        var publisher = new Mock<IEventPublisher>();
+        repo.Setup(r => r.GetByIdAsync(item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+        var request = ValidFoundUpdate();
+        typeof(UpdateFoundItemRequest).GetProperty(field)!.SetValue(request, value);
+
+        var result = await BuildFoundController(repo, publisher, OwnerId).UpdateFoundItem(item.Id, request, CancellationToken.None);
+
+        var problem = Assert.IsType<ValidationProblemDetails>(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Contains(errorKey, problem.Errors.Keys);
+        repo.Verify(r => r.UpdateAsync(It.IsAny<FoundItem>(), It.IsAny<CancellationToken>()), Times.Never);
+        publisher.Verify(p => p.PublishAsync(It.IsAny<string>(), It.IsAny<FoundItemUpdatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // Verifies non-owners cannot replace or delete another user's photo.
+    [Theory]
+    [InlineData("lost")]
+    [InlineData("found")]
+    public async Task UpdateItem_NonOwnerCannotReplaceOrDeleteAPhoto(string kind)
+    {
+        var publisher = new Mock<IEventPublisher>();
+        if (kind == "lost")
+        {
+            var item = LostItemFor(OwnerId);
+            var repo = new Mock<ILostItemsRepository>();
+            repo.Setup(r => r.GetByIdAsync(item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+            var controller = BuildLostController(repo, publisher, OtherUserId);
+
+            var replace = await controller.ReplaceLostItemPhoto(item.Id, null!, CancellationToken.None);
+            var delete = await controller.DeleteLostItemPhoto(item.Id, CancellationToken.None);
+
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(replace.Result).StatusCode);
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(delete.Result).StatusCode);
+            repo.Verify(r => r.DeletePhotosAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+            repo.Verify(r => r.AddPhotoAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            repo.Verify(r => r.UpdateAsync(It.IsAny<LostItem>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+        else
+        {
+            var item = FoundItemFor(OwnerId);
+            var repo = new Mock<IFoundItemsRepository>();
+            repo.Setup(r => r.GetByIdAsync(item.Id, It.IsAny<CancellationToken>())).ReturnsAsync(item);
+            var controller = BuildFoundController(repo, publisher, OtherUserId);
+
+            var replace = await controller.ReplaceFoundItemPhoto(item.Id, null!, CancellationToken.None);
+            var delete = await controller.DeleteFoundItemPhoto(item.Id, CancellationToken.None);
+
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(replace.Result).StatusCode);
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(delete.Result).StatusCode);
+            repo.Verify(r => r.DeletePhotosAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+            repo.Verify(r => r.AddPhotoAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            repo.Verify(r => r.UpdateAsync(It.IsAny<FoundItem>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        publisher.Verify(p => p.PublishAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // Verifies an invalid session is rejected before a lost report lookup.
     [Fact]
     public async Task UpdateLostItem_InvalidSession_ReturnsUnauthorizedBeforeLookingUpItem()
     {
@@ -226,6 +341,7 @@ public class EditItemReportStoryTests
         repo.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies an invalid session is rejected before a found report lookup.
     [Fact]
     public async Task UpdateFoundItem_InvalidSession_ReturnsUnauthorizedBeforeLookingUpItem()
     {
@@ -239,6 +355,7 @@ public class EditItemReportStoryTests
         repo.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // Verifies the lost update event retains the report's status and photo state.
     [Fact]
     public async Task UpdateLostItem_KeepsExistingStatusAndPhotoStateInTheKafkaEvent()
     {
@@ -259,6 +376,7 @@ public class EditItemReportStoryTests
         Assert.Equal(item.Photos.Select(p => p.Url), published.PhotoUrls);
     }
 
+    // Verifies the found update event retains the report's status and photo state.
     [Fact]
     public async Task UpdateFoundItem_KeepsExistingStatusAndPhotoStateInTheKafkaEvent()
     {

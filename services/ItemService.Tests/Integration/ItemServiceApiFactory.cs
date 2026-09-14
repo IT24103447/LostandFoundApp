@@ -17,9 +17,44 @@ using Xunit;
 
 public class ItemServiceApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    // Shared xUnit infrastructure: starts a disposable MySQL-backed API and replaces real Kafka with a recording publisher.
     private MySqlContainer? _mysql;
 
     public FakeEventPublisher FakeEvents { get; } = new();
+
+    public string GetTestDatabaseConnectionString()
+    {
+        if (_mysql is null)
+            throw new InvalidOperationException("The MySQL Testcontainers database is unavailable. Start Docker Desktop before running integration tests.");
+
+        return new MySqlConnectionStringBuilder(_mysql.GetConnectionString())
+        {
+            AllowUserVariables = true,
+            SslMode = MySqlSslMode.None
+        }.ConnectionString;
+    }
+
+    private async Task WaitForMySqlReadyAsync()
+    {
+        Exception? lastFailure = null;
+
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            try
+            {
+                await using var connection = new MySqlConnection(GetTestDatabaseConnectionString());
+                await connection.OpenAsync();
+                return;
+            }
+            catch (MySqlException ex)
+            {
+                lastFailure = ex;
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+        }
+
+        throw new InvalidOperationException("The disposable MySQL container did not become ready within 30 seconds.", lastFailure);
+    }
 
     public async Task InitializeAsync()
     {
@@ -33,11 +68,15 @@ public class ItemServiceApiFactory : WebApplicationFactory<Program>, IAsyncLifet
                 .Build();
 
             await _mysql.StartAsync();
+            await WaitForMySqlReadyAsync();
         }
-        catch
+        catch (Exception ex)
         {
-            // Docker is unavailable; the test host will expose the setup failure on execution.
-            _mysql = null;
+            // Never fall back to the developer's configured database. Integration tests create
+            // temporary reports and must run only against their disposable Testcontainers MySQL.
+            throw new InvalidOperationException(
+                "Docker/Testcontainers MySQL could not start. Start Docker Desktop and run 'docker info' before executing HTTP/MySQL integration tests.",
+                ex);
         }
     }
 
@@ -68,13 +107,9 @@ public class ItemServiceApiFactory : WebApplicationFactory<Program>, IAsyncLifet
 
             if (_mysql != null)
             {
-                var connectionString = new MySqlConnectionStringBuilder(_mysql.GetConnectionString())
-                {
-                    AllowUserVariables = true,
-                    // The disposable local MySQL container does not need TLS. Disabling it
-                    // keeps the integration suite independent of host SSPI credentials.
-                    SslMode = MySqlSslMode.None
-                }.ConnectionString;
+                // The disposable local MySQL container does not need TLS. Disabling it
+                // keeps the integration suite independent of host SSPI credentials.
+                var connectionString = GetTestDatabaseConnectionString();
 
                 dict["ConnectionStrings:MySql"] = connectionString;
             }

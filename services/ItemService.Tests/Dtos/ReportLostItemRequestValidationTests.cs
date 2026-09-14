@@ -6,6 +6,8 @@ namespace ItemService.Tests.Dtos;
 
 public class ReportLostItemRequestValidationTests
 {
+    // Story 1 DTO contract: required fields and field-length limits are enforced before creation.
+    // Verifies a request missing all required lost-item fields is invalid.
     [Fact]
     public void MissingRequiredFields_AreRejected()
     {
@@ -20,6 +22,7 @@ public class ReportLostItemRequestValidationTests
         Assert.Contains(results, result => result.MemberNames.Contains(nameof(request.HiddenInformation)));
     }
 
+    // Verifies each lost-item field accepts its exact maximum length.
     [Theory]
     [InlineData(nameof(ReportLostItemRequest.Title), 150)]
     [InlineData(nameof(ReportLostItemRequest.Category), 50)]
@@ -34,6 +37,7 @@ public class ReportLostItemRequestValidationTests
         Assert.Empty(Validate(request));
     }
 
+    // Verifies each lost-item field rejects one character over its maximum length.
     [Theory]
     [InlineData(nameof(ReportLostItemRequest.Title), 151)]
     [InlineData(nameof(ReportLostItemRequest.Category), 51)]

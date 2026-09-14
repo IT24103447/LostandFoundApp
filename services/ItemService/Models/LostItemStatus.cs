@@ -4,5 +4,6 @@ public enum LostItemStatus
 {
     ACTIVE,
     MATCHED,
-    CLOSED
+    CLOSED,
+    RESOLVED
 }

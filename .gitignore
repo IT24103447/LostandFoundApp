@@ -474,10 +474,15 @@ $RECYCLE.BIN/
 *.swp
 
 # Node / React (frontend)
+frontend/node_modules/
 frontend/dist/
 frontend/build/
 frontend/.env
 frontend/.env.local
+frontend/.env.*
+!frontend/.env.example
+frontend/.vite/
+frontend/coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -489,10 +494,46 @@ yarn-error.log*
 /QA-Test-Cases-*.md
 
 # QA-generated run artifacts (test source stays tracked)
-/tests/**/TestResults/
-/tests/**/screenshots/
+**/TestResults/
+**/screenshots/
 /tests/performance/results/
 /tests/performance/*.jtl
+*.trx
+*.coverage
+*.coveragexml
+coverage*.xml
+**/CoverageReport/
+**/coverage/
+
+# Commit only the published Item Service HTML coverage evidence. Raw Coverlet
+# XML remains under TestResults and is still ignored above.
+!services/ItemService.Tests/CoverageReport/
+!services/ItemService.Tests/CoverageReport/**
+
+# Local Selenium configuration and browser diagnostics (may include test credentials)
+/tests/e2e/**/.env
+/tests/e2e/**/.env.*
+/tests/e2e/**/Selenium.local.json
+/tests/e2e/**/selenium-debug.log
+/tests/e2e/**/artifacts/
+/tests/e2e/**/downloads/
+/tests/e2e/**/videos/
+/tests/e2e/**/traces/
+/tests/e2e/**/browser-logs/
+/tests/e2e/**/*.har
+
+# Local IDE files and service-specific development settings
+.vs/
+.vscode/
+**/appsettings.Development.json
+**/appsettings.Local.json
+
+# Java/JMeter diagnostic output
+*.jfr
+*.hprof
+
+# Local Docker Compose overrides used only for development/testing.
+/infra/kafka/docker-compose.override.yml
 
 # .NET
 bin/
