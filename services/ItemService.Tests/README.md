@@ -14,10 +14,10 @@ Run all commands from the repository root.
 
 ```powershell
 # Story 1 - Report a Lost Item
-dotnet test .\services\ItemService.Tests\ItemService.Tests.csproj --filter "FullyQualifiedName~LostItemsControllerTests|FullyQualifiedName~ReportLostItemRequestValidationTests|FullyQualifiedName~LostItemsApiIntegrationTests|FullyQualifiedName~ItemPhotoModelsTests|FullyQualifiedName~ImageSignatureValidatorTests|FullyQualifiedName~AzureBlobPhotoStorageServiceTests|FullyQualifiedName~KafkaEventPublisherTests" --no-restore
+dotnet test .\services\ItemService.Tests\ItemService.Tests.csproj --filter "FullyQualifiedName~LostItemsControllerTests|FullyQualifiedName~ReportLostItemRequestValidationTests|FullyQualifiedName~LostItemsApiIntegrationTests|FullyQualifiedName~ItemPhotoModelsTests|FullyQualifiedName~ImageSignatureValidatorTests|FullyQualifiedName~AzureBlobPhotoStorageServiceTests" --no-restore
 
 # Story 2 - Report a Found Item
-dotnet test .\services\ItemService.Tests\ItemService.Tests.csproj --filter "FullyQualifiedName~FoundItemsControllerTests|FullyQualifiedName~ReportFoundItemRequestValidationTests|FullyQualifiedName~FoundItemsApiIntegrationTests|FullyQualifiedName~ItemPhotoModelsTests|FullyQualifiedName~ImageSignatureValidatorTests|FullyQualifiedName~AzureBlobPhotoStorageServiceTests|FullyQualifiedName~KafkaEventPublisherTests" --no-restore
+dotnet test .\services\ItemService.Tests\ItemService.Tests.csproj --filter "FullyQualifiedName~FoundItemsControllerTests|FullyQualifiedName~ReportFoundItemRequestValidationTests|FullyQualifiedName~FoundItemsApiIntegrationTests|FullyQualifiedName~ItemPhotoModelsTests|FullyQualifiedName~ImageSignatureValidatorTests|FullyQualifiedName~AzureBlobPhotoStorageServiceTests" --no-restore
 
 # Story 3 - Edit an Item Report
 dotnet test .\services\ItemService.Tests\ItemService.Tests.csproj --filter "FullyQualifiedName~EditItemReportStoryTests|FullyQualifiedName~UpdateItemRequestValidationTests" --no-restore

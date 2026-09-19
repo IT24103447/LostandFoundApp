@@ -1,7 +1,7 @@
 name: item-service-ci-cd
 on:
   push:
-    branches: [develop, main, 'feature/Item-Service']
+    branches: [develop, main, 'feature/**']
     paths: ['services/ItemService/**', 'services/ItemService.Tests/**']
 
 jobs:

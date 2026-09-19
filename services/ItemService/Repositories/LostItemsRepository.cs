@@ -7,10 +7,14 @@ namespace ItemService.Repositories;
 public class LostItemsRepository : ILostItemsRepository
 {
     private readonly IDbConnectionFactory _db;
+    private readonly IDbSession _session;
 
-    public LostItemsRepository(IDbConnectionFactory db)
+    // Reads use _db directly (their own connection). Every WRITE goes through _session so it joins the
+    // request-wide transaction shared with the outbox event insert (see RequestTransactionFilter).
+    public LostItemsRepository(IDbConnectionFactory db, IDbSession session)
     {
         _db = db;
+        _session = session;
     }
 
     public async Task CreateAsync(LostItem item, CancellationToken ct = default)
@@ -21,9 +25,8 @@ public class LostItemsRepository : ILostItemsRepository
             VALUES
                 (@id, @userId, @title, @category, @description, @dateLost, @lastKnownLocation, @hiddenInformation, @status);
             """;
-        await using var conn = _db.Create();
-        await conn.OpenAsync(ct);
-        await using var cmd = new MySqlCommand(sql, conn);
+        await using var lease = await _session.AcquireAsync(ct);
+        await using var cmd = new MySqlCommand(sql, lease.Connection, lease.Transaction);
         cmd.Parameters.AddWithValue("@id", item.Id.ToString());
         cmd.Parameters.AddWithValue("@userId", item.UserId.ToString());
         cmd.Parameters.AddWithValue("@title", item.Title);
@@ -50,9 +53,8 @@ public class LostItemsRepository : ILostItemsRepository
             INSERT INTO lost_item_photos (id, lost_item_id, url)
             VALUES (@id, @lostItemId, @url);
             """;
-        await using var conn = _db.Create();
-        await conn.OpenAsync(ct);
-        await using var cmd = new MySqlCommand(sql, conn);
+        await using var lease = await _session.AcquireAsync(ct);
+        await using var cmd = new MySqlCommand(sql, lease.Connection, lease.Transaction);
         cmd.Parameters.AddWithValue("@id", photo.Id.ToString());
         cmd.Parameters.AddWithValue("@lostItemId", lostItemId.ToString());
         cmd.Parameters.AddWithValue("@url", photoUrl);
@@ -64,9 +66,8 @@ public class LostItemsRepository : ILostItemsRepository
     public async Task DeletePhotosAsync(Guid lostItemId, CancellationToken ct = default)
     {
         const string sql = "DELETE FROM lost_item_photos WHERE lost_item_id = @lostItemId;";
-        await using var conn = _db.Create();
-        await conn.OpenAsync(ct);
-        await using var cmd = new MySqlCommand(sql, conn);
+        await using var lease = await _session.AcquireAsync(ct);
+        await using var cmd = new MySqlCommand(sql, lease.Connection, lease.Transaction);
         cmd.Parameters.AddWithValue("@lostItemId", lostItemId.ToString());
         await cmd.ExecuteNonQueryAsync(ct);
     }
@@ -84,9 +85,8 @@ public class LostItemsRepository : ILostItemsRepository
                 updated_at = @updatedAt
             WHERE id = @id;
             """;
-        await using var conn = _db.Create();
-        await conn.OpenAsync(ct);
-        await using var cmd = new MySqlCommand(sql, conn);
+        await using var lease = await _session.AcquireAsync(ct);
+        await using var cmd = new MySqlCommand(sql, lease.Connection, lease.Transaction);
         cmd.Parameters.AddWithValue("@id", item.Id.ToString());
         cmd.Parameters.AddWithValue("@title", item.Title);
         cmd.Parameters.AddWithValue("@category", item.Category);
@@ -144,9 +144,8 @@ public class LostItemsRepository : ILostItemsRepository
                 updated_at = @updatedAt
             WHERE id = @id;
             """;
-        await using var conn = _db.Create();
-        await conn.OpenAsync(ct);
-        await using var cmd = new MySqlCommand(sql, conn);
+        await using var lease = await _session.AcquireAsync(ct);
+        await using var cmd = new MySqlCommand(sql, lease.Connection, lease.Transaction);
         cmd.Parameters.AddWithValue("@id", id.ToString());
         cmd.Parameters.AddWithValue("@status", status.ToString());
         cmd.Parameters.AddWithValue("@updatedAt", updatedAt);
@@ -163,9 +162,8 @@ public class LostItemsRepository : ILostItemsRepository
                 updated_at = @deletedAt
             WHERE id = @id AND deleted_at IS NULL;
             """;
-        await using var conn = _db.Create();
-        await conn.OpenAsync(ct);
-        await using var cmd = new MySqlCommand(sql, conn);
+        await using var lease = await _session.AcquireAsync(ct);
+        await using var cmd = new MySqlCommand(sql, lease.Connection, lease.Transaction);
         cmd.Parameters.AddWithValue("@id", id.ToString());
         cmd.Parameters.AddWithValue("@deletedAt", deletedAt);
         await cmd.ExecuteNonQueryAsync(ct);

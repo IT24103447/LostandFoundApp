@@ -1,15 +1,18 @@
 using System.Security.Claims;
 using System.Text;
+using Confluent.Kafka;
 using ItemService.Configuration;
 using ItemService.Databases;
+using ItemService.Filters;
 using ItemService.Repositories;
 using ItemService.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(o => o.Filters.Add<RequestTransactionFilter>())
     .AddJsonOptions(o =>
     {
         o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -19,6 +22,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddTransient<IDbConnectionFactory, DbConnectionFactory>();
+// One per request: repository writes and the outbox event insert share its transaction.
+builder.Services.AddScoped<IDbSession, DbSession>();
 
 const string DevCorsPolicy = "dev-cors";
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
@@ -32,6 +37,7 @@ builder.Services.AddCors(o => o.AddPolicy(DevCorsPolicy, p => p
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<ItemSettings>(builder.Configuration.GetSection("Item"));
 builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("Kafka"));
+builder.Services.Configure<OutboxSettings>(builder.Configuration.GetSection("Outbox"));
 builder.Services.Configure<BlobStorageSettings>(builder.Configuration.GetSection("BlobStorage"));
 
 builder.Services.AddScoped<ILostItemsRepository, LostItemsRepository>();
@@ -57,9 +63,36 @@ else
     builder.Services.AddScoped<IPhotoStorageService, LocalPhotoStorageService>();
 }
 
-builder.Services.AddSingleton<KafkaEventPublisher>();
-builder.Services.AddSingleton<IEventPublisher>(sp => sp.GetRequiredService<KafkaEventPublisher>());
-builder.Services.AddHostedService<KafkaEventProducerService>();
+// Transactional outbox: controllers call IEventPublisher, which now records the event in the outbox_events
+// table inside the request's DB transaction. OutboxRelayService delivers it to Kafka in the background.
+builder.Services.AddScoped<IEventPublisher, OutboxEventPublisher>();
+builder.Services.AddSingleton<IOutboxStore, OutboxStore>();
+builder.Services.AddHostedService<OutboxRelayService>();
+
+// Producer used only by the relay. Durability now lives in the database, so a failed send can be short:
+// the relay retries with backoff instead of keeping messages queued in memory for minutes.
+builder.Services.AddSingleton<IProducer<string, string>>(sp =>
+{
+    var settings = sp.GetRequiredService<IOptions<KafkaSettings>>().Value;
+    var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Kafka.Producer");
+
+    var config = new ProducerConfig
+    {
+        BootstrapServers = settings.BootstrapServers,
+        EnableIdempotence = false,
+        Acks = Acks.All,
+        MessageSendMaxRetries = 3,
+        RetryBackoffMs = 500,
+        MessageTimeoutMs = 30_000 // each ProduceAsync fails within 30 s if the broker is unreachable
+    };
+
+    return new ProducerBuilder<string, string>(config)
+        .SetErrorHandler((_, e) =>
+            logger.LogWarning("Kafka producer error: {Reason}", e.Reason))
+        .SetLogHandler((_, log) =>
+            logger.LogDebug("Kafka: {Message}", log.Message))
+        .Build();
+});
 
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
     ?? throw new InvalidOperationException("Jwt settings not configured.");
