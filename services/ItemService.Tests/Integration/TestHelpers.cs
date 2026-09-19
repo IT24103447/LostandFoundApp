@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.IdentityModel.Tokens;
 
 public static class TestAuthHelper
@@ -81,7 +82,7 @@ public static class TestAuthHelper
     }
 
     public static HttpClient CreateClientWithValidCookie(
-        ItemServiceApiFactory factory,
+        WebApplicationFactory<Program> factory,
         Guid? userId = null)
     {
         var client = factory.CreateClient();
@@ -165,11 +166,14 @@ public static class TestMultipartHelper
             ["LocationFound"] = "Main library entrance",
             ["HiddenInformation"] = "default-found-hidden-info"
         };
+
         values[fieldName] = value;
+
         foreach (var field in values)
         {
             content.Add(new StringContent(field.Value), field.Key);
         }
+
         return content;
     }
 
@@ -180,55 +184,29 @@ public static class TestMultipartHelper
         var content = new MultipartFormDataContent();
 
         if (fieldToOmit != "Title")
-        {
-            content.Add(
-                new StringContent("Test Title"),
-                "Title");
-        }
+            content.Add(new StringContent("Test Title"), "Title");
 
         if (fieldToOmit != "Category")
-        {
-            content.Add(
-                new StringContent("Electronics"),
-                "Category");
-        }
+            content.Add(new StringContent("Electronics"), "Category");
 
         if (fieldToOmit != "Description")
-        {
-            content.Add(
-                new StringContent("Test Description"),
-                "Description");
-        }
+            content.Add(new StringContent("Test Description"), "Description");
 
         if (fieldToOmit != "DateLost")
-        {
-            content.Add(
-                new StringContent("2026-08-28"),
-                "DateLost");
-        }
+            content.Add(new StringContent("2026-08-28"), "DateLost");
 
         if (fieldToOmit != "LastKnownLocation")
-        {
-            content.Add(
-                new StringContent("Test Location"),
-                "LastKnownLocation");
-        }
+            content.Add(new StringContent("Test Location"), "LastKnownLocation");
 
         if (fieldToOmit != "HiddenInformation")
-        {
-            content.Add(
-                new StringContent(hiddenInfo),
-                "HiddenInformation");
-        }
+            content.Add(new StringContent(hiddenInfo), "HiddenInformation");
 
         return content;
     }
 
     public static MultipartFormDataContent BuildValidForm(
-        string hiddenInfo = "default-hidden-info")
-    {
-        return BuildValidFormExcept(null, hiddenInfo);
-    }
+        string hiddenInfo = "default-hidden-info") =>
+        BuildValidFormExcept(null, hiddenInfo);
 
     public static MultipartFormDataContent BuildValidFormWithOverride(
         string fieldName,
@@ -244,11 +222,14 @@ public static class TestMultipartHelper
             ["LastKnownLocation"] = "Test Location",
             ["HiddenInformation"] = "default-hidden-info"
         };
+
         values[fieldName] = value;
+
         foreach (var field in values)
         {
             content.Add(new StringContent(field.Value), field.Key);
         }
+
         return content;
     }
 }
