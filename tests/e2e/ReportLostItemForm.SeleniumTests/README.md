@@ -18,7 +18,7 @@ When starting the frontend in the same PowerShell session, use:
 ```powershell
 $env:VITE_AUTH_API_BASE_URL = "http://localhost:5261"
 $env:VITE_ITEM_API_BASE_URL = "http://localhost:5001"
-$env:VITE_MATCHING_API_BASE_URL = "http://localhost:5002"
+$env:VITE_MATCHING_API_BASE_URL = "http://localhost:5179"
 $env:VITE_ADMIN_API_BASE_URL = "http://localhost:5003"
 ```
 

@@ -45,7 +45,7 @@ public sealed class ImageDescriptionEventHandler
         var itemId = itemEvent.GetItemId(itemType);
         var insertedCount = 0;
 
-        foreach (var photoUrl in itemEvent.PhotoUrls
+        foreach (var photoUrl in (itemEvent.PhotoUrls ?? [])
                      .Where(url => !string.IsNullOrWhiteSpace(url))
                      .Distinct(StringComparer.Ordinal))
         {
