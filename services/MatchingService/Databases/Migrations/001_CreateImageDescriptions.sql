@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS image_descriptions (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    source_event_id CHAR(36) NOT NULL,
+    photo_key CHAR(64) NOT NULL,
+    item_id CHAR(36) NOT NULL,
+    item_type ENUM('LOST', 'FOUND') NOT NULL,
+    blob_url TEXT NOT NULL,
+    description TEXT NULL,
+    attributes_json JSON NULL,
+    processing_status ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    attempts INT NOT NULL DEFAULT 0,
+    next_retry_at DATETIME(3) NULL,
+    processed_at DATETIME(3) NULL,
+    error_code VARCHAR(80) NULL,
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    UNIQUE KEY uq_image_descriptions_photo_key (photo_key),
+    INDEX ix_image_descriptions_due (processing_status, next_retry_at),
+    INDEX ix_image_descriptions_item (item_id, item_type),
+    INDEX ix_image_descriptions_source_event (source_event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
