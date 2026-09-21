@@ -7,6 +7,9 @@ public sealed class ItemCreatedEvent
     [JsonPropertyName("eventId")]
     public Guid EventId { get; init; }
 
+    [JsonPropertyName("timestamp")]
+    public DateTime Timestamp { get; init; }
+
     [JsonPropertyName("lostItemId")]
     public Guid? LostItemId { get; init; }
 
@@ -14,13 +17,13 @@ public sealed class ItemCreatedEvent
     public Guid? FoundItemId { get; init; }
 
     [JsonPropertyName("photoUrls")]
-    public List<string> PhotoUrls { get; init; } = [];
+    public List<string>? PhotoUrls { get; init; }
 
     public Guid GetItemId(ItemType itemType) => itemType switch
     {
         ItemType.Lost when LostItemId is { } id && id != Guid.Empty => id,
         ItemType.Found when FoundItemId is { } id && id != Guid.Empty => id,
         _ => throw new InvalidDataException(
-            "The item-created event does not contain a valid item ID for its topic.")
+            "The item event does not contain a valid item ID for its topic.")
     };
 }

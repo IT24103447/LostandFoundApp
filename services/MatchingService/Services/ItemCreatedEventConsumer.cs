@@ -24,20 +24,24 @@ public sealed class ItemCreatedEventConsumer : BackgroundService
         _logger = logger;
     }
 
-    protected override Task ExecuteAsync(
-        CancellationToken stoppingToken) =>
-        Task.Run(() => ConsumeAsync(stoppingToken), stoppingToken);
-
-    private async Task ConsumeAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(
+        CancellationToken stoppingToken)
     {
+        await Task.Yield();
+
+        _consumer.Subscribe(
+        [
+            _settings.LostItemCreatedTopic,
+            _settings.FoundItemCreatedTopic,
+            _settings.LostItemUpdatedTopic,
+            _settings.FoundItemUpdatedTopic
+        ]);
+
+        _logger.LogInformation(
+            "Listening for created and updated lost/found item events.");
+
         try
         {
-            _consumer.Subscribe(
-            [
-                _settings.LostItemCreatedTopic,
-                _settings.FoundItemCreatedTopic
-            ]);
-
             while (!stoppingToken.IsCancellationRequested)
             {
                 ConsumeResult<string, string> result;
@@ -46,11 +50,30 @@ public sealed class ItemCreatedEventConsumer : BackgroundService
                 {
                     result = _consumer.Consume(stoppingToken);
                 }
-                catch (ConsumeException)
+                catch (ConsumeException exception)
+                    when (exception.Error.Code ==
+                          ErrorCode.UnknownTopicOrPart)
                 {
                     _logger.LogWarning(
-                        "Kafka consumption failed: {ErrorCode}.",
-                        "KAFKA_CONSUME_FAILED");
+                        """
+                        A subscribed Kafka topic does not exist yet.
+                        Create all configured item topics.
+                        """);
+
+                    await Task.Delay(
+                        TimeSpan.FromSeconds(5),
+                        stoppingToken);
+
+                    continue;
+                }
+                catch (ConsumeException exception)
+                {
+                    _logger.LogError(
+                        """
+                        Kafka consumption failed.
+                        Code: {ErrorCode}.
+                        """,
+                        exception.Error.Code);
 
                     await Task.Delay(
                         TimeSpan.FromSeconds(5),
@@ -63,52 +86,62 @@ public sealed class ItemCreatedEventConsumer : BackgroundService
                 {
                     if (result.Message?.Value is null)
                     {
-                        throw new InvalidDataException();
+                        throw new InvalidDataException(
+                            "The Kafka message body is empty.");
                     }
 
                     await _handler.HandleAsync(
                         result.Topic,
                         result.Message.Value,
                         stoppingToken);
+
+                    _consumer.Commit(result);
+                }
+                catch (InvalidDataException exception)
+                {
+                    _logger.LogError(
+                        exception,
+                        "Discarding malformed event at {Position}.",
+                        result.TopicPartitionOffset);
+
+                    _consumer.Commit(result);
+                }
+                catch (JsonException exception)
+                {
+                    _logger.LogError(
+                        exception,
+                        "Discarding unreadable event at {Position}.",
+                        result.TopicPartitionOffset);
+
+                    _consumer.Commit(result);
                 }
                 catch (Exception exception)
-                    when (exception is InvalidDataException or JsonException)
+                    when (!stoppingToken.IsCancellationRequested)
                 {
-                    _logger.LogWarning(
-                        "Malformed event at {Position}: {ErrorCode}.",
+                    _logger.LogError(
+                        """
+                        Could not persist item event at {Position}.
+                        Exception type: {ExceptionType}.
+                        The event will be retried.
+                        """,
                         result.TopicPartitionOffset,
-                        "ITEM_EVENT_INVALID");
-                }
+                        exception.GetType().FullName);
 
-                // Commit only after persistence, or an explicitly rejected
-                // malformed message. Other failures stop the service.
-                _consumer.Commit(result);
+                    _consumer.Seek(result.TopicPartitionOffset);
+
+                    await Task.Delay(
+                        TimeSpan.FromSeconds(5),
+                        stoppingToken);
+                }
             }
         }
         catch (OperationCanceledException)
             when (stoppingToken.IsCancellationRequested)
         {
         }
-        catch (Exception)
-        {
-            _logger.LogCritical(
-                "Item consumer stopped: {ErrorCode}.",
-                "ITEM_CONSUMER_FAILED");
-
-            throw new InvalidOperationException("ITEM_CONSUMER_FAILED");
-        }
         finally
         {
-            try
-            {
-                _consumer.Close();
-            }
-            catch (Exception)
-            {
-                _logger.LogWarning(
-                    "Kafka close failed: {ErrorCode}.",
-                    "KAFKA_CLOSE_FAILED");
-            }
+            _consumer.Close();
         }
     }
 }

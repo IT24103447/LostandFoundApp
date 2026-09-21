@@ -57,13 +57,20 @@ public sealed class ImageDescriptionWorker : BackgroundService
             {
                 break;
             }
-            catch (Exception)
+            catch (Exception exception)
             {
-                // Provider/database exception messages can contain URLs or
-                // connection details. Log only a controlled diagnostic code.
+                // Do not log exception messages because database/provider
+                // messages can contain URLs or connection information.
                 _logger.LogError(
-                    "Image processing cycle failed: {ErrorCode}.",
-                    "WORKER_CYCLE_FAILED");
+                    """
+                    Image processing cycle failed.
+                    Error code: {ErrorCode}.
+                    Exception type: {ExceptionType}.
+                    Inner exception type: {InnerExceptionType}.
+                    """,
+                    "WORKER_CYCLE_FAILED",
+                    exception.GetType().FullName,
+                    exception.InnerException?.GetType().FullName);
 
                 try
                 {
@@ -86,20 +93,22 @@ public sealed class ImageDescriptionWorker : BackgroundService
 
         try
         {
-            using var timeout = CancellationTokenSource
-                .CreateLinkedTokenSource(stoppingToken);
+            using var timeout =
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    stoppingToken);
 
             timeout.CancelAfter(TimeSpan.FromSeconds(
                 _settings.RequestTimeoutSeconds));
 
-            description = await _generator
-                .GenerateAsync(job.BlobUrl, timeout.Token)
-                .WaitAsync(timeout.Token);
+            description = await _generator.GenerateAsync(
+                job.BlobUrl,
+                timeout.Token);
         }
         catch (OperationCanceledException)
             when (stoppingToken.IsCancellationRequested)
         {
-            // Leave the lease recoverable when the application stops.
+            // Leave the lease in place. Another cycle can recover it
+            // after the lease expires.
             throw;
         }
         catch (OperationCanceledException)
@@ -122,7 +131,6 @@ public sealed class ImageDescriptionWorker : BackgroundService
 
             return;
         }
-
         catch (Exception exception)
         {
             var exceptionType = exception.GetType();
@@ -131,15 +139,20 @@ public sealed class ImageDescriptionWorker : BackgroundService
                 .GetProperty("StatusCode")
                 ?.GetValue(exception);
 
-            var status = exceptionType
+            var providerStatus = exceptionType
                 .GetProperty("Status")
                 ?.GetValue(exception);
 
             _logger.LogWarning(
-                "Gemini request failed. Exception: {ExceptionType}, HTTP: {StatusCode}, Status: {Status}.",
+                """
+                Gemini request failed.
+                Exception type: {ExceptionType}.
+                HTTP status: {StatusCode}.
+                Provider status: {ProviderStatus}.
+                """,
                 exceptionType.FullName,
                 statusCode,
-                status);
+                providerStatus);
 
             await FailAsync(
                 job,
@@ -165,7 +178,10 @@ public sealed class ImageDescriptionWorker : BackgroundService
         else
         {
             _logger.LogWarning(
-                "Image description {DescriptionId} no longer owns its lease.",
+                """
+                Image description {DescriptionId} could not complete
+                because its worker lease was no longer active.
+                """,
                 job.Id);
         }
     }
@@ -185,7 +201,8 @@ public sealed class ImageDescriptionWorker : BackgroundService
                 _settings.InitialRetrySeconds *
                 Math.Pow(2, job.Attempts - 1));
 
-            nextRetryAt = _timeProvider.GetUtcNow()
+            nextRetryAt = _timeProvider
+                .GetUtcNow()
                 .UtcDateTime
                 .AddSeconds(delaySeconds);
         }
@@ -196,22 +213,33 @@ public sealed class ImageDescriptionWorker : BackgroundService
             nextRetryAt,
             cancellationToken);
 
-        if (recorded)
+        if (!recorded)
         {
             _logger.LogWarning(
-                """
-                Image description {DescriptionId} attempt {Attempt} failed.
-                Code: {ErrorCode}. Retry scheduled: {RetryScheduled}.
-                """,
-                job.Id,
-                job.Attempts,
-                errorCode,
-                nextRetryAt.HasValue);
+                "Could not record failure for description {DescriptionId}.",
+                job.Id);
+
+            return;
         }
+
+        _logger.LogWarning(
+            """
+            Image description {DescriptionId} attempt {Attempt} failed.
+            Code: {ErrorCode}.
+            Retry scheduled: {RetryScheduled}.
+            """,
+            job.Id,
+            job.Attempts,
+            errorCode,
+            nextRetryAt.HasValue);
     }
 
-    private Task DelayAsync(CancellationToken cancellationToken) =>
-        Task.Delay(
-            TimeSpan.FromSeconds(_settings.PollIntervalSeconds),
+    private Task DelayAsync(
+        CancellationToken cancellationToken)
+    {
+        return Task.Delay(
+            TimeSpan.FromSeconds(
+                _settings.PollIntervalSeconds),
             cancellationToken);
+    }
 }

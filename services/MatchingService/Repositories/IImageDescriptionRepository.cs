@@ -24,4 +24,9 @@ public interface IImageDescriptionRepository
         string errorCode,
         DateTime? nextRetryAt,
         CancellationToken cancellationToken);
+
+    Task<CurrentImageDescription?> GetLatestCurrentCompletedAsync(
+        Guid itemId,
+        ItemType itemType,
+        CancellationToken cancellationToken);
 }

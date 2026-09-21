@@ -27,6 +27,8 @@ public sealed class ImageDescriptionRepository
             INSERT INTO image_descriptions (
                 id,
                 source_event_id,
+                source_event_type,
+                source_occurred_at,
                 photo_key,
                 item_id,
                 item_type,
@@ -40,6 +42,8 @@ public sealed class ImageDescriptionRepository
             VALUES (
                 @id,
                 @sourceEventId,
+                @sourceEventType,
+                @sourceOccurredAt,
                 @photoKey,
                 @itemId,
                 @itemType,
@@ -57,18 +61,49 @@ public sealed class ImageDescriptionRepository
 
         await using var command = new MySqlCommand(sql, connection);
 
-        command.Parameters.AddWithValue("@id", record.Id.ToString());
         command.Parameters.AddWithValue(
-            "@sourceEventId", record.SourceEventId.ToString());
-        command.Parameters.AddWithValue("@photoKey", record.PhotoKey);
-        command.Parameters.AddWithValue("@itemId", record.ItemId.ToString());
+            "@id",
+            record.Id);
+
         command.Parameters.AddWithValue(
-            "@itemType", record.ItemType.ToString().ToUpperInvariant());
-        command.Parameters.AddWithValue("@blobUrl", record.BlobUrl);
+            "@sourceEventId",
+            record.SourceEventId);
+
         command.Parameters.AddWithValue(
-            "@nextRetryAt", (object?)record.NextRetryAt ?? DBNull.Value);
-        command.Parameters.AddWithValue("@createdAt", record.CreatedAt);
-        command.Parameters.AddWithValue("@updatedAt", record.UpdatedAt);
+            "@sourceEventType",
+            record.SourceEventType.ToString().ToUpperInvariant());
+
+        command.Parameters.AddWithValue(
+            "@sourceOccurredAt",
+            record.SourceOccurredAt);
+
+        command.Parameters.AddWithValue(
+            "@photoKey",
+            record.PhotoKey);
+
+        command.Parameters.AddWithValue(
+            "@itemId",
+            record.ItemId);
+
+        command.Parameters.AddWithValue(
+            "@itemType",
+            record.ItemType.ToString().ToUpperInvariant());
+
+        command.Parameters.AddWithValue(
+            "@blobUrl",
+            record.BlobUrl);
+
+        command.Parameters.AddWithValue(
+            "@nextRetryAt",
+            (object?)record.NextRetryAt ?? DBNull.Value);
+
+        command.Parameters.AddWithValue(
+            "@createdAt",
+            record.CreatedAt);
+
+        command.Parameters.AddWithValue(
+            "@updatedAt",
+            record.UpdatedAt);
 
         try
         {
@@ -77,8 +112,8 @@ public sealed class ImageDescriptionRepository
         }
         catch (MySqlException exception) when (exception.Number == 1062)
         {
-            // At-least-once delivery can repeat a URL. Existing rows,
-            // including completed descriptions, must remain unchanged.
+            // Repeated Kafka delivery of the same Blob URL is expected.
+            // The unique photo_key keeps the operation idempotent.
             return false;
         }
     }
@@ -91,11 +126,12 @@ public sealed class ImageDescriptionRepository
         await using var connection = _connections.Create();
         await connection.OpenAsync(cancellationToken);
 
-        await using var transaction = await connection.BeginTransactionAsync(
-            IsolationLevel.ReadCommitted,
-            cancellationToken);
+        await using var transaction =
+            await connection.BeginTransactionAsync(
+                IsolationLevel.ReadCommitted,
+                cancellationToken);
 
-        const string expireSql = """
+        const string expireLeaseSql = """
             UPDATE image_descriptions
             SET processing_status = 'FAILED',
                 error_code = 'WORKER_LEASE_EXPIRED',
@@ -104,61 +140,111 @@ public sealed class ImageDescriptionRepository
                 lease_expires_at = NULL,
                 updated_at = UTC_TIMESTAMP(3)
             WHERE processing_status = 'PROCESSING'
-              AND lease_expires_at <= UTC_TIMESTAMP(3)
-              AND attempts >= @maxAttempts;
+            AND lease_expires_at <= UTC_TIMESTAMP(3)
+            AND attempts >= @maxAttempts;
             """;
 
-        await using (var expire = new MySqlCommand(
-                         expireSql, connection, transaction))
+        await using (var expireLease = new MySqlCommand(
+                        expireLeaseSql,
+                        connection,
+                        transaction))
         {
-            expire.Parameters.AddWithValue("@maxAttempts", maxAttempts);
-            await expire.ExecuteNonQueryAsync(cancellationToken);
+            expireLease.Parameters.AddWithValue(
+                "@maxAttempts",
+                maxAttempts);
+
+            await expireLease.ExecuteNonQueryAsync(
+                cancellationToken);
         }
 
         const string selectSql = """
-            SELECT id, blob_url, attempts
+            SELECT
+                id,
+                item_id,
+                item_type,
+                source_event_type,
+                source_occurred_at,
+                blob_url,
+                attempts
             FROM image_descriptions
             WHERE attempts < @maxAttempts
-              AND (
-                  (
-                      processing_status = 'PENDING'
-                      AND (
-                          next_retry_at IS NULL
-                          OR next_retry_at <= UTC_TIMESTAMP(3)
-                      )
-                  )
-                  OR (
-                      processing_status = 'PROCESSING'
-                      AND lease_expires_at <= UTC_TIMESTAMP(3)
-                  )
-              )
-            ORDER BY created_at, id
+            AND (
+                (
+                    processing_status = 'PENDING'
+                    AND (
+                        next_retry_at IS NULL
+                        OR next_retry_at <= UTC_TIMESTAMP(3)
+                    )
+                )
+                OR (
+                    processing_status = 'PROCESSING'
+                    AND lease_expires_at <= UTC_TIMESTAMP(3)
+                )
+            )
+            ORDER BY source_occurred_at, created_at, id
             LIMIT 1
             FOR UPDATE SKIP LOCKED;
             """;
 
-        Guid id;
-        string blobUrl;
-        int attempts;
+        Guid id = default;
+        Guid itemId = default;
+        ItemType itemType = default;
+        ItemEventType sourceEventType = default;
+        DateTime sourceOccurredAt = default;
+        string blobUrl = string.Empty;
+        var attempts = 0;
+        var jobFound = false;
 
         await using (var select = new MySqlCommand(
-                         selectSql, connection, transaction))
+                        selectSql,
+                        connection,
+                        transaction))
         {
-            select.Parameters.AddWithValue("@maxAttempts", maxAttempts);
+            select.Parameters.AddWithValue(
+                "@maxAttempts",
+                maxAttempts);
 
-            await using var reader = await select.ExecuteReaderAsync(
-                cancellationToken);
-
-            if (!await reader.ReadAsync(cancellationToken))
+            await using (var reader =
+                        await select.ExecuteReaderAsync(
+                            cancellationToken))
             {
-                await reader.DisposeAsync();
-                await transaction.CommitAsync(cancellationToken);
-                return null;
-            }
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    jobFound = true;
 
-            id = reader.GetGuid(0);
-            blobUrl = reader.GetString(1);
-            attempts = reader.GetInt32(2) + 1;
+                    // CHAR(36) UUID columns are returned as Guid
+                    // by MySqlConnector.
+                    id = reader.GetGuid(0);
+                    itemId = reader.GetGuid(1);
+
+                    itemType = reader.GetString(2) switch
+                    {
+                        "LOST" => ItemType.Lost,
+                        "FOUND" => ItemType.Found,
+                        _ => throw new InvalidDataException(
+                            "Unsupported item type in image description.")
+                    };
+
+                    sourceEventType = reader.GetString(3) switch
+                    {
+                        "CREATED" => ItemEventType.Created,
+                        "UPDATED" => ItemEventType.Updated,
+                        _ => throw new InvalidDataException(
+                            "Unsupported source event type.")
+                    };
+
+                    sourceOccurredAt = reader.GetDateTime(4);
+                    blobUrl = reader.GetString(5);
+                    attempts = reader.GetInt32(6) + 1;
+                }
+            }
+        }
+
+        // The reader has been disposed before the transaction is committed.
+        if (!jobFound)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return null;
         }
 
         var leaseToken = Guid.NewGuid();
@@ -169,22 +255,40 @@ public sealed class ImageDescriptionRepository
                 attempts = @attempts,
                 lease_token = @leaseToken,
                 lease_expires_at = TIMESTAMPADD(
-                    SECOND, @leaseSeconds, UTC_TIMESTAMP(3)),
+                    SECOND,
+                    @leaseSeconds,
+                    UTC_TIMESTAMP(3)),
                 next_retry_at = NULL,
                 updated_at = UTC_TIMESTAMP(3)
-            WHERE id = @id;
+            WHERE id = @id
+            AND attempts < @maxAttempts;
             """;
 
         await using (var claim = new MySqlCommand(
-                         claimSql, connection, transaction))
+                        claimSql,
+                        connection,
+                        transaction))
         {
-            claim.Parameters.AddWithValue("@id", id.ToString());
+            claim.Parameters.AddWithValue("@id", id);
             claim.Parameters.AddWithValue("@attempts", attempts);
             claim.Parameters.AddWithValue(
-                "@leaseToken", leaseToken.ToString());
-            claim.Parameters.AddWithValue("@leaseSeconds", leaseSeconds);
+                "@leaseToken",
+                leaseToken);
+            claim.Parameters.AddWithValue(
+                "@leaseSeconds",
+                leaseSeconds);
+            claim.Parameters.AddWithValue(
+                "@maxAttempts",
+                maxAttempts);
 
-            await claim.ExecuteNonQueryAsync(cancellationToken);
+            var claimed = await claim.ExecuteNonQueryAsync(
+                cancellationToken);
+
+            if (claimed != 1)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return null;
+            }
         }
 
         await transaction.CommitAsync(cancellationToken);
@@ -192,6 +296,10 @@ public sealed class ImageDescriptionRepository
         return new ClaimedImageDescription(
             id,
             leaseToken,
+            itemId,
+            itemType,
+            sourceEventType,
+            sourceOccurredAt,
             blobUrl,
             attempts);
     }
@@ -202,23 +310,6 @@ public sealed class ImageDescriptionRepository
         string modelName,
         CancellationToken cancellationToken)
     {
-        const string sql = """
-            UPDATE image_descriptions
-            SET description = @description,
-                attributes_json = @attributesJson,
-                processing_status = 'COMPLETED',
-                model_name = @modelName,
-                processed_at = UTC_TIMESTAMP(3),
-                error_code = NULL,
-                next_retry_at = NULL,
-                lease_token = NULL,
-                lease_expires_at = NULL,
-                updated_at = UTC_TIMESTAMP(3)
-            WHERE id = @id
-              AND processing_status = 'PROCESSING'
-              AND lease_token = @leaseToken;
-            """;
-
         var attributesJson = JsonSerializer.Serialize(
             new
             {
@@ -236,17 +327,172 @@ public sealed class ImageDescriptionRepository
         await using var connection = _connections.Create();
         await connection.OpenAsync(cancellationToken);
 
-        await using var command = new MySqlCommand(sql, connection);
+        await using var transaction =
+            await connection.BeginTransactionAsync(
+                IsolationLevel.ReadCommitted,
+                cancellationToken);
 
-        command.Parameters.AddWithValue("@id", job.Id.ToString());
-        command.Parameters.AddWithValue(
-            "@leaseToken", job.LeaseToken.ToString());
-        command.Parameters.AddWithValue(
-            "@description", description.Description);
-        command.Parameters.AddWithValue("@attributesJson", attributesJson);
-        command.Parameters.AddWithValue("@modelName", modelName);
+        const string completeSql = """
+            UPDATE image_descriptions
+            SET description = @description,
+                attributes_json = @attributesJson,
+                processing_status = 'COMPLETED',
+                model_name = @modelName,
+                processed_at = UTC_TIMESTAMP(3),
+                error_code = NULL,
+                next_retry_at = NULL,
+                lease_token = NULL,
+                lease_expires_at = NULL,
+                updated_at = UTC_TIMESTAMP(3)
+            WHERE id = @id
+              AND processing_status = 'PROCESSING'
+              AND lease_token = @leaseToken;
+            """;
 
-        return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
+        await using (var complete = new MySqlCommand(
+                         completeSql,
+                         connection,
+                         transaction))
+        {
+            complete.Parameters.AddWithValue(
+                "@id",
+                job.Id);
+
+            complete.Parameters.AddWithValue(
+                "@leaseToken",
+                job.LeaseToken);
+
+            complete.Parameters.AddWithValue(
+                "@description",
+                description.Description);
+
+            complete.Parameters.AddWithValue(
+                "@attributesJson",
+                attributesJson);
+
+            complete.Parameters.AddWithValue(
+                "@modelName",
+                modelName);
+
+            var completed = await complete.ExecuteNonQueryAsync(
+                cancellationToken);
+
+            if (completed != 1)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+        }
+
+        const string findNewerCurrentSql = """
+            SELECT id
+            FROM image_descriptions
+            WHERE item_id = @itemId
+              AND item_type = @itemType
+              AND processing_status = 'COMPLETED'
+              AND is_superseded = 0
+              AND source_occurred_at > @sourceOccurredAt
+            ORDER BY source_occurred_at DESC, processed_at DESC
+            LIMIT 1
+            FOR UPDATE;
+            """;
+
+        Guid? newerDescriptionId = null;
+
+        await using (var findNewer = new MySqlCommand(
+                         findNewerCurrentSql,
+                         connection,
+                         transaction))
+        {
+            findNewer.Parameters.AddWithValue(
+                "@itemId",
+                job.ItemId);
+
+            findNewer.Parameters.AddWithValue(
+                "@itemType",
+                job.ItemType.ToString().ToUpperInvariant());
+
+            findNewer.Parameters.AddWithValue(
+                "@sourceOccurredAt",
+                job.SourceOccurredAt);
+
+            var newerValue = await findNewer.ExecuteScalarAsync(
+                cancellationToken);
+
+            newerDescriptionId = ConvertDatabaseGuid(newerValue);
+        }
+
+        if (newerDescriptionId.HasValue)
+        {
+            const string supersedeCurrentSql = """
+                UPDATE image_descriptions
+                SET is_superseded = 1,
+                    superseded_at = UTC_TIMESTAMP(3),
+                    superseded_by_id = @newerDescriptionId,
+                    updated_at = UTC_TIMESTAMP(3)
+                WHERE id = @id
+                  AND is_superseded = 0;
+                """;
+
+            await using var supersedeCurrent = new MySqlCommand(
+                supersedeCurrentSql,
+                connection,
+                transaction);
+
+            supersedeCurrent.Parameters.AddWithValue(
+                "@id",
+                job.Id);
+
+            supersedeCurrent.Parameters.AddWithValue(
+                "@newerDescriptionId",
+                newerDescriptionId.Value);
+
+            await supersedeCurrent.ExecuteNonQueryAsync(
+                cancellationToken);
+        }
+        else if (job.SourceEventType == ItemEventType.Updated)
+        {
+            const string supersedePreviousSql = """
+                UPDATE image_descriptions
+                SET is_superseded = 1,
+                    superseded_at = UTC_TIMESTAMP(3),
+                    superseded_by_id = @newDescriptionId,
+                    updated_at = UTC_TIMESTAMP(3)
+                WHERE item_id = @itemId
+                  AND item_type = @itemType
+                  AND id <> @newDescriptionId
+                  AND processing_status = 'COMPLETED'
+                  AND is_superseded = 0
+                  AND source_occurred_at <= @sourceOccurredAt;
+                """;
+
+            await using var supersedePrevious = new MySqlCommand(
+                supersedePreviousSql,
+                connection,
+                transaction);
+
+            supersedePrevious.Parameters.AddWithValue(
+                "@itemId",
+                job.ItemId);
+
+            supersedePrevious.Parameters.AddWithValue(
+                "@itemType",
+                job.ItemType.ToString().ToUpperInvariant());
+
+            supersedePrevious.Parameters.AddWithValue(
+                "@newDescriptionId",
+                job.Id);
+
+            supersedePrevious.Parameters.AddWithValue(
+                "@sourceOccurredAt",
+                job.SourceOccurredAt);
+
+            await supersedePrevious.ExecuteNonQueryAsync(
+                cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return true;
     }
 
     public async Task<bool> RecordFailureAsync(
@@ -273,15 +519,105 @@ public sealed class ImageDescriptionRepository
 
         await using var command = new MySqlCommand(sql, connection);
 
-        command.Parameters.AddWithValue("@id", job.Id.ToString());
-        command.Parameters.AddWithValue(
-            "@leaseToken", job.LeaseToken.ToString());
-        command.Parameters.AddWithValue(
-            "@status", nextRetryAt.HasValue ? "PENDING" : "FAILED");
-        command.Parameters.AddWithValue("@errorCode", errorCode);
-        command.Parameters.AddWithValue(
-            "@nextRetryAt", (object?)nextRetryAt ?? DBNull.Value);
+        command.Parameters.AddWithValue("@id", job.Id);
 
-        return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
+        command.Parameters.AddWithValue(
+            "@leaseToken",
+            job.LeaseToken);
+
+        command.Parameters.AddWithValue(
+            "@status",
+            nextRetryAt.HasValue ? "PENDING" : "FAILED");
+
+        command.Parameters.AddWithValue(
+            "@errorCode",
+            errorCode);
+
+        command.Parameters.AddWithValue(
+            "@nextRetryAt",
+            (object?)nextRetryAt ?? DBNull.Value);
+
+        return await command.ExecuteNonQueryAsync(
+            cancellationToken) == 1;
+    }
+
+    public async Task<CurrentImageDescription?> GetLatestCurrentCompletedAsync(
+        Guid itemId,
+        ItemType itemType,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT
+                id,
+                item_id,
+                item_type,
+                description,
+                attributes_json,
+                source_occurred_at,
+                processed_at
+            FROM image_descriptions
+            WHERE item_id = @itemId
+              AND item_type = @itemType
+              AND processing_status = 'COMPLETED'
+              AND is_superseded = 0
+            ORDER BY source_occurred_at DESC, processed_at DESC
+            LIMIT 1;
+            """;
+
+        await using var connection = _connections.Create();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue(
+            "@itemId",
+            itemId);
+
+        command.Parameters.AddWithValue(
+            "@itemType",
+            itemType.ToString().ToUpperInvariant());
+
+        await using var reader =
+            await command.ExecuteReaderAsync(cancellationToken);
+
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        return new CurrentImageDescription(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetString(2) == "LOST"
+                ? ItemType.Lost
+                : ItemType.Found,
+            reader.GetString(3),
+            reader.IsDBNull(4)
+                ? null
+                : reader.GetString(4),
+            reader.GetDateTime(5),
+            reader.GetDateTime(6));
+    }
+
+    private static Guid? ConvertDatabaseGuid(object? value)
+    {
+        if (value is null || value is DBNull)
+        {
+            return null;
+        }
+
+        if (value is Guid guid)
+        {
+            return guid;
+        }
+
+        if (value is string text &&
+            Guid.TryParse(text, out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new InvalidDataException(
+            "The database returned an invalid description ID.");
     }
 }
