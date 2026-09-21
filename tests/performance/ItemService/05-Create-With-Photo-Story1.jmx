@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-IS-05 - Story 1 Concurrent Report Creation With Photo" enabled="true">
+      <stringProp name="TestPlan.comments">Story 1 (photo upload and AI description generation), load side. Same shape as JMT-IS-01, but every report now carries a real photo.
+
+Summary: THREADS concurrent users each create one lost report and one found report, and each report carries a photo (multipart field Photos, image/jpeg). Every request must return 201, and the response must carry an HTTPS photo URL. That proves Item Service accepted the photo, stored it in Blob Storage and published an event with a non-empty photoUrls list. That event is what puts a job into the Matching Service pipeline (Kafka, then the image_descriptions table, then the single Gemini worker), so THREADS x 2 photos enter the pipeline. JMeter only sees Item Service. The pending and completed backlog is observed in the matching_service database (see QA_Sprint3/Story1-JMeterAndManualTesting.md, Part 2).
+
+Variables: HOST, PORT, THREADS and RAMP_SECONDS match JMT-IS-01 (defaults: localhost, 5001, 20, 10). Pass AUTH_TOKEN at runtime: the JWT from POST /api/auth/login. No secret is stored in this file. LOST_PHOTO_PATH and FOUND_PHOTO_PATH default to the repo's tracked test image tests/e2e/ReportLostItemForm.SeleniumTests/TestAssets/sample.jpg, resolved relative to this file. Override either with an absolute path to use another photo (a real JPEG, PNG or WEBP under 5 MB, of an everyday object with no visible text or personal data). Item Service accepts one photo per report.
+
+Prerequisites: Item Service must have a real Blob Storage connection string and a test container name in its user-secrets, or the photo URL will not be HTTPS and the second assertion on each sampler will fail on purpose.</stringProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument"><stringProp name="Argument.name">HOST</stringProp><stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp></elementProp>
+          <elementProp name="PORT" elementType="Argument"><stringProp name="Argument.name">PORT</stringProp><stringProp name="Argument.value">${__P(PORT,5001)}</stringProp></elementProp>
+          <elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">${__P(AUTH_TOKEN,SET_ME)}</stringProp></elementProp>
+          <elementProp name="THREADS" elementType="Argument"><stringProp name="Argument.name">THREADS</stringProp><stringProp name="Argument.value">${__P(THREADS,20)}</stringProp></elementProp>
+          <elementProp name="RAMP_SECONDS" elementType="Argument"><stringProp name="Argument.name">RAMP_SECONDS</stringProp><stringProp name="Argument.value">${__P(RAMP_SECONDS,10)}</stringProp></elementProp>
+          <elementProp name="LOST_PHOTO_PATH" elementType="Argument"><stringProp name="Argument.name">LOST_PHOTO_PATH</stringProp><stringProp name="Argument.value">${__P(LOST_PHOTO_PATH,../../e2e/ReportLostItemForm.SeleniumTests/TestAssets/sample.jpg)}</stringProp></elementProp>
+          <elementProp name="FOUND_PHOTO_PATH" elementType="Argument"><stringProp name="Argument.name">FOUND_PHOTO_PATH</stringProp><stringProp name="Argument.value">${__P(FOUND_PHOTO_PATH,../../e2e/ReportLostItemForm.SeleniumTests/TestAssets/sample.jpg)}</stringProp></elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Owner authentication" enabled="true">
+        <stringProp name="TestPlan.comments">Sends the JWT as the auth_token cookie, the same way the browser does. It verifies nothing itself: a wrong or expired token shows up as 401 on every sample.</stringProp>
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="auth-cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp>
+        </collectionProp>
+      </HeaderManager>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Concurrent photo report creators" enabled="true">
+        <stringProp name="TestPlan.comments">THREADS users, one loop each, ramped up over RAMP_SECONDS. A failed sample stops that user only, so one bad request does not hide the others. Each user makes two photo uploads.</stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">STOPTHREAD</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">1</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">${THREADS}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${RAMP_SECONDS}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Story 1 - Create unique lost report" enabled="true">
+          <stringProp name="TestPlan.comments">POST /api/items/lost as multipart/form-data: six text fields plus a Photos file (image/jpeg). It verifies that Item Service accepts a photo under concurrent load, which is what publishes the lost_item.created event with a photoUrls list for Matching Service to consume.</stringProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="Title" elementType="HTTPArgument"><stringProp name="Argument.name">Title</stringProp><stringProp name="Argument.value">JM-S1-Photo-Lost-${__UUID}</stringProp></elementProp>
+              <elementProp name="Category" elementType="HTTPArgument"><stringProp name="Argument.name">Category</stringProp><stringProp name="Argument.value">Accessories</stringProp></elementProp>
+              <elementProp name="Description" elementType="HTTPArgument"><stringProp name="Argument.name">Description</stringProp><stringProp name="Argument.value">Concurrent JMeter lost report with photo</stringProp></elementProp>
+              <elementProp name="DateLost" elementType="HTTPArgument"><stringProp name="Argument.name">DateLost</stringProp><stringProp name="Argument.value">2026-09-01</stringProp></elementProp>
+              <elementProp name="LastKnownLocation" elementType="HTTPArgument"><stringProp name="Argument.name">LastKnownLocation</stringProp><stringProp name="Argument.value">QA location</stringProp></elementProp>
+              <elementProp name="HiddenInformation" elementType="HTTPArgument"><stringProp name="Argument.name">HiddenInformation</stringProp><stringProp name="Argument.value">JM-S1-private</stringProp></elementProp>
+            </collectionProp>
+          </elementProp>
+          <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
+            <collectionProp name="HTTPFileArgs.files">
+              <elementProp name="${LOST_PHOTO_PATH}" elementType="HTTPFileArg">
+                <stringProp name="File.path">${LOST_PHOTO_PATH}</stringProp>
+                <stringProp name="File.paramname">Photos</stringProp>
+                <stringProp name="File.mimetype">image/jpeg</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/items/lost</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">true</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Lost report returns 201" enabled="true">
+            <stringProp name="TestPlan.comments">Passes only on HTTP 201 Created. Any 400 (photo rejected), 401 (bad token) or 5xx (usually a wrong Blob connection string) fails the sample.</stringProp>
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">201</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Lost report response carries an HTTPS photo URL" enabled="true">
+            <stringProp name="TestPlan.comments">Passes only if the response body has a photoUrls entry starting with https://. Guards against a silently dropped photo or Item Service falling back to local-disk storage, both of which still return 201 but put nothing usable into the AI pipeline.</stringProp>
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">"photoUrls"\s*:\s*\[\s*"https://</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">2</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Story 2 - Create unique found report" enabled="true">
+          <stringProp name="TestPlan.comments">POST /api/items/found as multipart/form-data: six text fields plus a Photos file (image/jpeg). It verifies that the found-item endpoint accepts a photo under concurrent load and publishes found_item.created with a photoUrls list, so both item types feed the same AI pipeline (Scenario 5).</stringProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="Title" elementType="HTTPArgument"><stringProp name="Argument.name">Title</stringProp><stringProp name="Argument.value">JM-S2-Photo-Found-${__UUID}</stringProp></elementProp>
+              <elementProp name="Category" elementType="HTTPArgument"><stringProp name="Argument.name">Category</stringProp><stringProp name="Argument.value">Accessories</stringProp></elementProp>
+              <elementProp name="Description" elementType="HTTPArgument"><stringProp name="Argument.name">Description</stringProp><stringProp name="Argument.value">Concurrent JMeter found report with photo</stringProp></elementProp>
+              <elementProp name="DateFound" elementType="HTTPArgument"><stringProp name="Argument.name">DateFound</stringProp><stringProp name="Argument.value">2026-09-01</stringProp></elementProp>
+              <elementProp name="LocationFound" elementType="HTTPArgument"><stringProp name="Argument.name">LocationFound</stringProp><stringProp name="Argument.value">QA location</stringProp></elementProp>
+              <elementProp name="HiddenInformation" elementType="HTTPArgument"><stringProp name="Argument.name">HiddenInformation</stringProp><stringProp name="Argument.value">JM-S2-private</stringProp></elementProp>
+            </collectionProp>
+          </elementProp>
+          <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
+            <collectionProp name="HTTPFileArgs.files">
+              <elementProp name="${FOUND_PHOTO_PATH}" elementType="HTTPFileArg">
+                <stringProp name="File.path">${FOUND_PHOTO_PATH}</stringProp>
+                <stringProp name="File.paramname">Photos</stringProp>
+                <stringProp name="File.mimetype">image/jpeg</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/items/found</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">true</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Found report returns 201" enabled="true">
+            <stringProp name="TestPlan.comments">Passes only on HTTP 201 Created. Any 400 (photo rejected), 401 (bad token) or 5xx (usually a wrong Blob connection string) fails the sample.</stringProp>
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">201</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Found report response carries an HTTPS photo URL" enabled="true">
+            <stringProp name="TestPlan.comments">Passes only if the response body has a photoUrls entry starting with https://. Guards against a silently dropped photo or Item Service falling back to local-disk storage, both of which still return 201 but put nothing usable into the AI pipeline.</stringProp>
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">"photoUrls"\s*:\s*\[\s*"https://</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">2</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
