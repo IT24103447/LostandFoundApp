@@ -492,6 +492,7 @@ yarn-error.log*
 
 # Local QA working documents (not submitted to GitHub)
 /QA-Test-Cases-*.md
+/QA_Sprint3/
 
 # QA-generated run artifacts (test source stays tracked)
 **/TestResults/
@@ -525,7 +526,9 @@ coverage*.xml
 # Local IDE files and service-specific development settings
 .vs/
 .vscode/
-**/appsettings.Development.json
+
+#Commented out because we want to track the appsettings.Development.json file in git initially - to be uncommented later.
+#**/appsettings.Development.json
 **/appsettings.Local.json
 
 # Java/JMeter diagnostic output
