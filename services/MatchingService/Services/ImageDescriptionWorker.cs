@@ -59,8 +59,6 @@ public sealed class ImageDescriptionWorker : BackgroundService
             }
             catch (Exception exception)
             {
-                // Do not log exception messages because database/provider
-                // messages can contain URLs or connection information.
                 _logger.LogError(
                     """
                     Image processing cycle failed.
@@ -107,8 +105,6 @@ public sealed class ImageDescriptionWorker : BackgroundService
         catch (OperationCanceledException)
             when (stoppingToken.IsCancellationRequested)
         {
-            // Leave the lease in place. Another cycle can recover it
-            // after the lease expires.
             throw;
         }
         catch (OperationCanceledException)
@@ -133,26 +129,9 @@ public sealed class ImageDescriptionWorker : BackgroundService
         }
         catch (Exception exception)
         {
-            var exceptionType = exception.GetType();
-
-            var statusCode = exceptionType
-                .GetProperty("StatusCode")
-                ?.GetValue(exception);
-
-            var providerStatus = exceptionType
-                .GetProperty("Status")
-                ?.GetValue(exception);
-
             _logger.LogWarning(
-                """
-                Gemini request failed.
-                Exception type: {ExceptionType}.
-                HTTP status: {StatusCode}.
-                Provider status: {ProviderStatus}.
-                """,
-                exceptionType.FullName,
-                statusCode,
-                providerStatus);
+                "Gemini request failed. Exception type: {ExceptionType}.",
+                exception.GetType().FullName);
 
             await FailAsync(
                 job,

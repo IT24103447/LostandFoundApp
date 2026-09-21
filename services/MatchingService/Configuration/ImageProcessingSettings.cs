@@ -6,7 +6,7 @@ public sealed class ImageProcessingSettings
 
     public int PollIntervalSeconds { get; init; } = 5;
 
-    public int RequestTimeoutSeconds { get; init; } = 90;
+    public int RequestTimeoutSeconds { get; init; } = 60;
 
     public int LeaseSeconds { get; init; } = 180;
 
