@@ -36,7 +36,8 @@ public sealed class MatchingServiceKafkaApiFactory : WebApplicationFactory<Progr
     {
         await _kafka.StartAsync();
 
-        /* Create both topics explicitly before the consumer ever subscribes. Relying on lazy
+        /* Create all four topics explicitly before the consumer ever subscribes (the created and updated
+           topics for both lost and found items). Relying on lazy
            auto-creation racing against Subscribe()/Consume() on a just-started broker was observed to
            occasionally time out. The group's first rebalance for a topic created out from under it can
            take longer than a test should have to wait, so pre-creating removes the race entirely. */
@@ -46,7 +47,9 @@ public sealed class MatchingServiceKafkaApiFactory : WebApplicationFactory<Progr
         await admin.CreateTopicsAsync(
         [
             new TopicSpecification { Name = "items.lost_item.created", NumPartitions = 1, ReplicationFactor = 1 },
-            new TopicSpecification { Name = "items.found_item.created", NumPartitions = 1, ReplicationFactor = 1 }
+            new TopicSpecification { Name = "items.found_item.created", NumPartitions = 1, ReplicationFactor = 1 },
+            new TopicSpecification { Name = "items.lost_item.updated", NumPartitions = 1, ReplicationFactor = 1 },
+            new TopicSpecification { Name = "items.found_item.updated", NumPartitions = 1, ReplicationFactor = 1 }
         ]);
     }
 

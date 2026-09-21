@@ -23,6 +23,8 @@ public sealed class ImageDescriptionWorkerTests
 {
     private static readonly Guid JobId = Guid.NewGuid();
     private static readonly Guid LeaseToken = Guid.NewGuid();
+    private static readonly Guid ItemId = Guid.NewGuid();
+    private static readonly DateTime SourceOccurredAt = DateTime.UtcNow;
     private const string BlobUrl = "https://blob.example.com/a.jpg";
 
     private static IHostedService BuildWorker(
@@ -57,7 +59,8 @@ public sealed class ImageDescriptionWorkerTests
             .Setup(r => r.ClaimNextAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
                 Interlocked.Increment(ref claimed) == 1
-                    ? new ClaimedImageDescription(JobId, LeaseToken, BlobUrl, attempts)
+                    ? new ClaimedImageDescription(
+                        JobId, LeaseToken, ItemId, ItemType.Lost, ItemEventType.Created, SourceOccurredAt, BlobUrl, attempts)
                     : null);
     }
 

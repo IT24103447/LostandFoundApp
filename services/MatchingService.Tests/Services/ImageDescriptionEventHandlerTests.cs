@@ -12,6 +12,7 @@ public sealed class ImageDescriptionEventHandlerTests
     private static readonly Guid EventId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid LostItemId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid FoundItemId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly DateTime EventTimestamp = new(2026, 9, 21, 10, 0, 0, DateTimeKind.Utc);
 
     private static ImageDescriptionEventHandler BuildHandler(
         Mock<IImageDescriptionRepository> repository) =>
@@ -25,6 +26,7 @@ public sealed class ImageDescriptionEventHandlerTests
         $$"""
         {
           "eventId": "{{EventId}}",
+          "timestamp": "{{EventTimestamp:O}}",
           "lostItemId": "{{LostItemId}}",
           "foundItemId": null,
           "photoUrls": [{{string.Join(",", photoUrls.Select(u => $"\"{u}\""))}}]
@@ -35,6 +37,7 @@ public sealed class ImageDescriptionEventHandlerTests
         $$"""
         {
           "eventId": "{{EventId}}",
+          "timestamp": "{{EventTimestamp:O}}",
           "lostItemId": null,
           "foundItemId": "{{FoundItemId}}",
           "photoUrls": [{{string.Join(",", photoUrls.Select(u => $"\"{u}\""))}}]
@@ -61,6 +64,8 @@ public sealed class ImageDescriptionEventHandlerTests
         Assert.NotNull(captured);
         Assert.Equal(ItemType.Lost, captured!.ItemType);
         Assert.Equal(LostItemId, captured.ItemId);
+        Assert.Equal(ItemEventType.Created, captured.SourceEventType);
+        Assert.Equal(EventTimestamp, captured.SourceOccurredAt);
     }
 
     /* Scenario 5: a found_item.created topic is resolved to ItemType.Found and keyed off FoundItemId,
@@ -84,9 +89,12 @@ public sealed class ImageDescriptionEventHandlerTests
         Assert.NotNull(captured);
         Assert.Equal(ItemType.Found, captured!.ItemType);
         Assert.Equal(FoundItemId, captured.ItemId);
+        Assert.Equal(ItemEventType.Created, captured.SourceEventType);
+        Assert.Equal(EventTimestamp, captured.SourceOccurredAt);
     }
 
-    /* A topic that isn't a recognised created-event topic must fail loudly rather than be silently
+    /* A topic that isn't a recognised created or updated topic (here a resolved event, which the
+       consumer never subscribes to) must fail loudly rather than be silently
        ignored, matching ItemCreatedEventConsumer's malformed-message handling (logged and the offset still committed) */
     [Fact]
     public async Task HandleAsync_UnsupportedTopic_ThrowsInvalidDataException()
@@ -95,13 +103,26 @@ public sealed class ImageDescriptionEventHandlerTests
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             BuildHandler(repository).HandleAsync(
-                "items.lost_item.updated",
+                "items.lost_item.resolved",
+                LostEventJson("https://blob.example.com/a.jpg"),
+                CancellationToken.None));
+    }
+
+    // A topic whose item type is neither lost nor found must fail loudly too, before any JSON is read.
+    [Fact]
+    public async Task HandleAsync_UnknownItemTypeTopic_ThrowsInvalidDataException()
+    {
+        var repository = new Mock<IImageDescriptionRepository>();
+
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            BuildHandler(repository).HandleAsync(
+                "items.other_item.created",
                 LostEventJson("https://blob.example.com/a.jpg"),
                 CancellationToken.None));
     }
 
     /* A JSON body of the literal `null` deserializes successfully but yields no object,
-       which must berejected explicitly rather than proceeding with a null event. */
+       which must be rejected explicitly rather than proceeding with a null event. */
     [Fact]
     public async Task HandleAsync_NullPayload_ThrowsInvalidDataException()
     {
@@ -135,11 +156,29 @@ public sealed class ImageDescriptionEventHandlerTests
     {
         var repository = new Mock<IImageDescriptionRepository>();
         var json = $$"""
-            {"eventId":"00000000-0000-0000-0000-000000000000","lostItemId":"{{LostItemId}}","foundItemId":null,"photoUrls":["https://blob.example.com/a.jpg"]}
+            {"eventId":"00000000-0000-0000-0000-000000000000","timestamp":"{{EventTimestamp:O}}","lostItemId":"{{LostItemId}}","foundItemId":null,"photoUrls":["https://blob.example.com/a.jpg"]}
             """;
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             BuildHandler(repository).HandleAsync("items.lost_item.created", json, CancellationToken.None));
+    }
+
+    /* The event timestamp is what orders a replacement against the photo it replaces, so an event
+       without one must be rejected before anything is written. The consumer discards it as malformed. */
+    [Fact]
+    public async Task HandleAsync_MissingTimestamp_ThrowsInvalidDataException()
+    {
+        var repository = new Mock<IImageDescriptionRepository>();
+        var json = $$"""
+            {"eventId":"{{EventId}}","lostItemId":"{{LostItemId}}","foundItemId":null,"photoUrls":["https://blob.example.com/a.jpg"]}
+            """;
+
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            BuildHandler(repository).HandleAsync("items.lost_item.created", json, CancellationToken.None));
+
+        repository.Verify(
+            r => r.CreatePendingAsync(It.IsAny<ImageDescriptionRecord>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     /* GetItemId's own guard: a lost_item.created topic whose payload has no LostItemId is invalid,
@@ -149,7 +188,7 @@ public sealed class ImageDescriptionEventHandlerTests
     {
         var repository = new Mock<IImageDescriptionRepository>();
         var json = $$"""
-            {"eventId":"{{EventId}}","lostItemId":null,"foundItemId":null,"photoUrls":["https://blob.example.com/a.jpg"]}
+            {"eventId":"{{EventId}}","timestamp":"{{EventTimestamp:O}}","lostItemId":null,"foundItemId":null,"photoUrls":["https://blob.example.com/a.jpg"]}
             """;
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>

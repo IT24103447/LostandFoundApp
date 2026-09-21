@@ -27,6 +27,8 @@ public sealed class ImageDescriptionRepositoryIntegrationTests : IClassFixture<M
         return new ImageDescriptionRecord(
             Guid.NewGuid(),
             Guid.NewGuid(),
+            ItemEventType.Created,
+            now,
             Guid.NewGuid().ToString("N"), // photo_key: unique per test, real generator uses a SHA-256 hex digest of the same length class
             Guid.NewGuid(),
             ItemType.Lost,
@@ -52,6 +54,12 @@ public sealed class ImageDescriptionRepositoryIntegrationTests : IClassFixture<M
         Assert.NotNull(claimed);
         Assert.Equal(record.Id, claimed!.Id);
         Assert.Equal(record.BlobUrl, claimed.BlobUrl);
+
+        // The claim also carries the item and source-event metadata that photo replacement relies on.
+        Assert.Equal(record.ItemId, claimed.ItemId);
+        Assert.Equal(record.ItemType, claimed.ItemType);
+        Assert.Equal(ItemEventType.Created, claimed.SourceEventType);
+        Assert.Equal(record.SourceOccurredAt, claimed.SourceOccurredAt, TimeSpan.FromMilliseconds(1));
     }
 
     /* Scenario 8: at-least-once Kafka redelivery must not create a duplicate row for the same photo.
