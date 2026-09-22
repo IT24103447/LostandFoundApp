@@ -134,6 +134,17 @@ if (processingEnabled)
     builder.Services.AddSingleton<BlobUrlValidator>();
     builder.Services.AddSingleton<ImageDescriptionValidator>();
 
+    builder.Services.AddHttpClient(
+            GeminiImageDescriptionGenerator.BlobDownloadClientName,
+            client => client.Timeout = Timeout.InfiniteTimeSpan)
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AllowAutoRedirect = false,
+            UseCookies = false
+        })
+        // Default HttpClient logs include request URLs.
+        .RemoveAllLoggers();
+
     builder.Services.AddSingleton<
         IImageDescriptionGenerator,
         GeminiImageDescriptionGenerator>();

@@ -9,6 +9,9 @@ namespace MatchingService.Services;
 public sealed class GeminiImageDescriptionGenerator
     : IImageDescriptionGenerator
 {
+    public const string BlobDownloadClientName = "MatchingBlobDownload";
+    // Matches Item Service's photo upload limit; enforce it even without Content-Length.
+    private const int MaxImageBytes = 5 * 1024 * 1024;
     private const string Prompt = """
         Analyse the item shown in the supplied image for lost-and-found matching.
 
@@ -52,17 +55,20 @@ public sealed class GeminiImageDescriptionGenerator
     private readonly GeminiSettings _settings;
     private readonly BlobUrlValidator _blobUrls;
     private readonly ImageDescriptionValidator _descriptions;
+    private readonly IHttpClientFactory _httpClients;
 
     public GeminiImageDescriptionGenerator(
         Client client,
         IOptions<GeminiSettings> settings,
         BlobUrlValidator blobUrls,
-        ImageDescriptionValidator descriptions)
+        ImageDescriptionValidator descriptions,
+        IHttpClientFactory httpClients)
     {
         _client = client;
         _settings = settings.Value;
         _blobUrls = blobUrls;
         _descriptions = descriptions;
+        _httpClients = httpClients;
     }
 
     public async Task<GeneratedImageDescription> GenerateAsync(
@@ -71,6 +77,7 @@ public sealed class GeminiImageDescriptionGenerator
     {
         var uri = _blobUrls.Validate(blobUrl);
         var mimeType = GetMimeType(uri);
+        var imageBytes = await DownloadImageAsync(uri, mimeType, cancellationToken);
 
         var content = new Content
         {
@@ -83,9 +90,9 @@ public sealed class GeminiImageDescriptionGenerator
                 },
                 new Part
                 {
-                    FileData = new FileData
+                    InlineData = new Google.GenAI.Types.Blob
                     {
-                        FileUri = uri.AbsoluteUri,
+                        Data = imageBytes,
                         MimeType = mimeType
                     }
                 }
@@ -118,6 +125,84 @@ public sealed class GeminiImageDescriptionGenerator
                 .Select(part => part.Text));
 
         return _descriptions.Validate(json);
+    }
+
+    private async Task<byte[]> DownloadImageAsync(
+        Uri uri,
+        string mimeType,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var httpClient = _httpClients.CreateClient(BlobDownloadClientName);
+            using var response = await httpClient.GetAsync(
+                uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            var status = (int)response.StatusCode;
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new ImageProcessingException(
+                    status == 404 ? "BLOB_NOT_FOUND" : "BLOB_DOWNLOAD_FAILED",
+                    retryable: status is 408 or 429 || status >= 500);
+            }
+
+            var contentType = response.Content.Headers.ContentType?.MediaType;
+            if (status != 200 ||
+                (contentType is not null &&
+                 !string.Equals(contentType, mimeType, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ImageProcessingException("IMAGE_RESPONSE_INVALID", retryable: false);
+            }
+
+            if (response.Content.Headers.ContentLength > MaxImageBytes)
+            {
+                throw new ImageProcessingException("IMAGE_TOO_LARGE", retryable: false);
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var image = new MemoryStream();
+            var buffer = new byte[81920];
+            int bytesRead;
+            while ((bytesRead = await stream.ReadAsync(buffer.AsMemory(), cancellationToken)) != 0)
+            {
+                if (image.Length + bytesRead > MaxImageBytes)
+                {
+                    throw new ImageProcessingException("IMAGE_TOO_LARGE", retryable: false);
+                }
+
+                image.Write(buffer, 0, bytesRead);
+            }
+
+            var bytes = image.ToArray();
+            if (!HasImageSignature(bytes, mimeType))
+            {
+                throw new ImageProcessingException("IMAGE_RESPONSE_INVALID", retryable: false);
+            }
+
+            return bytes;
+        }
+        catch (HttpRequestException)
+        {
+            throw new ImageProcessingException("BLOB_DOWNLOAD_FAILED", retryable: true);
+        }
+        catch (IOException)
+        {
+            throw new ImageProcessingException("BLOB_DOWNLOAD_FAILED", retryable: true);
+        }
+    }
+
+    private static bool HasImageSignature(byte[] bytes, string mimeType)
+    {
+        var data = bytes.AsSpan();
+        return mimeType switch
+        {
+            "image/jpeg" => data.Length >= 3 &&
+                data[0] == 0xff && data[1] == 0xd8 && data[2] == 0xff,
+            "image/png" => data.StartsWith(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }),
+            "image/webp" => data.Length >= 12 &&
+                data[..4].SequenceEqual("RIFF"u8) && data.Slice(8, 4).SequenceEqual("WEBP"u8),
+            _ => false
+        };
     }
 
     private static string GetMimeType(Uri uri)

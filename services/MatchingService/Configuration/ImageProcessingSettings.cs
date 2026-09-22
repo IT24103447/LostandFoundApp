@@ -10,7 +10,7 @@ public sealed class ImageProcessingSettings
 
     public int LeaseSeconds { get; init; } = 180;
 
-    public int MaxAttempts { get; init; } = 10;
+    public int MaxAttempts { get; init; } = 5;
 
     public int InitialRetrySeconds { get; init; } = 30;
 
