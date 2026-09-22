@@ -315,8 +315,17 @@ public sealed class ClaimRepository
                 lost_snapshot,
                 found_snapshot
             FROM matches
-            WHERE lost_reporter_id = @userId
-               OR finder_id = @userId
+            WHERE is_active = 1
+                AND (
+                    lost_reporter_id = @userId
+                    OR finder_id = @userId
+                )
+                AND status IN (
+                    'LOST_REPORTER_CONFIRMED',
+                    'FINDER_CONFIRMED',
+                    'CONFIRMED',
+                    'REJECTED'
+                )
             ORDER BY created_at DESC, id DESC
             LIMIT 20 OFFSET @offset;
             """;

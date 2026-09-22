@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using MatchingService.Matches;
 
 namespace MatchingService.Claims;
 
@@ -144,6 +145,9 @@ public static class ClaimRegistration
 
         services.AddScoped<ClaimRepository>();
         services.AddScoped<ClaimService>();
+
+        services.AddScoped<IMatchReadRepository, MatchReadRepository>();
+        services.AddScoped<MatchReadService>();
 
         return services;
     }
