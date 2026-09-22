@@ -34,6 +34,7 @@ public sealed class MatchingServiceKafkaApiFactory : WebApplicationFactory<Progr
 
     public async Task InitializeAsync()
     {
+        SetPreBuildEnvironmentVariables();
         await _kafka.StartAsync();
 
         /* Create all four topics explicitly before the consumer ever subscribes (the created and updated
@@ -80,6 +81,20 @@ public sealed class MatchingServiceKafkaApiFactory : WebApplicationFactory<Progr
             services.RemoveAll<IImageDescriptionRepository>();
             services.AddSingleton(Repository.Object);
         });
+    }
+
+    /* AddManualClaims (Program.cs) reads these before builder.Build(), too early for
+       ConfigureAppConfiguration or UseEnvironment to reach (confirmed against MatchingServiceDbApiFactory:
+       setting Jwt:* in the dictionary still throws). Env vars are the only channel that early.
+       ItemService:BaseUrl must be HTTPS here too, since the env is still whatever the real process
+       ASPNETCORE_ENVIRONMENT says, not yet "IntegrationTestingKafka". Values are never dereferenced,
+       just format-checked. */
+    private static void SetPreBuildEnvironmentVariables()
+    {
+        Environment.SetEnvironmentVariable("Jwt__Secret", "matching-service-db-tests-secret-key-32-bytes-minimum");
+        Environment.SetEnvironmentVariable("Jwt__Issuer", "matching-service-db-tests");
+        Environment.SetEnvironmentVariable("Jwt__Audience", "matching-service-db-tests");
+        Environment.SetEnvironmentVariable("ItemService__BaseUrl", "https://item-service.invalid");
     }
 
     async Task IAsyncLifetime.DisposeAsync() => await _kafka.DisposeAsync();

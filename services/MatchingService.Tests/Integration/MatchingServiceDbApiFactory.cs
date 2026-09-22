@@ -39,10 +39,22 @@ public sealed class MatchingServiceDbApiFactory : WebApplicationFactory<Program>
 
     public async Task InitializeAsync()
     {
+        SetPreBuildEnvironmentVariables();
         await _mysql.StartAsync();
         /* Force the host to build and run its Development-only DbInitializer migration step now,
            rather than lazily on first use inside a test. */
         _ = Server;
+    }
+
+    /* AddManualClaims (Program.cs) reads these before builder.Build(), too early for
+       ConfigureAppConfiguration to reach (confirmed: setting them in the dictionary below still throws).
+       Env vars are the only channel that early. Values are never dereferenced, just format-checked. */
+    private static void SetPreBuildEnvironmentVariables()
+    {
+        Environment.SetEnvironmentVariable("Jwt__Secret", "matching-service-db-tests-secret-key-32-bytes-minimum");
+        Environment.SetEnvironmentVariable("Jwt__Issuer", "matching-service-db-tests");
+        Environment.SetEnvironmentVariable("Jwt__Audience", "matching-service-db-tests");
+        Environment.SetEnvironmentVariable("ItemService__BaseUrl", "https://item-service.invalid");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -61,6 +73,8 @@ public sealed class MatchingServiceDbApiFactory : WebApplicationFactory<Program>
                    the consumer's hosted service is removed below. */
                 ["Kafka:BootstrapServers"] = "localhost:9092",
                 ["Kafka:GroupId"] = "matching-service-db-tests"
+
+                // Jwt:*/ItemService:BaseUrl are set as env vars instead, see SetPreBuildEnvironmentVariables.
             };
 
             config.AddInMemoryCollection(dict);
