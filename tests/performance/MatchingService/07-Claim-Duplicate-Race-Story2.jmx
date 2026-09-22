@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-MS-07 - Story 2 Duplicate Claim Race Condition" enabled="true">
+      <stringProp name="TestPlan.comments">Story 2 (LF-173), Scenario 6's "the same lost/found pair already has a match" - the one thing about this scenario xUnit genuinely cannot prove: two REAL, SIMULTANEOUS HTTP requests racing the database's unique constraint on (lost_item_id, found_item_id), the way a double-click or a client-side network retry would in production. ClaimServiceTests.SubmitAsync_PairAlreadyMatched_SecondAttemptThrowsConflict proves the SEQUENTIAL case (attempt, then a later second attempt); this plan proves the CONCURRENT case.
+
+Exactly 2 threads, both authenticated as the same user (AUTH_TOKEN, the report owner submitting the claim), both given the identical lost/found pair from RACE_PAIR_CSV. Each thread independently previews the pair (so each has its own genuine previewVersion - previewVersion is a fingerprint of the reports' current, unchanged state, so both threads' previews naturally match), then a Synchronizing Timer holds both threads at the claim request until both are ready, so the two POST /api/matches/claim calls fire together rather than one after the other. Expect exactly one 201 (Created) and one 409 (Conflict) across the two samples - never two 201s. The Response Assertion below accepts either code individually (JMeter cannot compare across threads), so check View Results Tree / Summary Report after the run for the actual 1-and-1 split; see the guide.
+
+RACE_PAIR_CSV must hold exactly one never-claimed pair, freshly prepared before every run (it gets consumed by whichever thread wins the race) - see the guide for how to prepare it and why it cannot be reused across runs. HOST/PORT default to localhost/5179. AUTH_TOKEN must be the JWT of the pair's LOST report owner (or its FOUND report owner - either side may submit, per Scenario 4).</stringProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument"><stringProp name="Argument.name">HOST</stringProp><stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp></elementProp>
+          <elementProp name="PORT" elementType="Argument"><stringProp name="Argument.name">PORT</stringProp><stringProp name="Argument.value">${__P(PORT,5179)}</stringProp></elementProp>
+          <elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">${__P(AUTH_TOKEN,SET_ME)}</stringProp></elementProp>
+          <elementProp name="RACE_PAIR_CSV" elementType="Argument"><stringProp name="Argument.name">RACE_PAIR_CSV</stringProp><stringProp name="Argument.value">${__P(RACE_PAIR_CSV,story2-race-pair.csv)}</stringProp></elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Owner authentication + JSON content type" enabled="true">
+        <stringProp name="TestPlan.comments">Sends the JWT as the auth_token cookie (MatchingService's JWT bearer handler accepts it as a fallback - ClaimRegistration.cs).</stringProp>
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="auth-cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp>
+          <elementProp name="content-type" elementType="Header"><stringProp name="Header.name">Content-Type</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp>
+        </collectionProp>
+      </HeaderManager>
+      <hashTree/>
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Story 2 single race pair" enabled="true">
+        <stringProp name="TestPlan.comments">Exactly one data row expected. shareMode "All threads" plus recycle=true means both of the two threads below read the SAME row (there is only one), which is what makes them race the same pair rather than two different ones.</stringProp>
+        <stringProp name="filename">${RACE_PAIR_CSV}</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="variableNames">lostItemId,foundItemId</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <stringProp name="delimiter">,</stringProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <boolProp name="stopThread">false</boolProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Two simultaneous claimants" enabled="true">
+        <stringProp name="TestPlan.comments">Exactly 2 threads, 1 loop each, no ramp-up (both start together). This is a fixed shape - do not raise THREADS for this plan; the Synchronizing Timer below is hard-set to a group size of 2.</stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">CONTINUE</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">1</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">2</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Preview the shared pair" enabled="true">
+          <stringProp name="TestPlan.comments">Each of the two threads previews the same, still-unclaimed pair independently, to get its own genuine previewVersion - a fingerprint of the reports' current state, so both threads' versions match since nothing changes between the two previews.</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&quot;lostItemId&quot;:&quot;${lostItemId}&quot;,&quot;foundItemId&quot;:&quot;${foundItemId}&quot;}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/preview</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Preview returns 200" enabled="true">
+            <stringProp name="TestPlan.comments">If this fails, RACE_PAIR_CSV is stale (already claimed by an earlier run, or no longer ACTIVE) - prepare a fresh pair before rerunning.</stringProp>
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract previewVersion" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">previewVersion</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.previewVersion</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">0</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Claim the shared pair" enabled="true">
+          <stringProp name="TestPlan.comments">POST /api/matches/claim, fired by both threads at (as close to) the same instant as the Synchronizing Timer below can arrange. Exactly one of the two concurrent samples is expected to land 201 and the other 409 - see View Results Tree after the run, this sampler's own assertion only confirms each individual response was one of the two acceptable outcomes.</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&quot;lostItemId&quot;:&quot;${lostItemId}&quot;,&quot;foundItemId&quot;:&quot;${foundItemId}&quot;,&quot;previewVersion&quot;:&quot;${previewVersion}&quot;}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/claim</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="Synchronizing Timer - hold both racers until both are ready" enabled="true">
+            <stringProp name="TestPlan.comments">Blocks each thread here until all 2 threads have reached this point, then releases both together, so the two claim requests below fire as close to simultaneously as JMeter can manage. groupSize must stay 2 - it matches this plan's fixed 2-thread shape.</stringProp>
+            <intProp name="groupSize">2</intProp>
+          </SyncTimer>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Claim returns 201 or 409" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="1">201</stringProp>
+              <stringProp name="2">409</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

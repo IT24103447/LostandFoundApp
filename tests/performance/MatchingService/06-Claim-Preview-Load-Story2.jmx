@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-MS-06 - Story 2 Concurrent Candidates and Preview Load" enabled="true">
+      <stringProp name="TestPlan.comments">Story 2 (LF-173, claim a potential match), read-side load. THREADS concurrent users, each authenticated as the same real user (AUTH_TOKEN), each: (1) fetches their own LOST candidates, (2) fetches their own FOUND candidates, (3) fetches their own match history (Scenario 1's report picker and the Matched Items list), and (4) previews a lost/found pair read from PAIRS_CSV (Scenario 2/3). Preview creates no match record - it only reads - so the same small pool of pairs is reused (recycled) across every thread and iteration without ever being "used up", unlike a claim.
+
+None of these endpoints touch Gemini. The pairs in PAIRS_CSV only need their image_descriptions rows (if any) to already be in a settled state (COMPLETED, or no photo at all) - see the guide for how to prepare them. A pair whose photo is still PENDING/PROCESSING would fail the preview assertion below on purpose (409, "still being analysed"), which is the correct behaviour, not a plan bug.
+
+Variables: HOST, PORT, THREADS and RAMP_SECONDS follow the same convention as the Item Service plans (defaults: localhost, 5179, 10, 10). Pass AUTH_TOKEN at runtime: the JWT from POST /api/auth/login for the user who owns the LOST side of every pair in PAIRS_CSV. No secret is stored in this file. PAIRS_CSV defaults to the tracked template tests/performance/MatchingService/story2-pairs.csv, resolved relative to this file - see the guide for how to fill it with real ids before running.</stringProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument"><stringProp name="Argument.name">HOST</stringProp><stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp></elementProp>
+          <elementProp name="PORT" elementType="Argument"><stringProp name="Argument.name">PORT</stringProp><stringProp name="Argument.value">${__P(PORT,5179)}</stringProp></elementProp>
+          <elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">${__P(AUTH_TOKEN,SET_ME)}</stringProp></elementProp>
+          <elementProp name="THREADS" elementType="Argument"><stringProp name="Argument.name">THREADS</stringProp><stringProp name="Argument.value">${__P(THREADS,10)}</stringProp></elementProp>
+          <elementProp name="RAMP_SECONDS" elementType="Argument"><stringProp name="Argument.name">RAMP_SECONDS</stringProp><stringProp name="Argument.value">${__P(RAMP_SECONDS,10)}</stringProp></elementProp>
+          <elementProp name="PAIRS_CSV" elementType="Argument"><stringProp name="Argument.name">PAIRS_CSV</stringProp><stringProp name="Argument.value">${__P(PAIRS_CSV,story2-pairs.csv)}</stringProp></elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Owner authentication + JSON content type" enabled="true">
+        <stringProp name="TestPlan.comments">Sends the JWT as the auth_token cookie, the same way the browser does (MatchingService's JWT bearer handler reads it as a fallback when there is no Authorization header - ClaimRegistration.cs). Content-Type is only meaningful for the POST /preview sampler; it is harmless on the GET samplers.</stringProp>
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="auth-cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp>
+          <elementProp name="content-type" elementType="Header"><stringProp name="Header.name">Content-Type</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp>
+        </collectionProp>
+      </HeaderManager>
+      <hashTree/>
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Story 2 lost/found pairs" enabled="true">
+        <stringProp name="TestPlan.comments">One row per known-good, never-claimed lost/found pair. Recycled across threads and iterations - previewing does not consume a pair, only claiming does. See the guide for how this file is prepared.</stringProp>
+        <stringProp name="filename">${PAIRS_CSV}</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="variableNames">lostItemId,foundItemId</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <stringProp name="delimiter">,</stringProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <boolProp name="stopThread">false</boolProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Concurrent candidate browsers and previewers" enabled="true">
+        <stringProp name="TestPlan.comments">THREADS users, one loop each, ramped up over RAMP_SECONDS. A failed sample stops that user only.</stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">STOPTHREAD</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">1</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">${THREADS}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${RAMP_SECONDS}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Scenario 1 - Get LOST candidates" enabled="true">
+          <stringProp name="TestPlan.comments">GET /api/matches/candidates?type=LOST. Backs the report-picker popup when viewing someone else's found report ("This Is My Lost Item").</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/candidates</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="type" elementType="HTTPArgument"><stringProp name="Argument.name">type</stringProp><stringProp name="Argument.value">LOST</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="LOST candidates returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Scenario 1 - Get FOUND candidates" enabled="true">
+          <stringProp name="TestPlan.comments">GET /api/matches/candidates?type=FOUND. Backs the report-picker popup when viewing someone else's lost report ("I Found This Item").</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/candidates</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="type" elementType="HTTPArgument"><stringProp name="Argument.name">type</stringProp><stringProp name="Argument.value">FOUND</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="FOUND candidates returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matched Items - Get my matches" enabled="true">
+          <stringProp name="TestPlan.comments">GET /api/matches/mine?page=1. The real Matched Items page's own read.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/mine</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="page" elementType="HTTPArgument"><stringProp name="Argument.name">page</stringProp><stringProp name="Argument.value">1</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Mine returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Scenario 2/3 - Preview a lost/found pair" enabled="true">
+          <stringProp name="TestPlan.comments">POST /api/matches/preview with a pair read from PAIRS_CSV. Verifies the comparison endpoint stays correct and creates nothing under concurrent read load. Requires the caller (AUTH_TOKEN) to own the LOST side of every pair in the CSV.</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&quot;lostItemId&quot;:&quot;${lostItemId}&quot;,&quot;foundItemId&quot;:&quot;${foundItemId}&quot;}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/preview</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Preview returns 200" enabled="true">
+            <stringProp name="TestPlan.comments">A non-200 here usually means the CSV pair is stale: already claimed, no longer ACTIVE, or its photo is still PENDING/PROCESSING. Re-check the pair with the guide's verification query.</stringProp>
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Preview response carries a score" enabled="true">
+            <stringProp name="TestPlan.comments">Passes only if the response body has a numeric "score" field. Guards against a 200 that somehow carries an empty or malformed body.</stringProp>
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">"score"\s*:\s*[0-9]</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">2</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
