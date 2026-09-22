@@ -5,11 +5,11 @@ using Moq;
 namespace MatchingService.Tests.Matches;
 
 /// <summary>
-/// Story 2 contract tests for MatchReadService, the read side behind the "Matches" pages
-/// (Scenario 12's "the match becomes visible on the relevant Matches pages"). IMatchReadRepository is
-/// mocked, matching Story 1's ImageDescriptionWorkerTests style: this proves the service's own
-/// section/ownership/visibility logic, not the SQL underneath it (see MatchReadRepository, exercised
-/// indirectly through ClaimServiceTests' real-database tests).
+/// Story 2 (LF-173) contract tests for MatchReadService, the read side behind the "Matches" pages
+/// that show a confirmed claim "awaiting the other person's decision" (Scenario 4). IMatchReadRepository
+/// is mocked, matching Story 1's ImageDescriptionWorkerTests style: this proves the service's own
+/// section/ownership/visibility logic, not the SQL underneath it (see MatchReadRepositoryTests, the
+/// real-database counterpart).
 /// </summary>
 public sealed class MatchReadServiceTests
 {
@@ -98,7 +98,7 @@ public sealed class MatchReadServiceTests
         Assert.Equal(404, exception.StatusCode);
     }
 
-    // Scenario 17's ownership principle applied to reading a match too: a third party cannot view it.
+    // Scenario 6's ownership principle applied to reading a match too: a third party cannot view it.
     [Fact]
     public async Task GetByIdAsync_CallerIsNeitherPartyToTheMatch_ThrowsForbidden()
     {
@@ -115,7 +115,7 @@ public sealed class MatchReadServiceTests
         Assert.Equal(403, exception.StatusCode);
     }
 
-    // Scenario 13's "does not become visible... as an actionable match": is_active = 0 hides a match even from its own parties.
+    // A deactivated match (is_active = 0) is hidden even from its own parties.
     [Fact]
     public async Task GetByIdAsync_MatchIsNotActive_ThrowsNotFoundEvenForAParty()
     {
@@ -149,9 +149,8 @@ public sealed class MatchReadServiceTests
         Assert.Equal(404, exception.StatusCode);
     }
 
-    /* Scenario 12's "waiting-on-you"/"waiting-on-other" split, and Scenario 13's "not yet shown to the
-       counterpart as actionable": each viewer sees isYourTurn/section relative to their own role, not
-       an absolute property of the match. */
+    /* Scenario 4's "awaiting the other person's decision": each viewer sees isYourTurn/section
+       relative to their own role, not an absolute property of the match. */
     [Theory]
     [InlineData("LOST_REPORTER_CONFIRMED", true, false, "waiting-on-other")]
     [InlineData("LOST_REPORTER_CONFIRMED", false, true, "waiting-on-you")]

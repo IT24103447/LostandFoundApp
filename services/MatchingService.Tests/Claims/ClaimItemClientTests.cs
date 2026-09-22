@@ -6,11 +6,11 @@ using Microsoft.AspNetCore.Http;
 namespace MatchingService.Tests.Claims;
 
 /// <summary>
-/// Story 2 contract tests for ClaimItemClient, the only thing in Matching Service that calls Item
-/// Service over HTTP. Covers the incoming-credential forwarding (Bearer header or auth_token cookie,
-/// whichever the caller's own request carried), the HTTP status mapping ClaimsController and
-/// ClaimService rely on, and GetMineAsync's own-report/ACTIVE filtering behind Scenario 4
-/// (the report picker) and Scenario 3 (an ineligible user has nothing to pick from).
+/// Story 2 (LF-173) contract tests for ClaimItemClient, the only thing in Matching Service that calls
+/// Item Service over HTTP. Covers the incoming-credential forwarding (Bearer header or auth_token
+/// cookie, whichever the caller's own request carried), the HTTP status mapping ClaimsController and
+/// ClaimService rely on, and GetMineAsync's own-report/ACTIVE filtering, which is what Scenario 1's
+/// report-picker popup is actually built from.
 /// Item Service itself is never called: FakeItemServiceHandler stands in for it.
 /// </summary>
 public sealed class ClaimItemClientTests
@@ -122,7 +122,7 @@ public sealed class ClaimItemClientTests
         Assert.Equal(StatusCodes.Status403Forbidden, exception.StatusCode);
     }
 
-    // Scenario 18: a deleted/inactive report Item Service no longer serves must not read as a generic failure.
+    // A deleted report Item Service no longer serves must not read as a generic failure.
     [Fact]
     public async Task GetAsync_ItemServiceReturns404_ThrowsNotFound()
     {
@@ -233,10 +233,10 @@ public sealed class ClaimItemClientTests
         Assert.Equal("ACTIVE", report.Status);
     }
 
-    /* Scenario 4: GetMineAsync only returns the caller's own reports, and only the ACTIVE ones, even
-       though Item Service's /mine endpoint returns every report regardless of owner or status
-       (it is the caller's own "mine" list either way, but the filter is re-asserted defensively here
-       rather than trusted blindly). */
+    /* Scenario 1: "a popup lists my active reports of the opposite type." GetMineAsync only returns
+       the caller's own reports, and only the ACTIVE ones, even though Item Service's /mine endpoint
+       returns every report regardless of owner or status (it is the caller's own "mine" list either
+       way, but the filter is re-asserted defensively here rather than trusted blindly). */
     [Fact]
     public async Task GetMineAsync_MixOfOwnersAndStatuses_ReturnsOnlyOwnActiveReports()
     {

@@ -8,7 +8,7 @@ using Xunit;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Story 2 integration tests proving the real JWT bearer flow this story adds
+/// Story 2 (LF-173) integration tests proving the real JWT bearer flow this story adds
 /// (ClaimRegistration.AddManualClaims, [Authorize(Policy = "VerifiedClaimUser")]) actually protects
 /// every claims/matches endpoint end to end: a real token, signed and validated with a real key, not a
 /// stand-in for authentication. JwtTestTokenFactory mints the tokens; ClaimsApiFactory hosts the real
@@ -33,8 +33,7 @@ public sealed class ClaimsAuthorizationIntegrationTests : IClassFixture<ClaimsAp
         yield return new object[] { HttpMethod.Get, $"/api/matches/{Guid.NewGuid()}" };
     }
 
-    /* Scenario 3: "if a claim request is attempted directly, the backend rejects it", applied to every
-       protected route, not just the claim endpoint itself. No Authorization header at all. */
+    // Every protected route rejects a direct, unauthenticated attempt, not just the claim endpoint itself. No Authorization header at all.
     [Theory]
     [MemberData(nameof(ProtectedRequests))]
     public async Task ProtectedEndpoint_NoToken_Returns401(HttpMethod method, string path)

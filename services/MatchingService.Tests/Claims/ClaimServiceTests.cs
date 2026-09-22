@@ -10,21 +10,11 @@ using MySqlConnector;
 namespace MatchingService.Tests.Claims;
 
 /// <summary>
-/// Story 2 (claim and match) contract tests for ClaimService, driven against a real, disposable
-/// MySQL database (Testcontainers, via ClaimServiceDbFixture) and a faked Item Service
+/// Story 2 (LF-173, claim and match) contract tests for ClaimService, driven against a real,
+/// disposable MySQL database (Testcontainers, via ClaimServiceDbFixture) and a faked Item Service
 /// (FakeItemServiceHandler). ClaimService/ClaimRepository/ClaimItemClient have no interfaces, so they
 /// are constructed directly rather than through DI, the same "one real dependency, one faked" shape
 /// Story 1's MatchingServiceDbApiFactory tests use.
-///
-/// Important, read before extending this class: the shipped code does not implement the two-step
-/// claim-then-confirm workflow the written acceptance criteria describe (Scenarios 10-14). SubmitAsync
-/// writes a match directly with a claimant-role-confirmed terminal status
-/// (LOST_REPORTER_CONFIRMED/FINDER_CONFIRMED), not AWAITING_CLAIMANT_CONFIRMATION, and there is no
-/// confirm/cancel endpoint at all. A below-threshold submission throws and persists nothing, rather
-/// than storing an AUTO_REJECTED_LOW_CONFIDENCE row. Whether this is the intended design or a gap is
-/// an OPEN question, not yet resolved: dev flagged it needs to be rechecked with the BA. See
-/// Bugs_Sprint3.md Acceptance Criteria Conflict #1 and Story2-ClaimAndMatch.md for the full breakdown.
-/// The tests below assert what the code currently does, not a claim about which side is correct.
 /// </summary>
 public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
 {
@@ -118,7 +108,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
                 description: description, photoUrls: foundPhotoUrls));
     }
 
-    // Scenario 5 (input validation): the same item cannot be offered as both halves of the pair.
+    // Input validation: the same item cannot be offered as both halves of the pair.
     [Fact]
     public async Task PreviewAsync_LostAndFoundIdsAreTheSame_ThrowsBadRequest()
     {
@@ -132,9 +122,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status400BadRequest, exception.StatusCode);
     }
 
-    /* Scenario 3: a user who owns neither side of the pair (in practice, someone with no active
-       report of the opposite type to claim with) is rejected by the backend directly, not just hidden
-       from the UI. */
+    // Scenario 6: a user who owns neither report in the pair ("I do not own either report") is rejected by the backend directly, not just hidden from the UI.
     [Fact]
     public async Task PreviewAsync_CallerOwnsNeitherReport_ThrowsForbidden()
     {
@@ -150,7 +138,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status403Forbidden, exception.StatusCode);
     }
 
-    // A user cannot match their own lost report against their own found report.
+    // Scenario 6: a user cannot match their own lost report against their own found report ("both reports belong to me").
     [Fact]
     public async Task PreviewAsync_SameOwnerOnBothSides_ThrowsBadRequest()
     {
@@ -167,7 +155,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status400BadRequest, exception.StatusCode);
     }
 
-    // Scenario 18: a report that is no longer ACTIVE cannot be previewed, even by its own owner.
+    // Scenario 6: a report that is no longer ACTIVE cannot be previewed, even by its own owner ("either report is inactive").
     [Fact]
     public async Task PreviewAsync_FoundReportNoLongerActive_ThrowsConflict()
     {
@@ -184,7 +172,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
     }
 
-    // Scenario 5: previewing a valid, eligible pair returns both sides and a score, and creates nothing.
+    // Scenario 2: previewing a valid, eligible pair returns both sides and a score before any match record is created.
     [Fact]
     public async Task PreviewAsync_ValidPair_ReturnsSideBySideViewAndPersistsNoMatch()
     {
@@ -206,9 +194,44 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.False(await repository.PairExistsAsync(lostId, foundId, CancellationToken.None));
     }
 
-    /* Scenario 9: with identical title/category/description and no photo on either side, matching
-       still proceeds and re-normalizes across the available (text-only) components. Deliberately
-       identical text gives a hand-computable, unambiguous expected score of exactly 100. */
+    /* Scenario 2: "date and location are displayed but do not affect the score." Two reports with
+       identical title/category/description but deliberately different date and location still score
+       exactly 100, proving those fields play no part in CalculateAsync's weighting. */
+    [Fact]
+    public async Task PreviewAsync_DifferingDateAndLocation_DoesNotAffectScore()
+    {
+        var handler = new FakeItemServiceHandler();
+        var lostOwner = Guid.NewGuid();
+        var lostId = Guid.NewGuid();
+        var foundId = Guid.NewGuid();
+
+        handler.RespondWithJson(
+            $"api/items/lost/{lostId}",
+            HttpStatusCode.OK,
+            FakeItemServiceHandler.Report(
+                lostId, lostOwner, title: "Black wallet", category: "Accessories",
+                description: "A black leather wallet.",
+                dateLost: "2026-01-01", lastKnownLocation: "Colombo"));
+
+        handler.RespondWithJson(
+            $"api/items/found/{foundId}",
+            HttpStatusCode.OK,
+            FakeItemServiceHandler.Report(
+                foundId, Guid.NewGuid(), title: "Black wallet", category: "Accessories",
+                description: "A black leather wallet.",
+                dateFound: "2026-09-15", locationFound: "Kandy"));
+
+        var preview = await BuildService(handler).PreviewAsync(
+            new PairRequest(lostId, foundId), lostOwner, CancellationToken.None);
+
+        Assert.Equal(100m, preview.Score);
+        Assert.Equal("2026-01-01", preview.Lost.Date);
+        Assert.Equal("2026-09-15", preview.Found.Date);
+    }
+
+    /* Scenario 3: "when either report has no image, comparison proceeds using text and category only,
+       with weights normalized to 100%". Deliberately identical text gives a hand-computable,
+       unambiguous expected score of exactly 100. */
     [Fact]
     public async Task PreviewAsync_NeitherReportHasPhoto_RenormalizesAcrossTextOnlyComponents()
     {
@@ -229,10 +252,11 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(0m, preview.Breakdown.ImageAttributes);
     }
 
-    /* Scenario 8: only one side has a current photo. Matching still proceeds, excludes the image
-       components entirely (rather than scoring them 0), and re-normalizes so the report without a
-       photo is not penalized. Proven by keeping every text field identical: if the missing image
-       were scored as 0 instead of excluded, the renormalized score would fall well short of 100. */
+    /* Scenario 3: only one side has a current photo ("either report has no image"). Matching still
+       proceeds, excludes the image components entirely (rather than scoring them 0), and re-normalizes
+       so the report without a photo is not penalized. Proven by keeping every text field identical: if
+       the missing image were scored as 0 instead of excluded, the renormalized score would fall well
+       short of 100. */
     [Fact]
     public async Task PreviewAsync_OnlyOneReportHasPhoto_ExcludesImageComponentsWithoutPenalty()
     {
@@ -253,10 +277,10 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(0m, preview.Breakdown.ImageDescription);
     }
 
-    /* Scenario 6: both reports have a current photo and a COMPLETED description for it. The
-       confidence score now includes the image-description and image-attribute components, and the
-       comparison uses only the current photo's description: a superseded row for a previously
-       replaced photo (a different photo_key, kept for the record) is never looked up. */
+    /* Scenario 3: both reports have images, and their "current completed AI descriptions and
+       attributes are included in scoring". The comparison uses only the current photo's description:
+       a superseded row for a previously replaced photo (a different photo_key, kept for the record) is
+       never looked up. */
     [Fact]
     public async Task PreviewAsync_BothCurrentPhotosHaveCompletedDescriptions_IncludesImageScoringUsingOnlyCurrentRows()
     {
@@ -293,7 +317,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(100m, preview.Score);
     }
 
-    // Scenario 7: a current photo's description is still PENDING. The preview fails clearly rather than silently scoring around it.
+    // Scenario 3: "a wait message appears while analysis is pending" — a current photo's description is still PENDING, and the preview fails clearly rather than silently scoring around it.
     [Fact]
     public async Task PreviewAsync_CurrentPhotoDescriptionPending_ThrowsConflictAndCreatesNoMatch()
     {
@@ -319,7 +343,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.False(await repository.PairExistsAsync(lostId, foundId, CancellationToken.None));
     }
 
-    // Scenario 7, the other named status: PROCESSING is treated the same as PENDING, not as a failure to score around.
+    // Scenario 3, the other named status: PROCESSING is treated the same as PENDING, not as a failure to score around.
     [Fact]
     public async Task PreviewAsync_CurrentPhotoDescriptionProcessing_ThrowsConflict()
     {
@@ -342,9 +366,9 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
     }
 
-    /* Scenario 10, as the code actually implements it (see the class remark above): submitting a pair
-       that meets the 60% threshold creates a match and stores the score used. The claimant's role
-       decides which "confirmed" status is written. This is the lost-reporter-claims direction. */
+    /* Scenario 4: submitting a pair whose score is 60% or above creates a match and stores the score
+       used. The status becomes "Lost Reporter Confirmed" when the claimant owns the lost report. This
+       is the lost-reporter-claims direction. */
     [Fact]
     public async Task SubmitAsync_LostReporterClaimsAtOrAboveThreshold_CreatesMatchWithLostReporterConfirmedStatus()
     {
@@ -368,7 +392,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(preview.Score, match.Score);
     }
 
-    // The mirror image of the test above: the finder claims a lost report, and the status reflects that role instead.
+    // Scenario 4, the mirror image: the finder claims, and the status becomes "Finder Confirmed" instead.
     [Fact]
     public async Task SubmitAsync_FinderClaimsAtOrAboveThreshold_CreatesMatchWithFinderConfirmedStatus()
     {
@@ -391,9 +415,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal("FOUND", match.ClaimantRole);
     }
 
-    /* Scenario 11, as the code actually implements it: a below-threshold submission is rejected and,
-       unlike the AC's AUTO_REJECTED_LOW_CONFIDENCE status, nothing is written to the matches table at
-       all (see the class remark above). */
+    // Scenario 5: a below-threshold submission is rejected and no match record is created.
     [Fact]
     public async Task SubmitAsync_ScoreBelowThreshold_ThrowsUnprocessableAndCreatesNoMatch()
     {
@@ -448,9 +470,9 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status400BadRequest, exception.StatusCode);
     }
 
-    /* Scenario 19: the report changed after the preview was taken (here, the description was edited).
-       The stale preview version cannot be used to submit; the caller is told to preview again rather
-       than the change being silently absorbed into the match. */
+    /* Scenario 4: "the backend revalidates ... preview consistency before creating the match." The
+       report changed after the preview was taken (here, the description was edited); the stale preview
+       version cannot be used to submit, and the caller is told to preview again. */
     [Fact]
     public async Task SubmitAsync_ReportChangedSincePreview_ThrowsConflict()
     {
@@ -480,7 +502,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
     }
 
-    // Scenario 17 (submit side): a user who owns neither report cannot submit a claim for it, no matter what they pass as the preview version.
+    // Scenario 6 (submit side): a user who owns neither report cannot submit a claim for it, no matter what they pass as the preview version.
     [Fact]
     public async Task SubmitAsync_CallerOwnsNeitherReport_ThrowsForbidden()
     {
@@ -498,7 +520,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status403Forbidden, exception.StatusCode);
     }
 
-    // Scenario 18 (submit side): a report resolved after the preview was taken is caught at submission too.
+    // Scenario 6 (submit side): a report resolved after the preview was taken is caught at submission too.
     [Fact]
     public async Task SubmitAsync_ReportResolvedSincePreview_ThrowsConflict()
     {
@@ -526,7 +548,7 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
     }
 
-    // Scenario 15: once a pair has a match, a second attempt (from either direction) is blocked, not silently duplicated.
+    // Scenario 6: "the same lost/found pair already has a match" — once a pair has a match, a second attempt (from either direction) is blocked, not silently duplicated.
     [Fact]
     public async Task SubmitAsync_PairAlreadyMatched_SecondAttemptThrowsConflict()
     {
@@ -549,10 +571,9 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.Equal(StatusCodes.Status409Conflict, secondPreviewAttempt.StatusCode);
     }
 
-    /* Scenario 16: a pair whose only prior attempt fell below the threshold is not blocked from being
-       claimed again. Nothing was ever persisted for the failed attempt (proven above), so a later
-       attempt with improved report data is evaluated fresh and independently, exactly as if it were
-       the first attempt. */
+    /* Scenario 5: "reopening the comparison calculates a fresh score." A pair whose only prior attempt
+       fell below the threshold left no match record (the test above), so a later attempt with improved
+       report data is evaluated fresh and independently, exactly as if it were the first attempt. */
     [Fact]
     public async Task SubmitAsync_PriorAttemptWasBelowThreshold_LaterAttemptSucceedsOnFreshScore()
     {

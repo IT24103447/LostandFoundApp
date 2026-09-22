@@ -5,8 +5,8 @@ using MySqlConnector;
 namespace MatchingService.Tests.Matches;
 
 /// <summary>
-/// Story 2 contract tests for MatchReadRepository's own SQL, against a real, disposable MySQL
-/// database (Testcontainers, via ClaimServiceDbFixture). MatchReadServiceTests mocks
+/// Story 2 (LF-173) contract tests for MatchReadRepository's own SQL, against a real, disposable
+/// MySQL database (Testcontainers, via ClaimServiceDbFixture). MatchReadServiceTests mocks
 /// IMatchReadRepository entirely, which proves MatchReadService's own section/ownership logic but
 /// never runs a real query; this class is the counterpart that proves the six section filters
 /// (GetSectionFilter) and the count-plus-page transaction actually behave correctly against real SQL,
@@ -86,9 +86,9 @@ public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixtu
             page.Items.Select(m => m.Id).OrderBy(id => id));
     }
 
-    /* Scenario 12's "waiting-on-you": a half-confirmed match belongs in this section only for the
-       party who has NOT yet confirmed, whichever role they hold, and never for the party who already
-       has. */
+    /* Scenario 4's "awaiting the other person's decision": a half-confirmed match belongs in this
+       section only for the party who has NOT yet confirmed, whichever role they hold, and never for
+       the party who already has. */
     [Fact]
     public async Task GetPageAsync_WaitingOnYouSection_IsRelativeToTheViewersOwnRoleOnEachMatch()
     {
@@ -168,8 +168,7 @@ public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixtu
         Assert.Equal(2, page.TotalCount);
     }
 
-    /* Scenario 13's "does not become visible... as an actionable match": is_active = 0 is excluded
-       from every section at the repository level, not only by the service layer above it. */
+    // A deactivated match (is_active = 0) is excluded from every section at the repository level too, not only by the service layer above it.
     [Fact]
     public async Task GetPageAsync_InactiveMatch_IsExcludedFromEverySection()
     {
