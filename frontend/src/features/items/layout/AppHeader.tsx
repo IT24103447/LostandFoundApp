@@ -1,54 +1,105 @@
-import { useState, useRef, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { MapPin, Bell, ChevronDown, LogOut, User as UserIcon } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  NavLink,
+  useNavigate,
+} from "react-router-dom";
+import {
+  MapPin,
+  Bell,
+  ChevronDown,
+  LogOut,
+  User as UserIcon,
+} from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 
 const NAV_LINKS = [
-  { label: "Home", to: "/" },
-  { label: "My Reports", to: "/my-reports" },
-  { label: "Found Items", to: "/found-items" },
+  {
+    label: "Home",
+    to: "/",
+  },
+  {
+    label: "My Reports",
+    to: "/my-reports",
+  },
+  {
+    label: "Matched Items",
+    to: "/matched-items",
+  },
 ];
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  const last =
+    parts.length > 1
+      ? parts[parts.length - 1][0]
+      : "";
+
   return (first + last).toUpperCase();
 }
 
 export function AppHeader() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+
+  const [menuOpen, setMenuOpen] =
+    useState(false);
+
+  const menuRef =
+    useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+    function onClickOutside(event: MouseEvent) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(
+          event.target as Node,
+        )
+      ) {
         setMenuOpen(false);
       }
     }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+
+    document.addEventListener(
+      "mousedown",
+      onClickOutside,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        onClickOutside,
+      );
+    };
   }, []);
 
   const handleLogout = async () => {
     await logout();
-    navigate("/login", { replace: true });
+    navigate("/login", {
+      replace: true,
+    });
   };
 
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur-sm">
       <div className="mx-auto flex h-[72px] max-w-[1600px] items-center gap-8 px-6 lg:px-10">
-        {/* Brand */}
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-sm">
-            <MapPin className="h-5 w-5" strokeWidth={2.25} />
+            <MapPin
+              className="h-5 w-5"
+              strokeWidth={2.25}
+            />
           </div>
-          <span className="text-xl font-extrabold tracking-tight text-gray-900">back2u</span>
+
+          <span className="text-xl font-extrabold tracking-tight text-gray-900">
+            back2u
+          </span>
         </div>
 
-        {/* Primary nav */}
         <nav className="flex items-center gap-8">
           {NAV_LINKS.map((link) => (
             <NavLink
@@ -75,20 +126,38 @@ export function AppHeader() {
             className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
           >
             <Bell className="h-5 w-5" />
+
             <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
           </button>
 
-          <div className="relative" ref={menuRef}>
+          <div
+            className="relative"
+            ref={menuRef}
+          >
             <button
               type="button"
-              onClick={() => setMenuOpen((v) => !v)}
+              onClick={() =>
+                setMenuOpen((value) => !value)
+              }
               className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-colors hover:bg-gray-100"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
-                {user ? initials(user.name) : <UserIcon className="h-4 w-4" />}
+                {user ? (
+                  initials(user.name)
+                ) : (
+                  <UserIcon className="h-4 w-4" />
+                )}
               </span>
-              <span className="text-sm font-medium text-gray-800">{user?.name ?? "Account"}</span>
-              <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
+
+              <span className="text-sm font-medium text-gray-800">
+                {user?.name ?? "Account"}
+              </span>
+
+              <ChevronDown
+                className={`h-4 w-4 text-gray-400 transition-transform ${
+                  menuOpen ? "rotate-180" : ""
+                }`}
+              />
             </button>
 
             {menuOpen && (
@@ -104,6 +173,7 @@ export function AppHeader() {
                   <UserIcon className="h-4 w-4" />
                   Profile
                 </button>
+
                 <button
                   type="button"
                   onClick={handleLogout}
