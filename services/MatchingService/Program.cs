@@ -5,8 +5,12 @@ using MatchingService.Databases;
 using MatchingService.Repositories;
 using MatchingService.Services;
 using Microsoft.Extensions.Options;
+using MatchingService.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddManualClaims(
+    builder.Configuration,
+    builder.Environment);
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -172,7 +176,10 @@ else
     app.UseHttpsRedirection();
 }
 
+app.UseCors("matching-frontend");
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 // Liveness only; no descriptions, URLs, credentials or job status.
