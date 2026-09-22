@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using MySqlConnector;
 using Testcontainers.MySql;
+using MatchingService.Tests.Support;
 using Xunit;
 
 namespace MatchingService.Tests.Integration;
@@ -48,12 +49,18 @@ public sealed class MatchingServiceDbApiFactory : WebApplicationFactory<Program>
 
     /* AddManualClaims (Program.cs) reads these before builder.Build(), too early for
        ConfigureAppConfiguration to reach (confirmed: setting them in the dictionary below still throws).
-       Env vars are the only channel that early. Values are never dereferenced, just format-checked. */
+       Env vars are the only channel that early. This test never mints or validates a real token, so the
+       exact values don't matter here, EXCEPT that they must be the same values every other
+       WebApplicationFactory-hosting test fixture uses: Environment.SetEnvironmentVariable is process-wide,
+       and xUnit runs different test classes' fixtures concurrently by default, so two fixtures racing to
+       set different secrets can make a fixture that DOES validate real tokens (ClaimsApiFactory) end up
+       checking a signature against whichever value last won the race. Using JwtTestTokenFactory's
+       constants everywhere removes the race's effect entirely: every fixture sets the identical value. */
     private static void SetPreBuildEnvironmentVariables()
     {
-        Environment.SetEnvironmentVariable("Jwt__Secret", "matching-service-db-tests-secret-key-32-bytes-minimum");
-        Environment.SetEnvironmentVariable("Jwt__Issuer", "matching-service-db-tests");
-        Environment.SetEnvironmentVariable("Jwt__Audience", "matching-service-db-tests");
+        Environment.SetEnvironmentVariable("Jwt__Secret", JwtTestTokenFactory.Secret);
+        Environment.SetEnvironmentVariable("Jwt__Issuer", JwtTestTokenFactory.Issuer);
+        Environment.SetEnvironmentVariable("Jwt__Audience", JwtTestTokenFactory.Audience);
         Environment.SetEnvironmentVariable("ItemService__BaseUrl", "https://item-service.invalid");
     }
 

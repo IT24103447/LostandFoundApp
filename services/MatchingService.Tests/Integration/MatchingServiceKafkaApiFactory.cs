@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Moq;
 using Testcontainers.Kafka;
+using MatchingService.Tests.Support;
 using Xunit;
 
 namespace MatchingService.Tests.Integration;
@@ -87,13 +88,15 @@ public sealed class MatchingServiceKafkaApiFactory : WebApplicationFactory<Progr
        ConfigureAppConfiguration or UseEnvironment to reach (confirmed against MatchingServiceDbApiFactory:
        setting Jwt:* in the dictionary still throws). Env vars are the only channel that early.
        ItemService:BaseUrl must be HTTPS here too, since the env is still whatever the real process
-       ASPNETCORE_ENVIRONMENT says, not yet "IntegrationTestingKafka". Values are never dereferenced,
-       just format-checked. */
+       ASPNETCORE_ENVIRONMENT says, not yet "IntegrationTestingKafka". This test never mints or validates
+       a real token, but the Jwt:* values must still match JwtTestTokenFactory's constants: see the
+       matching comment in MatchingServiceDbApiFactory for why (a process-wide env var race with
+       ClaimsApiFactory, which does validate real tokens, under xUnit's default parallel test classes). */
     private static void SetPreBuildEnvironmentVariables()
     {
-        Environment.SetEnvironmentVariable("Jwt__Secret", "matching-service-db-tests-secret-key-32-bytes-minimum");
-        Environment.SetEnvironmentVariable("Jwt__Issuer", "matching-service-db-tests");
-        Environment.SetEnvironmentVariable("Jwt__Audience", "matching-service-db-tests");
+        Environment.SetEnvironmentVariable("Jwt__Secret", JwtTestTokenFactory.Secret);
+        Environment.SetEnvironmentVariable("Jwt__Issuer", JwtTestTokenFactory.Issuer);
+        Environment.SetEnvironmentVariable("Jwt__Audience", JwtTestTokenFactory.Audience);
         Environment.SetEnvironmentVariable("ItemService__BaseUrl", "https://item-service.invalid");
     }
 
