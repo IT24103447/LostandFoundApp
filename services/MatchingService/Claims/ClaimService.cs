@@ -82,8 +82,6 @@ public sealed class ClaimService
             userId,
             cancellationToken);
 
-        // Recalculate on the server so a frontend user cannot submit
-        // a changed or invented confidence score.
         var preview = await CalculateAsync(
             pair,
             cancellationToken);
@@ -187,18 +185,6 @@ public sealed class ClaimService
         VerifiedPair pair,
         CancellationToken cancellationToken)
     {
-        var lostImage =
-            await _repository.GetImageEvidenceAsync(
-                pair.Lost,
-                "LOST",
-                cancellationToken);
-
-        var foundImage =
-            await _repository.GetImageEvidenceAsync(
-                pair.Found,
-                "FOUND",
-                cancellationToken);
-
         var title = Similarity(
             pair.Lost.Title,
             pair.Found.Title);
@@ -214,20 +200,56 @@ public sealed class ClaimService
                 ? 100m
                 : 0m;
 
-        var imageDescription = Similarity(
-            lostImage.Description,
-            foundImage.Description);
+        var bothReportsHavePhotos =
+            HasCurrentPhoto(pair.Lost) &&
+            HasCurrentPhoto(pair.Found);
 
-        var attributes = Similarity(
-            ReadAttributes(lostImage.AttributesJson),
-            ReadAttributes(foundImage.AttributesJson));
+        var imageDescription = 0m;
+        var attributes = 0m;
+
+        ImageEvidence? lostImage = null;
+        ImageEvidence? foundImage = null;
+
+        var weightedScores = new List<(
+            decimal Score,
+            decimal Weight)>
+        {
+            (title, 20m),
+            (category, 15m),
+            (description, 20m)
+        };
+
+        if (bothReportsHavePhotos)
+        {
+            lostImage = await _repository.GetImageEvidenceAsync(
+                pair.Lost,
+                "LOST",
+                cancellationToken);
+
+            foundImage = await _repository.GetImageEvidenceAsync(
+                pair.Found,
+                "FOUND",
+                cancellationToken);
+
+            imageDescription = Similarity(
+                lostImage.Description,
+                foundImage.Description);
+
+            attributes = Similarity(
+                ReadAttributes(lostImage.AttributesJson),
+                ReadAttributes(foundImage.AttributesJson));
+
+            weightedScores.Add((imageDescription, 30m));
+            weightedScores.Add((attributes, 15m));
+        }
+
+        var totalWeight = weightedScores.Sum(
+            component => component.Weight);
 
         var score = Math.Round(
-            title * 0.20m +
-            category * 0.15m +
-            description * 0.20m +
-            imageDescription * 0.30m +
-            attributes * 0.15m,
+            weightedScores.Sum(
+                component => component.Score *
+                    component.Weight) / totalWeight,
             2,
             MidpointRounding.AwayFromZero);
 
@@ -265,6 +287,12 @@ public sealed class ClaimService
                 description,
                 imageDescription,
                 attributes));
+    }
+
+    private static bool HasCurrentPhoto(ItemReport report)
+    {
+        return report.PhotoUrls?.Any(
+            url => !string.IsNullOrWhiteSpace(url)) == true;
     }
 
     private static decimal Similarity(
@@ -336,7 +364,8 @@ public sealed class ClaimService
                         if (entry.ValueKind ==
                             JsonValueKind.String)
                         {
-                            values.Add(entry.GetString() ?? "");
+                            values.Add(
+                                entry.GetString() ?? "");
                         }
                     }
                 }

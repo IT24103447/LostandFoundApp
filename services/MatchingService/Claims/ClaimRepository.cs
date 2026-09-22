@@ -66,7 +66,8 @@ public sealed class ClaimRepository
         {
             throw new ClaimException(
                 StatusCodes.Status409Conflict,
-                "Both reports need one photo before comparison.");
+                "Each report must have one current photo " +
+                "before image comparison can be used.");
         }
 
         string photoKey;
@@ -85,13 +86,13 @@ public sealed class ClaimRepository
         const string sql = """
             SELECT
                 id,
+                processing_status,
                 description,
                 attributes_json
             FROM image_descriptions
             WHERE item_id = @itemId
               AND item_type = @itemType
               AND photo_key = @photoKey
-              AND processing_status = 'COMPLETED'
               AND is_superseded = 0
             LIMIT 1;
             """;
@@ -117,8 +118,44 @@ public sealed class ClaimRepository
         await using var reader =
             await command.ExecuteReaderAsync(cancellationToken);
 
-        if (!await reader.ReadAsync(cancellationToken) ||
-            reader.IsDBNull(1))
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            throw new ClaimException(
+                StatusCodes.Status409Conflict,
+                "The current photos are still being analysed. " +
+                "Please try again shortly.");
+        }
+
+        var processingStatus = reader.GetString(1);
+
+        if (string.Equals(
+                processingStatus,
+                "PENDING",
+                StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(
+                processingStatus,
+                "PROCESSING",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ClaimException(
+                StatusCodes.Status409Conflict,
+                "The current photos are still being analysed. " +
+                "Please try again shortly.");
+        }
+
+        if (!string.Equals(
+                processingStatus,
+                "COMPLETED",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ClaimException(
+                StatusCodes.Status409Conflict,
+                "A current photo could not be analysed. " +
+                "Please try again later.");
+        }
+
+        if (reader.IsDBNull(2) ||
+            string.IsNullOrWhiteSpace(reader.GetString(2)))
         {
             throw new ClaimException(
                 StatusCodes.Status409Conflict,
@@ -128,10 +165,10 @@ public sealed class ClaimRepository
 
         return new ImageEvidence(
             reader.GetGuid(0),
-            reader.GetString(1),
-            reader.IsDBNull(2)
+            reader.GetString(2),
+            reader.IsDBNull(3)
                 ? "{}"
-                : reader.GetString(2));
+                : reader.GetString(3));
     }
 
     public async Task<MatchView> CreateAsync(

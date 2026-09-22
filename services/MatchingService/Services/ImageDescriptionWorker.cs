@@ -2,6 +2,8 @@ using MatchingService.Configuration;
 using MatchingService.Models;
 using MatchingService.Repositories;
 using Microsoft.Extensions.Options;
+using System.Net;
+using System.Reflection;
 
 namespace MatchingService.Services;
 
@@ -129,14 +131,25 @@ public sealed class ImageDescriptionWorker : BackgroundService
         }
         catch (Exception exception)
         {
+            var failure = DescribeGeminiFailure(exception);
+
             _logger.LogWarning(
-                "Gemini request failed. Exception type: {ExceptionType}.",
-                exception.GetType().FullName);
+                """
+                Gemini request failed.
+                Error code: {ErrorCode}.
+                Exception type: {ExceptionType}.
+                HTTP status: {StatusCode}.
+                Retryable: {Retryable}.
+                """,
+                failure.ErrorCode,
+                exception.GetType().FullName,
+                failure.StatusCode,
+                failure.Retryable);
 
             await FailAsync(
                 job,
-                "AI_REQUEST_FAILED",
-                retryable: true,
+                failure.ErrorCode,
+                failure.Retryable,
                 stoppingToken);
 
             return;
@@ -221,4 +234,108 @@ public sealed class ImageDescriptionWorker : BackgroundService
                 _settings.PollIntervalSeconds),
             cancellationToken);
     }
+
+    private static GeminiFailure DescribeGeminiFailure(
+        Exception exception)
+    {
+        var statusCode = ReadHttpStatusCode(exception);
+        var exceptionType = exception.GetType().Name;
+
+        var errorCode = statusCode switch
+        {
+            400 => "AI_BAD_REQUEST",
+            401 => "AI_UNAUTHORIZED",
+            403 => "AI_FORBIDDEN",
+            404 => "AI_MODEL_OR_ENDPOINT_NOT_FOUND",
+            408 => "AI_REQUEST_TIMEOUT",
+            429 => "AI_RATE_LIMITED",
+            >= 500 => "AI_PROVIDER_SERVER_ERROR",
+            _ when string.Equals(
+                exceptionType,
+                "ServerError",
+                StringComparison.Ordinal) =>
+                "AI_PROVIDER_SERVER_ERROR",
+            _ when string.Equals(
+                exceptionType,
+                "ClientError",
+                StringComparison.Ordinal) =>
+                "AI_CLIENT_ERROR",
+            _ => "AI_REQUEST_FAILED"
+        };
+
+        var retryable = statusCode switch
+        {
+            400 or 401 or 403 or 404 => false,
+            408 or 429 => true,
+            >= 500 => true,
+            _ when string.Equals(
+                exceptionType,
+                "ServerError",
+                StringComparison.Ordinal) => true,
+            _ => true
+        };
+
+        return new GeminiFailure(
+            errorCode,
+            statusCode,
+            retryable);
+    }
+
+    private static int? ReadHttpStatusCode(Exception exception)
+    {
+        var rawStatus = ReadPublicProperty(
+            exception,
+            "StatusCode") ??
+            ReadPublicProperty(exception, "Status");
+
+        return rawStatus switch
+        {
+            int status => status,
+            HttpStatusCode status => (int)status,
+            _ when int.TryParse(
+                rawStatus?.ToString(),
+                out var status) => status,
+            _ => null
+        };
+    }
+
+    private static object? ReadPublicProperty(
+        object instance,
+        string propertyName)
+    {
+        foreach (var property in instance.GetType().GetProperties(
+                     BindingFlags.Instance |
+                     BindingFlags.Public))
+        {
+            if (!string.Equals(
+                    property.Name,
+                    propertyName,
+                    StringComparison.Ordinal) ||
+                property.GetIndexParameters().Length != 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                var value = property.GetValue(instance);
+
+                if (value is not null)
+                {
+                    return value;
+                }
+            }
+            catch (Exception)
+            {
+                // Diagnostic reflection must never interrupt retries.
+            }
+        }
+
+        return null;
+    }
+
+    private sealed record GeminiFailure(
+        string ErrorCode,
+        int? StatusCode,
+        bool Retryable);
 }
