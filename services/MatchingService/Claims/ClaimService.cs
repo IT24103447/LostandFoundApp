@@ -66,7 +66,9 @@ public sealed class ClaimService
     public async Task<MatchView> SubmitAsync(
         SubmitClaimRequest request,
         Guid userId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? claimantEmail = null,
+        string? claimantPhone = null)
     {
         if (string.IsNullOrWhiteSpace(request.PreviewVersion))
         {
@@ -103,11 +105,22 @@ public sealed class ClaimService
                 "These reports do not meet the 60% threshold.");
         }
 
+        if (pair.ClaimantRole == "FOUND" &&
+            (string.IsNullOrWhiteSpace(claimantEmail) ||
+            string.IsNullOrWhiteSpace(claimantPhone)))
+        {
+            throw new ClaimException(
+                StatusCodes.Status409Conflict,
+                "Your contact details are unavailable. Please sign in again before claiming.");
+        }
+
         return await _repository.CreateAsync(
             pair,
             preview,
             userId,
-            cancellationToken);
+            cancellationToken,
+            pair.ClaimantRole == "FOUND" ? claimantEmail : null,
+            pair.ClaimantRole == "FOUND" ? claimantPhone : null);
     }
 
     private async Task<VerifiedPair> VerifyPairAsync(

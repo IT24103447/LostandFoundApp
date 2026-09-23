@@ -148,6 +148,7 @@ public static class ClaimRegistration
 
         services.AddScoped<IMatchReadRepository, MatchReadRepository>();
         services.AddScoped<MatchReadService>();
+        services.AddScoped<LostReporterDecisionRepository>();
 
         return services;
     }

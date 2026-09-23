@@ -63,10 +63,17 @@ public sealed class ClaimsController : ControllerBase
     {
         return ExecuteAsync(async userId =>
         {
+            var email =
+                User.FindFirstValue(ClaimTypes.Email) ??
+                User.FindFirstValue("email");
+            var phone = User.FindFirstValue("phone_no");
+
             var match = await _claims.SubmitAsync(
                 request,
                 userId,
-                cancellationToken);
+                cancellationToken,
+                email,
+                phone);
 
             return StatusCode(
                 StatusCodes.Status201Created,

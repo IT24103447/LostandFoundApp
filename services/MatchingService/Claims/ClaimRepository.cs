@@ -175,7 +175,9 @@ public sealed class ClaimRepository
         VerifiedPair pair,
         ClaimPreview preview,
         Guid claimantId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? finderEmail = null,
+        string? finderPhone = null)
     {
         var id = Guid.NewGuid();
         var now = DateTime.UtcNow;
@@ -198,6 +200,8 @@ public sealed class ClaimRepository
                 scoring_version,
                 lost_snapshot,
                 found_snapshot,
+                finder_email,
+                finder_phone,
                 created_at,
                 updated_at
             )
@@ -214,6 +218,8 @@ public sealed class ClaimRepository
                 @scoringVersion,
                 @lostSnapshot,
                 @foundSnapshot,
+                @finderEmail,
+                @finderPhone,
                 @now,
                 @now
             );
@@ -274,6 +280,18 @@ public sealed class ClaimRepository
             JsonSerializer.Serialize(
                 preview.Found,
                 JsonOptions));
+        
+        command.Parameters.AddWithValue(
+            "@finderEmail",
+            string.IsNullOrWhiteSpace(finderEmail)
+                ? DBNull.Value
+                : finderEmail.Trim());
+
+        command.Parameters.AddWithValue(
+            "@finderPhone",
+            string.IsNullOrWhiteSpace(finderPhone)
+                ? DBNull.Value
+                : finderPhone.Trim());
 
         command.Parameters.AddWithValue("@now", now);
 
