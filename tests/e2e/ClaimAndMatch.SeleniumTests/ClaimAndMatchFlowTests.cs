@@ -197,7 +197,10 @@ public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
 
         Wait.Until(d => d.Url.Contains("/matched-items", StringComparison.Ordinal));
         Wait.Until(d => d.PageSource.Contains(title, StringComparison.Ordinal));
-        Assert.Contains("Lost reporter confirmed", Driver.PageSource, StringComparison.Ordinal);
+
+        // Status is shown as the finder-facing label for LOST_REPORTER_CONFIRMED (MatchBanner),
+        // not the raw enum name.
+        Assert.Contains("Awaiting finder", Driver.PageSource, StringComparison.Ordinal);
     }
 
     // Scenario 5: below the threshold, Confirm and claim stays disabled and nothing is persisted;

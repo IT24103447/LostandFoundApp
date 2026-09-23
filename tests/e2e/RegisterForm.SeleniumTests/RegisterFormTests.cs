@@ -29,9 +29,10 @@ public class RegisterFormTests : IClassFixture<BrowserFixture>
 
     private void GoToRegisterPage()
     {
-        // Note: RegisterPage is mounted at the root path ("" in App.tsx's <Routes>),
-        // not "/register" — confirmed against the actual App.tsx routing.
-        _driver.Navigate().GoToUrl($"{BrowserFixture.BaseUrl}/");
+        // RegisterPage is mounted at "/register" — App.tsx's root path ("/") is now a protected
+        // HomePage route instead, confirmed against the current App.tsx routing (see Bugs_Sprint3.md,
+        // Bug #4: this suite regressed silently when that routing change landed).
+        _driver.Navigate().GoToUrl($"{BrowserFixture.BaseUrl}/register");
         _wait.Until(d => d.FindElement(By.Id("email")));
     }
 

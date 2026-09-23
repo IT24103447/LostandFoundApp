@@ -357,4 +357,181 @@ public sealed class ClaimAndMatchFixture : IDisposable
             $"No image_descriptions row appeared for {itemType} item '{itemId}' within 20s. " +
             "Confirm the photo upload succeeded and MatchingService's Kafka consumer is running.");
     }
+
+    /// <summary>The id of the most recently created match involving this user, on either side. Used
+    /// right after a real claim submission through ClaimDialog, whose own success view never shows
+    /// the new match's id.</summary>
+    public Guid GetLatestMatchId(Guid userId)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            """
+            SELECT id FROM matching_service.matches
+            WHERE lost_reporter_id = @userId OR finder_id = @userId
+            ORDER BY created_at DESC LIMIT 1;
+            """, connection);
+        command.Parameters.AddWithValue("@userId", userId);
+
+        var result = command.ExecuteScalar()
+            ?? throw new InvalidOperationException($"No match found involving user '{userId}'.");
+
+        return (Guid)result;
+    }
+
+    // ---- Story 3 (matches list/review page) test wiring only --------------------------------
+
+    /// <summary>
+    /// Inserts a "matches" row directly for statuses/flags no real endpoint can currently produce
+    /// (CONFIRMED, REJECTED, AUTO_REJECTED_LOW_CONFIDENCE, or a deactivated row): there is no
+    /// Confirm/Reject action anywhere in the product yet, and nothing deactivates a match on demand.
+    /// Item ids are random rather than real reports, which is safe here: the Matches list and its
+    /// section grouping read only the stored lost/found snapshot JSON, never re-fetching the source
+    /// report, and the review screen's own live photo lookup (MatchItemCard) fails closed to "Photo
+    /// unavailable" rather than breaking the page when an id doesn't resolve.
+    /// </summary>
+    public Guid InsertMatchDirectly(
+        Guid lostReporterId,
+        Guid finderId,
+        string status,
+        string lostTitle,
+        string foundTitle,
+        bool isActive = true,
+        Guid? claimantId = null)
+    {
+        var id = Guid.NewGuid();
+        var lostSnapshot = $$"""{"id":"{{Guid.NewGuid()}}","type":"LOST","title":"{{lostTitle}}","category":"Other","description":"Seeded directly for a Story 3 browser test.","date":"2026-09-01","location":"Test location"}""";
+        var foundSnapshot = $$"""{"id":"{{Guid.NewGuid()}}","type":"FOUND","title":"{{foundTitle}}","category":"Other","description":"Seeded directly for a Story 3 browser test.","date":"2026-09-01","location":"Test location"}""";
+
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            """
+            INSERT INTO matching_service.matches (
+                id, lost_item_id, found_item_id, lost_reporter_id, finder_id, claimant_id,
+                claimant_role, status, is_active, confidence_score, scoring_version,
+                lost_snapshot, found_snapshot, created_at, updated_at
+            ) VALUES (
+                @id, @lostItemId, @foundItemId, @lostReporterId, @finderId, @claimantId,
+                'LOST', @status, @isActive, 75.00, 'text-v1',
+                @lostSnapshot, @foundSnapshot, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
+            );
+            """, connection);
+
+        command.Parameters.AddWithValue("@id", id);
+        command.Parameters.AddWithValue("@lostItemId", Guid.NewGuid());
+        command.Parameters.AddWithValue("@foundItemId", Guid.NewGuid());
+        command.Parameters.AddWithValue("@lostReporterId", lostReporterId);
+        command.Parameters.AddWithValue("@finderId", finderId);
+        command.Parameters.AddWithValue("@claimantId", claimantId ?? lostReporterId);
+        command.Parameters.AddWithValue("@status", status);
+        command.Parameters.AddWithValue("@isActive", isActive);
+        command.Parameters.AddWithValue("@lostSnapshot", lostSnapshot);
+        command.Parameters.AddWithValue("@foundSnapshot", foundSnapshot);
+
+        command.ExecuteNonQuery();
+        return id;
+    }
+
+    private (Guid UserId, string Email, string Password)? _cachedFreshUser;
+
+    /// <summary>
+    /// Registers one new account, the first time any test asks for it, and hands out that same
+    /// account to every later caller in this run. AuthService rate-limits /api/auth/register (its own
+    /// fixed-window "register" limiter - AuthService/Program.cs), the same global-bucket shape as the
+    /// login limiter Story 2's tests already had to work around, so registering a fresh account per
+    /// test would burn through it fast across repeated runs. Every current caller only needs "some
+    /// account that isn't the two long-lived seeded ones" - none needs its own exclusive registration.
+    /// </summary>
+    public (Guid UserId, string Email, string Password) GetOrRegisterFreshVerifiedUser()
+    {
+        return _cachedFreshUser ??= RegisterFreshVerifiedUser();
+    }
+
+    /// <summary>
+    /// Registers a new account through the real /register form, then marks it email-verified
+    /// directly (skipping the real Mailtrap send/click, which VerifyEmailForm.SeleniumTests already
+    /// covers on its own) so it can log in immediately. Used only for the one Story 3 scenario that
+    /// needs a guaranteed, never-before-seen zero-matches account: the two shared seed accounts
+    /// (UserAEmail/UserBEmail) accumulate real matches across every earlier test and every earlier
+    /// run of this suite, so neither can reliably stand in for "a user with no matches at all". Call
+    /// GetOrRegisterFreshVerifiedUser() instead of this directly, to avoid the register rate limiter.
+    /// </summary>
+    private (Guid UserId, string Email, string Password) RegisterFreshVerifiedUser()
+    {
+        var email = $"selenium.story3.{Guid.NewGuid():N}@example.com";
+        const string password = "Str0ngPass1";
+        var digits = Random.Shared.Next(100000000, 999999999);
+
+        // A leftover auth_token cookie from an earlier test in this run would redirect away from the
+        // register form (the same reason LoginAs clears cookies first). That redirect can also land
+        // mid-fill rather than only on the first navigation, so the whole fill-and-submit sequence is
+        // retried as one atomic block, not just the first field.
+        Driver.Navigate().GoToUrl(BaseUrl);
+        Driver.Manage().Cookies.DeleteAllCookies();
+        Driver.Navigate().GoToUrl($"{BaseUrl}/register");
+
+        try
+        {
+            Wait.Until(d =>
+            {
+                try
+                {
+                    // Clear() before SendKeys() so a retried attempt (elements already filled by a
+                    // prior, failed attempt) overwrites rather than appends.
+                    var name = d.FindElement(By.Id("name"));
+                    name.Clear();
+                    name.SendKeys("Selenium Story 3 User");
+
+                    var emailField = d.FindElement(By.Id("email"));
+                    emailField.Clear();
+                    emailField.SendKeys(email);
+
+                    var phone = d.FindElement(By.Id("phoneNo"));
+                    phone.Clear();
+                    phone.SendKeys($"+94{digits}");
+
+                    var passwordField = d.FindElement(By.Id("password"));
+                    passwordField.Clear();
+                    passwordField.SendKeys(password);
+
+                    var confirmPassword = d.FindElement(By.Id("confirmPassword"));
+                    confirmPassword.Clear();
+                    confirmPassword.SendKeys(password);
+
+                    d.FindElement(By.CssSelector("button[type='submit']")).Click();
+                    return true;
+                }
+                catch (NoSuchElementException)
+                {
+                    return false;
+                }
+                catch (StaleElementReferenceException)
+                {
+                    return false;
+                }
+            });
+        }
+        catch (WebDriverTimeoutException ex)
+        {
+            var snippet = Driver.PageSource.Length > 500 ? Driver.PageSource[..500] : Driver.PageSource;
+            throw new InvalidOperationException(
+                $"Register form fields never all appeared within 15s. Url: {Driver.Url}\nPage source (first 500 chars):\n{snippet}",
+                ex);
+        }
+
+        Wait.Until(d => d.Url.Contains("/verify-email", StringComparison.Ordinal));
+
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            "UPDATE auth_service.users SET is_email_verified = 1 WHERE email = @email;", connection);
+        command.Parameters.AddWithValue("@email", email);
+        command.ExecuteNonQuery();
+
+        return (GetUserId(email), email, password);
+    }
 }
