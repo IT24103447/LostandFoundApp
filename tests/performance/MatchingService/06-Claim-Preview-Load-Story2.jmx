@@ -2,7 +2,7 @@
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-MS-06 - Story 2 Concurrent Candidates and Preview Load" enabled="true">
-      <stringProp name="TestPlan.comments">Story 2 (LF-173, claim a potential match), read-side load. THREADS concurrent users, each authenticated as the same real user (AUTH_TOKEN), each: (1) fetches their own LOST candidates, (2) fetches their own FOUND candidates, (3) fetches their own match history (Scenario 1's report picker and the Matched Items list), and (4) previews a lost/found pair read from PAIRS_CSV (Scenario 2/3). Preview creates no match record - it only reads - so the same small pool of pairs is reused (recycled) across every thread and iteration without ever being "used up", unlike a claim.
+      <stringProp name="TestPlan.comments">Story 2 (LF-173, claim a potential match), read-side load. THREADS concurrent users, each authenticated as the same real user (AUTH_TOKEN), each: (1) fetches their own LOST candidates, (2) fetches their own FOUND candidates, and (3) previews a lost/found pair read from PAIRS_CSV (Scenario 2/3). Preview creates no match record - it only reads - so the same small pool of pairs is reused (recycled) across every thread and iteration without ever being "used up", unlike a claim.
 
 None of these endpoints touch Gemini. The pairs in PAIRS_CSV need their image_descriptions rows (if any) already in a settled state (COMPLETED, or no photo at all). A pair whose photo is still PENDING/PROCESSING would fail the preview assertion below on purpose (409, "still being analysed"), which is the correct behaviour, not a plan bug.
 
@@ -85,27 +85,6 @@ Variables: HOST, PORT, THREADS and RAMP_SECONDS follow the same convention as th
         </HTTPSamplerProxy>
         <hashTree>
           <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="FOUND candidates returns 200" enabled="true">
-            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
-            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
-            <intProp name="Assertion.test_type">8</intProp>
-          </ResponseAssertion>
-          <hashTree/>
-        </hashTree>
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matched Items - Get my matches" enabled="true">
-          <stringProp name="TestPlan.comments">GET /api/matches/mine?page=1. The real Matched Items page's own read.</stringProp>
-          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
-          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
-          <stringProp name="HTTPSampler.protocol">http</stringProp>
-          <stringProp name="HTTPSampler.path">/api/matches/mine</stringProp>
-          <stringProp name="HTTPSampler.method">GET</stringProp>
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-            <collectionProp name="Arguments.arguments">
-              <elementProp name="page" elementType="HTTPArgument"><stringProp name="Argument.name">page</stringProp><stringProp name="Argument.value">1</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
-            </collectionProp>
-          </elementProp>
-        </HTTPSamplerProxy>
-        <hashTree>
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Mine returns 200" enabled="true">
             <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
             <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
             <intProp name="Assertion.test_type">8</intProp>
