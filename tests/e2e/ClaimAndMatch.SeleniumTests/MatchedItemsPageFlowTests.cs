@@ -96,11 +96,11 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
 
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/matched-items/{matchId}");
         Wait.Until(d => d.PageSource.Contains(
-            "You confirmed this claim. Waiting for the other person", StringComparison.Ordinal));
+            "You confirmed your claim. The other person needs to review it and decide.",
+            StringComparison.Ordinal));
 
-        var decisionSection = Driver.FindElement(By.CssSelector("section[aria-label='Match decision']"));
-        Assert.Empty(decisionSection.FindElements(By.XPath(".//button[contains(.,'Confirm')]")));
-        Assert.Empty(decisionSection.FindElements(By.XPath(".//button[contains(.,'Reject')]")));
+        Assert.Empty(Driver.FindElements(By.XPath("//button[contains(.,'Confirm')]")));
+        Assert.Empty(Driver.FindElements(By.XPath("//button[contains(.,'Reject')]")));
     }
 
     // Scenario 3: matches are grouped into all four sections, and Rejected starts collapsed while the
@@ -150,7 +150,7 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/matched-items/{matchId}");
 
         Wait.Until(d => d.PageSource.Contains("Match closed", StringComparison.Ordinal));
-        Assert.Contains("Match closed - Rejected", Driver.PageSource, StringComparison.Ordinal);
+        Assert.Contains("Match closed: Rejected", Driver.PageSource, StringComparison.Ordinal);
     }
 
     // Scenario 8: Auto Rejected Low Confidence and deactivated matches never appear anywhere in the

@@ -409,7 +409,9 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         var match = await service.SubmitAsync(
             new SubmitClaimRequest(lostId, foundId, preview.PreviewVersion),
             foundOwner,
-            CancellationToken.None);
+            CancellationToken.None,
+            claimantEmail: "finder@example.com",
+            claimantPhone: "+94771234567");
 
         Assert.Equal("FINDER_CONFIRMED", match.Status);
         Assert.Equal("FOUND", match.ClaimantRole);
