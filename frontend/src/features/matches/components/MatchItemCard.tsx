@@ -3,68 +3,134 @@ import { resolvePhotoUrl } from "../../../config/env";
 import { getItemDetails } from "../../items/api/browseItems";
 import type { ClaimItem } from "../api/matches";
 
+type Props = {
+  item: ClaimItem;
+  ownerLabel?: string;
+  showDescription?: boolean;
+};
+
 export function MatchItemCard({
   item,
-}: {
-  item: ClaimItem;
-}) {
-  const [photoUrl, setPhotoUrl] =
-    useState<string | null>(null);
+  ownerLabel,
+  showDescription = false,
+}: Props) {
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(true);
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
 
     setPhotoUrl(null);
+    setPhotoLoading(true);
+    setPhotoFailed(false);
 
     getItemDetails(item.id, controller.signal)
       .then((details) => {
         if (!controller.signal.aborted) {
-          setPhotoUrl(
-            details.photoUrls?.[0] ?? null,
-          );
+          setPhotoUrl(details.photoUrls?.[0] ?? null);
         }
       })
       .catch(() => {
-        // A resolved or removed report may no longer expose its photo.
+        if (!controller.signal.aborted) {
+          setPhotoFailed(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setPhotoLoading(false);
+        }
       });
 
     return () => controller.abort();
   }, [item.id]);
 
+  const isLost = item.type === "LOST";
+
   return (
-    <article className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      {photoUrl ? (
+    <article
+      className={`h-full overflow-hidden rounded-xl border-2 bg-white ${
+        isLost ? "border-violet-200" : "border-orange-200"
+      }`}
+    >
+      <div
+        className={`flex flex-col items-start gap-2 px-4 py-3 text-left ${
+          isLost ? "bg-violet-50" : "bg-orange-50"
+        }`}
+      >
+        {ownerLabel && (
+          <p className="font-bold text-gray-900">
+            {ownerLabel}
+          </p>
+        )}
+
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-extrabold tracking-wide ${
+            isLost
+              ? "bg-violet-700 text-white"
+              : "bg-orange-700 text-white"
+          }`}
+        >
+          {isLost ? "LOST REPORT" : "FOUND REPORT"}
+        </span>
+      </div>
+
+      {photoUrl && !photoFailed ? (
         <img
           src={resolvePhotoUrl(photoUrl)}
           alt={item.title}
-          className="h-40 w-full bg-gray-50 object-contain"
+          loading="lazy"
+          onError={() => setPhotoFailed(true)}
+          className="h-44 w-full bg-gray-50 object-contain"
         />
       ) : (
-        <div className="flex h-40 items-center justify-center bg-gray-50 text-sm text-gray-500">
-          Photo unavailable
+        <div className="flex h-44 items-center justify-center bg-gray-50 text-sm text-gray-500">
+          {photoLoading
+            ? "Loading photo…"
+            : photoFailed
+              ? "Photo unavailable"
+              : "No photo attached"}
         </div>
       )}
 
-      <div className="space-y-2 p-4">
-        <p className="text-xs font-bold text-indigo-600">
-          {item.type}
-        </p>
-
-        <h3 className="font-semibold text-gray-900">
+      <div className="space-y-3 p-4 text-left leading-relaxed">
+        <h3 className="text-lg font-semibold text-gray-900">
           {item.title}
         </h3>
 
-        <p className="text-sm text-gray-600">
-          {item.category}
-        </p>
+        <dl className="space-y-2 text-sm">
+          <div>
+            <dt className="font-medium text-gray-500">
+              Category
+            </dt>
+            <dd className="text-gray-900">{item.category}</dd>
+          </div>
 
-        <p className="text-sm text-gray-600">
-          {item.date}
-        </p>
+          <div>
+            <dt className="font-medium text-gray-500">
+              {isLost ? "Date lost" : "Date found"}
+            </dt>
+            <dd className="text-gray-900">{item.date}</dd>
+          </div>
 
-        <p className="text-sm text-gray-600">
-          {item.location}
-        </p>
+          <div>
+            <dt className="font-medium text-gray-500">
+              {isLost ? "Last known location" : "Location found"}
+            </dt>
+            <dd className="text-gray-900">{item.location}</dd>
+          </div>
+        </dl>
+
+        {showDescription && (
+          <div className="border-t border-gray-100 pt-3">
+            <p className="text-sm font-medium text-gray-500">
+              Description
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">
+              {item.description || "No description provided."}
+            </p>
+          </div>
+        )}
       </div>
     </article>
   );

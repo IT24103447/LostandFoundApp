@@ -3,6 +3,7 @@ import {
   Route,
   Routes,
 } from "react-router-dom";
+
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
 import { VerifyEmailPage } from "./features/auth/pages/VerifyEmailPage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
@@ -10,11 +11,14 @@ import { ForgotPasswordPage } from "./features/auth/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
 import { ProfilePage } from "./features/auth/pages/ProfilePage";
 import { ProtectedRoute } from "./features/auth/components/ProtectedRoute";
+
 import { HomePage } from "./features/home/pages/HomePage";
+
 import { AdminLayout } from "./features/admin/components/AdminLayout";
 import { AdminDashboardPage } from "./features/admin/pages/AdminDashboardPage";
 import { UserManagementSection } from "./features/admin/components/UserManagementSection";
 import { AdminProfileSection } from "./features/admin/components/AdminProfileSection";
+
 import { ReportLostItemPage } from "./features/items/pages/ReportLostItemPage";
 import { ReportLostItemSuccessPage } from "./features/items/pages/ReportLostItemSuccessPage";
 import { ReportFoundItemPage } from "./features/items/pages/ReportFoundItemPage";
@@ -23,7 +27,9 @@ import { MyReportsPage } from "./features/items/pages/MyReportsPage";
 import { EditLostItemPage } from "./features/items/pages/EditLostItemPage";
 import { EditFoundItemPage } from "./features/items/pages/EditFoundItemPage";
 import { ItemDetailsPage } from "./features/items/pages/ItemDetailsPage";
+
 import { MatchedItemsPage } from "./features/matches/pages/MatchedItemsPage";
+import { MatchReviewPage } from "./features/matches/pages/MatchReviewPage";
 
 export default function App() {
   return (
@@ -117,6 +123,11 @@ export default function App() {
         <Route
           path="/matched-items"
           element={<MatchedItemsPage />}
+        />
+
+        <Route
+          path="/matched-items/:matchId"
+          element={<MatchReviewPage />}
         />
 
         <Route

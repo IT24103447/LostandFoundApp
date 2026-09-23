@@ -1,66 +1,23 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { AppHeader } from "../../items/layout/AppHeader";
-import {
-  getMyMatches,
-  matchingError,
-  type SavedMatch,
-} from "../api/matches";
-import { MatchItemCard } from "../components/MatchItemCard";
-
-function statusLabel(status: string): string {
-  switch (status) {
-    case "LOST_REPORTER_CONFIRMED":
-      return "Lost reporter confirmed — awaiting finder";
-
-    case "FINDER_CONFIRMED":
-      return "Finder confirmed — awaiting lost reporter";
-
-    case "CONFIRMED":
-      return "Confirmed by both parties";
-
-    case "REJECTED":
-      return "Rejected";
-
-    default:
-      return status.replaceAll("_", " ");
-  }
-}
+import { getMatchPage } from "../api/matchQueries";
+import MatchSectionPanel from "../components/MatchSectionPanel";
+import { useMatchRequest } from "../hooks/useMatchRequest";
 
 export function MatchedItemsPage() {
-  const [matches, setMatches] =
-    useState<SavedMatch[]>([]);
+  const [revision, setRevision] = useState(0);
 
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reload, setReload] = useState(0);
+  const load = useCallback(
+    (signal: AbortSignal) => getMatchPage("all", 1, 1, signal),
+    [],
+  );
 
-  useEffect(() => {
-    const controller = new AbortController();
+  const { state, retry } = useMatchRequest(load);
 
-    setLoading(true);
-    setError("");
-    setMatches([]);
-
-    getMyMatches(page, controller.signal)
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setMatches(result);
-        }
-      })
-      .catch((reason) => {
-        if (!controller.signal.aborted) {
-          setError(matchingError(reason));
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [page, reload]);
+  const refresh = () => {
+    setRevision((value) => value + 1);
+    retry();
+  };
 
   return (
     <div className="min-h-screen bg-[#FAFAFC]">
@@ -72,106 +29,62 @@ export function MatchedItemsPage() {
             <h1 className="text-2xl font-bold text-gray-900">
               Matched Items
             </h1>
-
             <p className="mt-2 text-sm text-gray-600">
-              Submitted claims involving your lost and
-              found reports.
+              Review claims linked to your lost and found reports.
             </p>
           </div>
 
           <button
             type="button"
-            disabled={loading}
-            onClick={() =>
-              setReload((value) => value + 1)
-            }
-            className="rounded-xl border bg-white px-4 py-2 disabled:opacity-50"
+            disabled={state.status === "loading"}
+            onClick={refresh}
+            className="rounded-xl border bg-white px-4 py-2 disabled:opacity-40"
           >
             Refresh
           </button>
         </div>
 
-        {loading ? (
+        {state.status === "loading" ? (
           <p role="status">Loading matches…</p>
-        ) : error ? (
-          <p
-            role="alert"
-            className="rounded-xl bg-red-50 p-4 text-red-700"
-          >
-            {error}
-          </p>
-        ) : matches.length === 0 ? (
+        ) : state.status === "error" ? (
+          <div role="alert" className="rounded-xl bg-red-50 p-5">
+            <p className="text-red-700">{state.error}</p>
+            <button
+              type="button"
+              onClick={refresh}
+              className="mt-3 rounded-lg border bg-white px-4 py-2"
+            >
+              Retry
+            </button>
+          </div>
+        ) : state.data.totalCount === 0 ? (
           <p className="rounded-xl border bg-white p-6 text-gray-600">
-            {page === 1
-              ? "You don’t have any submitted matches yet."
-              : "There are no more matches."}
+            No potential matches yet
           </p>
         ) : (
-          <div className="space-y-6">
-            {matches.map((match) => (
-              <article
-                key={match.id}
-                className="rounded-2xl border border-gray-200 bg-white p-5"
-              >
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <span className="rounded-full bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700">
-                    {statusLabel(match.status)}
-                  </span>
-
-                  <span className="font-semibold">
-                    Similarity:{" "}
-                    {match.score.toFixed(2)}%
-                  </span>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <MatchItemCard item={match.lost} />
-                  <MatchItemCard item={match.found} />
-                </div>
-
-                <p className="mt-4 text-xs text-gray-500">
-                  Submitted{" "}
-                  {new Date(
-                    match.createdAt,
-                  ).toLocaleString()}
-                  .
-                </p>
-              </article>
-            ))}
+          <div key={revision} className="space-y-5">
+            <MatchSectionPanel
+              section="waiting-on-you"
+              title="Waiting On You"
+              initiallyOpen
+            />
+            <MatchSectionPanel
+              section="waiting-on-other"
+              title="Waiting On The Other Party"
+              initiallyOpen
+            />
+            <MatchSectionPanel
+              section="confirmed"
+              title="Confirmed"
+              initiallyOpen
+            />
+            <MatchSectionPanel
+              section="rejected"
+              title="Rejected"
+              initiallyOpen={false}
+            />
           </div>
         )}
-
-        <div className="mt-6 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            disabled={page === 1 || loading}
-            onClick={() =>
-              setPage((value) => value - 1)
-            }
-            className="rounded-xl border px-4 py-2 disabled:opacity-40"
-          >
-            Previous
-          </button>
-
-          <span className="text-sm text-gray-600">
-            Page {page}
-          </span>
-
-          <button
-            type="button"
-            disabled={
-              loading ||
-              Boolean(error) ||
-              matches.length < 20
-            }
-            onClick={() =>
-              setPage((value) => value + 1)
-            }
-            className="rounded-xl border px-4 py-2 disabled:opacity-40"
-          >
-            Next
-          </button>
-        </div>
       </main>
     </div>
   );
