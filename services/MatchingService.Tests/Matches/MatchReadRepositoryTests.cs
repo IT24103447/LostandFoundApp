@@ -5,15 +5,16 @@ using MySqlConnector;
 namespace MatchingService.Tests.Matches;
 
 /// <summary>
-/// Story 2 (LF-173) contract tests for MatchReadRepository's own SQL, against a real, disposable
-/// MySQL database (Testcontainers, via ClaimServiceDbFixture). MatchReadServiceTests mocks
-/// IMatchReadRepository entirely, which proves MatchReadService's own section/ownership logic but
-/// never runs a real query; this class is the counterpart that proves the six section filters
-/// (GetSectionFilter) and the count-plus-page transaction actually behave correctly against real SQL,
-/// matching Story 1's pairing of a mocked-repository test class with a separate real-database one.
-/// Rows are inserted directly with arbitrary status/is_active combinations (ClaimRepository.CreateAsync
-/// only ever writes the two half-confirmed statuses, so it cannot produce the CONFIRMED/REJECTED/
-/// inactive rows these tests need).
+/// Story 3 (view potential matches) contract tests for MatchReadRepository's own SQL, against a real,
+/// disposable MySQL database (Testcontainers, via ClaimServiceDbFixture, reused from Story 2). This is
+/// the Matches page's read side: MatchReadServiceTests mocks IMatchReadRepository entirely, which
+/// proves MatchReadService's own section/ownership logic but never runs a real query; this class is
+/// the counterpart that proves the section filters (GetSectionFilter) and the count-plus-page
+/// transaction actually behave correctly against real SQL, matching Story 1's pairing of a
+/// mocked-repository test class with a separate real-database one. Rows are inserted directly with
+/// arbitrary status/is_active combinations (ClaimRepository.CreateAsync, Story 2's write side, only
+/// ever writes the two half-confirmed statuses, so it cannot produce the CONFIRMED/REJECTED/
+/// AUTO_REJECTED_LOW_CONFIDENCE/inactive rows these tests need).
 /// </summary>
 public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixture>
 {
@@ -227,5 +228,31 @@ public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixtu
         var match = await _repository.GetByIdAsync(Guid.NewGuid(), CancellationToken.None);
 
         Assert.Null(match);
+    }
+
+    // Scenario 8: an Auto Rejected Low Confidence match is excluded from every section, including "all" - the VisibleFilter's status allow-list applies before the section filter, not just within it.
+    [Fact]
+    public async Task GetPageAsync_AutoRejectedLowConfidenceMatch_IsExcludedFromEverySectionIncludingAll()
+    {
+        var userId = Guid.NewGuid();
+        var visible = await InsertMatchAsync(userId, Guid.NewGuid(), "CONFIRMED");
+        await InsertMatchAsync(userId, Guid.NewGuid(), "AUTO_REJECTED_LOW_CONFIDENCE");
+
+        var page = await _repository.GetPageAsync(userId, "all", 1, 20, CancellationToken.None);
+
+        var match = Assert.Single(page.Items);
+        Assert.Equal(visible, match.Id);
+    }
+
+    // Scenario 10: a user who has never had a match at all gets an empty page, not an error or a null reference.
+    [Fact]
+    public async Task GetPageAsync_UserHasNoMatchesAtAll_ReturnsEmptyPageWithZeroTotalCount()
+    {
+        var userId = Guid.NewGuid();
+
+        var page = await _repository.GetPageAsync(userId, "all", 1, 20, CancellationToken.None);
+
+        Assert.Equal(0, page.TotalCount);
+        Assert.Empty(page.Items);
     }
 }

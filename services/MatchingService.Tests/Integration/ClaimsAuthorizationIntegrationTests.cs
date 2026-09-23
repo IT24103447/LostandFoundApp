@@ -8,11 +8,13 @@ using Xunit;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Story 2 (LF-173) integration tests proving the real JWT bearer flow this story adds
-/// (ClaimRegistration.AddManualClaims, [Authorize(Policy = "VerifiedClaimUser")]) actually protects
-/// every claims/matches endpoint end to end: a real token, signed and validated with a real key, not a
-/// stand-in for authentication. JwtTestTokenFactory mints the tokens; ClaimsApiFactory hosts the real
-/// Program.cs pipeline (real MySQL, faked Item Service) that validates them.
+/// Integration tests proving the real JWT bearer flow Story 2 adds (ClaimRegistration.AddManualClaims,
+/// [Authorize(Policy = "VerifiedClaimUser")]) actually protects every claims/matches endpoint end to
+/// end: a real token, signed and validated with a real key, not a stand-in for authentication. Covers
+/// both ClaimsController (Story 2's write side) and MatchQueriesController (Story 3's Matches page read
+/// side) over real HTTP, since both sit behind the same policy on the same real Program.cs pipeline.
+/// JwtTestTokenFactory mints the tokens; ClaimsApiFactory hosts that real pipeline (real MySQL, faked
+/// Item Service) that validates them.
 /// </summary>
 public sealed class ClaimsAuthorizationIntegrationTests : IClassFixture<ClaimsApiFactory>
 {
@@ -116,6 +118,67 @@ public sealed class ClaimsAuthorizationIntegrationTests : IClassFixture<ClaimsAp
         var response = await client.GetAsync("/api/matches?section=not-a-real-section");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /* Story 3 Scenario 9 ("Isolation Between Users"), proven over real HTTP rather than by calling
+       MatchReadService directly (already covered in MatchReadServiceTests): a genuine, valid, verified
+       token belonging to neither party gets 403 from the real controller, not 404 or a leaked 200. */
+    [Fact]
+    public async Task Details_TokenBelongsToNeitherParty_Returns403ThroughTheRealController()
+    {
+        var lostOwner = Guid.NewGuid();
+        var lostId = Guid.NewGuid();
+        var foundId = Guid.NewGuid();
+        const string sharedText = "A distinctive teal bicycle helmet with a cracked visor.";
+
+        _factory.ItemServiceHandler
+            .RespondWithJson(
+                $"api/items/lost/{lostId}",
+                HttpStatusCode.OK,
+                FakeItemServiceHandler.Report(
+                    lostId, lostOwner, title: "Teal bicycle helmet", category: "Sports", description: sharedText))
+            .RespondWithJson(
+                $"api/items/found/{foundId}",
+                HttpStatusCode.OK,
+                FakeItemServiceHandler.Report(
+                    foundId, Guid.NewGuid(), title: "Teal bicycle helmet", category: "Sports", description: sharedText));
+
+        var ownerClient = _factory.CreateClient();
+        ownerClient.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", JwtTestTokenFactory.CreateVerifiedUserToken(lostOwner));
+
+        var previewResponse = await ownerClient.PostAsJsonAsync(
+            "/api/matches/preview", new { lostItemId = lostId, foundItemId = foundId });
+        var preview = await previewResponse.Content.ReadFromJsonAsync<ClaimPreview>();
+
+        var claimResponse = await ownerClient.PostAsJsonAsync(
+            "/api/matches/claim",
+            new { lostItemId = lostId, foundItemId = foundId, previewVersion = preview!.PreviewVersion });
+        var created = await claimResponse.Content.ReadFromJsonAsync<MatchView>();
+
+        var strangerClient = _factory.CreateClient();
+        strangerClient.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", JwtTestTokenFactory.CreateVerifiedUserToken(Guid.NewGuid()));
+
+        var response = await strangerClient.GetAsync($"/api/matches/{created!.Id}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    // The unknown-id counterpart of the test above, over real HTTP: a match id nothing created reads as not found, not forbidden.
+    [Fact]
+    public async Task Details_UnknownId_Returns404ThroughTheRealController()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", JwtTestTokenFactory.CreateVerifiedUserToken(Guid.NewGuid()));
+
+        var response = await client.GetAsync($"/api/matches/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     /* The positive case: a genuine, valid, verified token reaches all the way through the real

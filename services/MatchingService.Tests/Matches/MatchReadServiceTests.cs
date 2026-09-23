@@ -5,11 +5,14 @@ using Moq;
 namespace MatchingService.Tests.Matches;
 
 /// <summary>
-/// Story 2 (LF-173) contract tests for MatchReadService, the read side behind the "Matches" pages
-/// that show a confirmed claim "awaiting the other person's decision" (Scenario 4). IMatchReadRepository
-/// is mocked, matching Story 1's ImageDescriptionWorkerTests style: this proves the service's own
-/// section/ownership/visibility logic, not the SQL underneath it (see MatchReadRepositoryTests, the
-/// real-database counterpart).
+/// Story 3 (view potential matches) contract tests for MatchReadService, the read side behind the
+/// dedicated Matches page and its shared review screen: section grouping, ownership, and visibility.
+/// This code was originally built and tested alongside Story 2, whose own Scenario 4 ("awaiting the
+/// other person's decision") is where the half-confirmed statuses this class exercises come from -
+/// see Story2-ClaimAndMatch.md for the write side and Story3-MatchedItemsPage.md for this read side.
+/// IMatchReadRepository is mocked, matching Story 1's ImageDescriptionWorkerTests style: this proves
+/// the service's own section/ownership/visibility logic, not the SQL underneath it (see
+/// MatchReadRepositoryTests, the real-database counterpart).
 /// </summary>
 public sealed class MatchReadServiceTests
 {
@@ -132,14 +135,14 @@ public sealed class MatchReadServiceTests
         Assert.Equal(404, exception.StatusCode);
     }
 
-    // A status outside the four visible ones (defensive: nothing in the shipped code writes one, but the read side must not assume that) is hidden the same way as "not found".
+    // Scenario 8: a match that was Auto Rejected for low confidence is hidden the same way as "not found", even from its own parties. Also covers any other status outside the four visible ones, defensively - nothing in the shipped code writes one, but the read side must not assume that.
     [Fact]
-    public async Task GetByIdAsync_StatusOutsideVisibleSet_ThrowsNotFound()
+    public async Task GetByIdAsync_AutoRejectedLowConfidenceStatus_ThrowsNotFoundEvenForAParty()
     {
         var repository = new Mock<IMatchReadRepository>();
         repository
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(NewMatch("SOME_OTHER_STATUS"));
+            .ReturnsAsync(NewMatch("AUTO_REJECTED_LOW_CONFIDENCE"));
 
         var service = new MatchReadService(repository.Object);
 
