@@ -1,7 +1,8 @@
 using System.Text;
+using MatchingService.Matches;
+using MatchingService.Notifications;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using MatchingService.Matches;
 
 namespace MatchingService.Claims;
 
@@ -26,13 +27,10 @@ public static class ClaimRegistration
                 "Jwt:Issuer and Jwt:Audience.");
         }
 
-        var itemServiceUrl =
-            configuration["ItemService:BaseUrl"];
+        var itemServiceUrl = configuration["ItemService:BaseUrl"];
 
         if (!Uri.TryCreate(
-                itemServiceUrl,
-                UriKind.Absolute,
-                out var baseUri) ||
+                itemServiceUrl, UriKind.Absolute, out var baseUri) ||
             (baseUri.Scheme != Uri.UriSchemeHttp &&
              baseUri.Scheme != Uri.UriSchemeHttps) ||
             !string.IsNullOrEmpty(baseUri.UserInfo) ||
@@ -57,21 +55,18 @@ public static class ClaimRegistration
 
         services.AddCors(options =>
         {
-            options.AddPolicy(
-                "matching-frontend",
-                policy =>
-                {
-                    policy
-                        .WithOrigins(origins)
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials();
-                });
+            options.AddPolicy("matching-frontend", policy =>
+            {
+                policy
+                    .WithOrigins(origins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
         });
 
         services
-            .AddAuthentication(
-                JwtBearerDefaults.AuthenticationScheme)
+            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
                 options.TokenValidationParameters =
@@ -83,29 +78,22 @@ public static class ClaimRegistration
                         ValidateIssuerSigningKey = true,
                         ValidIssuer = issuer,
                         ValidAudience = audience,
-                        IssuerSigningKey =
-                            new SymmetricSecurityKey(
-                                Encoding.UTF8.GetBytes(secret)),
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(secret)),
                         ClockSkew = TimeSpan.FromMinutes(2),
-                        ValidAlgorithms =
-                        [
-                            SecurityAlgorithms.HmacSha256
-                        ]
+                        ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
                     };
 
                 options.Events = new JwtBearerEvents
                 {
                     OnMessageReceived = context =>
                     {
-                        var authorization = context.Request
-                            .Headers.Authorization
-                            .ToString();
+                        var authorization =
+                            context.Request.Headers.Authorization.ToString();
 
-                        if (string.IsNullOrWhiteSpace(
-                                authorization) &&
+                        if (string.IsNullOrWhiteSpace(authorization) &&
                             context.Request.Cookies.TryGetValue(
-                                "auth_token",
-                                out var token))
+                                "auth_token", out var token))
                         {
                             context.Token = token;
                         }
@@ -117,39 +105,46 @@ public static class ClaimRegistration
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy(
-                "VerifiedClaimUser",
-                policy =>
-                {
-                    policy
-                        .RequireAuthenticatedUser()
-                        .RequireClaim("email_verified", "1");
-                });
+            options.AddPolicy("VerifiedClaimUser", policy =>
+            {
+                policy
+                    .RequireAuthenticatedUser()
+                    .RequireClaim("email_verified", "1");
+            });
         });
 
         services.AddHttpContextAccessor();
 
         services.AddHttpClient<ClaimItemClient>(client =>
         {
-            client.BaseAddress = new Uri(
-                baseUri.AbsoluteUri.TrimEnd('/') + "/");
+            client.BaseAddress =
+                new Uri(baseUri.AbsoluteUri.TrimEnd('/') + "/");
 
             client.Timeout = TimeSpan.FromSeconds(15);
         })
-        .ConfigurePrimaryHttpMessageHandler(() =>
-            new HttpClientHandler
-            {
-                UseCookies = false,
-                AllowAutoRedirect = false
-            });
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            UseCookies = false,
+            AllowAutoRedirect = false
+        });
 
         services.AddScoped<ClaimRepository>();
         services.AddScoped<ClaimService>();
-
         services.AddScoped<IMatchReadRepository, MatchReadRepository>();
         services.AddScoped<MatchReadService>();
         services.AddScoped<LostReporterDecisionRepository>();
         services.AddScoped<FinderDecisionRepository>();
+
+        if (configuration.GetValue<bool>("Notifications:Enabled"))
+        {
+            services.AddSingleton<NotificationRepository>();
+            services.AddSingleton<NotificationDiscoveryService>();
+            services.AddSingleton<IMatchEmailSender, MatchEmailSender>();
+            services.AddSingleton<NotificationDeliveryService>();
+
+            services.AddHostedService<NotificationContactConsumer>();
+            services.AddHostedService<MatchNotificationWorker>();
+        }
 
         return services;
     }
