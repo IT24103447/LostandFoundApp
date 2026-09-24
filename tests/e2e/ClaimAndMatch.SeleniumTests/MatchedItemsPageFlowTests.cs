@@ -12,11 +12,14 @@ namespace ClaimAndMatch.SeleniumTests;
 /// report creation, the same seeded accounts) since this is the same feature area as Story 2's claim
 /// flow, just the read side.
 ///
-/// Confirm/Reject actions (Scenario 5/6's actionable case) are not covered here: neither a backend
-/// endpoint nor real UI controls for them exist yet (Bugs_Sprint3.md, Bug #3). CONFIRMED, REJECTED,
-/// AUTO_REJECTED_LOW_CONFIDENCE, and deactivated matches - none reachable through any real endpoint
-/// today - are seeded directly (ClaimAndMatchFixture.InsertMatchDirectly), the same justified pattern
-/// MatchReadRepositoryTests already uses at the xUnit level for the same reason.
+/// Confirm/Reject actions (Scenario 5/6's actionable case) are not covered here: they're Story 4/5's
+/// own real backend endpoints and UI controls, exercised end to end in LostReporterDecisionFlowTests.cs
+/// and FinderDecisionFlowTests.cs instead. AUTO_REJECTED_LOW_CONFIDENCE and deactivated matches - still
+/// not reachable through any real endpoint - are seeded directly here (ClaimAndMatchFixture.
+/// InsertMatchDirectly), the same justified pattern MatchReadRepositoryTests already uses at the xUnit
+/// level for the same reason; CONFIRMED and REJECTED matches are seeded the same way purely for this
+/// file's own section-grouping/ordering tests, where driving a real two-party confirm/reject through
+/// the browser for every row would be needless overhead - the real flow itself is proven elsewhere.
 /// </summary>
 [Trait("Story", "3")]
 public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixture>
@@ -57,15 +60,23 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/matched-items");
         Wait.Until(d => d.PageSource.Contains(title, StringComparison.Ordinal));
 
+        // Scoped to this test's own card (by its unique title), not just "the first card on the
+        // page": the seeded accounts accumulate many matches across the whole suite's lifetime, so a
+        // page-wide "//button[contains(.,'View details')]" search can expand a different match
+        // entirely, one that happens to share the same generic category/location text.
+        var cardXPath = By.XPath($"//article[.//p[normalize-space()='{title}']]");
+        Wait.Until(d => d.FindElement(cardXPath));
+
         // Visible on the row itself, without expanding: role label and confidence percentage.
-        Assert.Contains("You submitted this claim", Driver.PageSource, StringComparison.Ordinal);
-        Assert.Contains("Similarity", Driver.PageSource, StringComparison.Ordinal);
+        var cardText = Driver.FindElement(cardXPath).Text;
+        Assert.Contains("You submitted this claim", cardText, StringComparison.Ordinal);
+        Assert.Contains("Similarity", cardText, StringComparison.Ordinal);
 
-        Driver.FindElement(By.XPath("//button[contains(.,'View details')]")).Click();
-        Wait.Until(d => d.PageSource.Contains(category, StringComparison.Ordinal));
-        Assert.Contains("Test location", Driver.PageSource, StringComparison.Ordinal);
+        Driver.FindElement(cardXPath).FindElement(By.XPath(".//button[contains(.,'View details')]")).Click();
+        Wait.Until(d => d.FindElement(cardXPath).Text.Contains(category, StringComparison.Ordinal));
+        Assert.Contains("Test location", Driver.FindElement(cardXPath).Text, StringComparison.Ordinal);
 
-        Driver.FindElement(By.XPath($"//a[@href='/matched-items/{matchId}']")).Click();
+        Driver.FindElement(cardXPath).FindElement(By.XPath($".//a[@href='/matched-items/{matchId}']")).Click();
         Wait.Until(d => d.Url.Contains($"/matched-items/{matchId}", StringComparison.Ordinal));
         Wait.Until(d => d.PageSource.Contains(title, StringComparison.Ordinal));
     }

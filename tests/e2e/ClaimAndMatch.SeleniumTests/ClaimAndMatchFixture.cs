@@ -383,9 +383,11 @@ public sealed class ClaimAndMatchFixture : IDisposable
     // ---- Story 3 (matches list/review page) test wiring only --------------------------------
 
     /// <summary>
-    /// Inserts a "matches" row directly for statuses/flags no real endpoint can currently produce
-    /// (CONFIRMED, REJECTED, AUTO_REJECTED_LOW_CONFIDENCE, or a deactivated row): there is no
-    /// Confirm/Reject action anywhere in the product yet, and nothing deactivates a match on demand.
+    /// Inserts a "matches" row directly for statuses/flags this fixture's own callers don't need a
+    /// real two-party flow for (CONFIRMED, REJECTED - real Confirm/Reject endpoints and UI do exist,
+    /// via Story 4/5's LostReporterDecisionFlowTests.cs/FinderDecisionFlowTests.cs, just not needed
+    /// here for section-grouping/ordering tests), or that no real endpoint can produce at all
+    /// (AUTO_REJECTED_LOW_CONFIDENCE, or a deactivated row - nothing deactivates a match on demand).
     /// Item ids are random rather than real reports, which is safe here: the Matches list and its
     /// section grouping read only the stored lost/found snapshot JSON, never re-fetching the source
     /// report, and the review screen's own live photo lookup (MatchItemCard) fails closed to "Photo
