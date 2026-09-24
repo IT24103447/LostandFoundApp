@@ -184,7 +184,7 @@ public sealed class ClaimService
         {
             throw new ClaimException(
                 StatusCodes.Status409Conflict,
-                "A match already exists for this lost and found pair.");
+                "This pair already has a match, or one of these reports already has a confirmed match.");
         }
 
         return new VerifiedPair(

@@ -175,6 +175,12 @@ public sealed class FinderDecisionRepository
             await audit.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        if (confirm)
+        {
+            await MatchConfirmationOutbox.EnqueueAsync(
+                connection, transaction, matchId, now, cancellationToken);
+        }
+
         await transaction.CommitAsync(cancellationToken);
 
         return new FinderDecisionResult(

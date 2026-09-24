@@ -16,7 +16,9 @@ public sealed record ClaimItemView(
     string Category,
     string Description,
     string Date,
-    string Location);
+    string Location,
+    string? PhotoUrl = null,
+    bool PhotoSnapshotCaptured = false);
 
 public sealed record ScoreBreakdown(
     decimal Title,
@@ -100,6 +102,8 @@ public sealed class ItemReport
             type == "LOST" ? DateLost : DateFound,
             type == "LOST"
                 ? LastKnownLocation
-                : LocationFound);
+                : LocationFound,
+            PhotoUrls.FirstOrDefault(url => !string.IsNullOrWhiteSpace(url)),
+            true);
     }
 }

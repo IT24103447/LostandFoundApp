@@ -29,8 +29,9 @@ public sealed class ClaimRepository
         const string sql = """
             SELECT 1
             FROM matches
-            WHERE lost_item_id = @lostItemId
-              AND found_item_id = @foundItemId
+            WHERE (lost_item_id = @lostItemId AND found_item_id = @foundItemId)
+               OR (status = 'CONFIRMED' AND is_active = 1
+                   AND (lost_item_id = @lostItemId OR found_item_id = @foundItemId))
             LIMIT 1;
             """;
 

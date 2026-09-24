@@ -94,8 +94,7 @@ export function MatchReviewPage() {
             </div>
 
             <p className="mt-3 text-xs leading-5 text-slate-500">
-              Report text was saved when the claim was submitted.
-              Photos are loaded from the currently available reports.
+              Report details and available photos were saved with this match.
             </p>
 
             <div className="mt-6 space-y-4">

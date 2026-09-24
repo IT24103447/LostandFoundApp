@@ -225,6 +225,12 @@ public sealed class LostReporterDecisionRepository
                 cancellationToken);
         }
 
+        if (confirm)
+        {
+            await MatchConfirmationOutbox.EnqueueAsync(
+                connection, transaction, matchId, now, cancellationToken);
+        }
+
         await transaction.CommitAsync(cancellationToken);
 
         return new LostReporterDecisionResult(
