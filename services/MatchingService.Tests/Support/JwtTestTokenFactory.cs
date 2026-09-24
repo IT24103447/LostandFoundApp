@@ -8,9 +8,10 @@ namespace MatchingService.Tests.Support;
 /// <summary>
 /// Mints real, signed HS256 JWTs for the Story 2 claims/matches endpoints, which now require
 /// [Authorize(Policy = "VerifiedClaimUser")] (ClaimRegistration.cs). The claim shape mirrors what
-/// AuthService's own JwtTokenService actually issues (JwtRegisteredClaimNames.Sub +
-/// an "email_verified" claim of "1"/"0"), not an artificial test-only shape, so these tokens exercise
-/// the real validation and claims-reading path the same way a production token would.
+/// AuthService's own JwtTokenService actually issues (JwtRegisteredClaimNames.Sub, "email_verified",
+/// "email", and "phone_no"), not an artificial test-only shape, so these tokens exercise the real
+/// validation and claims-reading path the same way a production token would - including the "email"/
+/// "phone_no" claims ClaimsController.Claim reads to populate a claimant's contact details.
 /// The Secret/Issuer/Audience constants here are the single source of truth: every WebApplicationFactory
 /// that hosts Program.cs (ClaimsApiFactory, and also MatchingServiceDbApiFactory/
 /// MatchingServiceKafkaApiFactory from Story 1, since AddManualClaims now runs unconditionally for
@@ -54,7 +55,9 @@ public static class JwtTestTokenFactory
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new("email_verified", emailVerified ? "1" : "0")
+            new("email_verified", emailVerified ? "1" : "0"),
+            new("email", $"{userId}@example.com"),
+            new("phone_no", "+94771234567")
         };
 
         var key = new SymmetricSecurityKey(
