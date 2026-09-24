@@ -177,7 +177,9 @@ public sealed class ClaimRepository
         Guid claimantId,
         CancellationToken cancellationToken,
         string? finderEmail = null,
-        string? finderPhone = null)
+        string? finderPhone = null,
+        string? lostReporterEmail = null,
+        string? lostReporterPhone = null)
     {
         var id = Guid.NewGuid();
         var now = DateTime.UtcNow;
@@ -202,6 +204,8 @@ public sealed class ClaimRepository
                 found_snapshot,
                 finder_email,
                 finder_phone,
+                lost_reporter_email,
+                lost_reporter_phone,
                 created_at,
                 updated_at
             )
@@ -220,6 +224,8 @@ public sealed class ClaimRepository
                 @foundSnapshot,
                 @finderEmail,
                 @finderPhone,
+                @lostReporterEmail,
+                @lostReporterPhone,
                 @now,
                 @now
             );
@@ -292,6 +298,18 @@ public sealed class ClaimRepository
             string.IsNullOrWhiteSpace(finderPhone)
                 ? DBNull.Value
                 : finderPhone.Trim());
+
+        command.Parameters.AddWithValue(
+            "@lostReporterEmail",
+            string.IsNullOrWhiteSpace(lostReporterEmail)
+                ? DBNull.Value
+                : lostReporterEmail.Trim());
+
+        command.Parameters.AddWithValue(
+            "@lostReporterPhone",
+            string.IsNullOrWhiteSpace(lostReporterPhone)
+                ? DBNull.Value
+                : lostReporterPhone.Trim());
 
         command.Parameters.AddWithValue("@now", now);
 

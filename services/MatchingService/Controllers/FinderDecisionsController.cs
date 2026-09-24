@@ -7,14 +7,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace MatchingService.Controllers;
 
 [ApiController]
-[Route("api/matches/{matchId:guid}/lost-reporter")]
+[Route("api/matches/{matchId:guid}/finder")]
 [Authorize(Policy = "VerifiedClaimUser")]
-public sealed class LostReporterDecisionsController : ControllerBase
+public sealed class FinderDecisionsController : ControllerBase
 {
-    private readonly LostReporterDecisionRepository _decisions;
+    private readonly FinderDecisionRepository _decisions;
 
-    public LostReporterDecisionsController(
-        LostReporterDecisionRepository decisions)
+    public FinderDecisionsController(
+        FinderDecisionRepository decisions)
     {
         _decisions = decisions;
     }
@@ -36,9 +36,9 @@ public sealed class LostReporterDecisionsController : ControllerBase
                 matchId,
                 userId,
                 confirm: true,
-                cancellationToken,
                 email,
-                phone));
+                phone,
+                cancellationToken));
         });
     }
 
@@ -52,17 +52,21 @@ public sealed class LostReporterDecisionsController : ControllerBase
                 matchId,
                 userId,
                 confirm: false,
+                finderEmail: null,
+                finderPhone: null,
                 cancellationToken)));
     }
 
     [HttpGet("return-contact")]
-    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    [ResponseCache(
+        NoStore = true,
+        Location = ResponseCacheLocation.None)]
     public Task<IActionResult> ReturnContact(
         Guid matchId,
         CancellationToken cancellationToken)
     {
         return ExecuteAsync(async userId =>
-            Ok(await _decisions.GetFinderContactAsync(
+            Ok(await _decisions.GetLostReporterContactAsync(
                 matchId,
                 userId,
                 cancellationToken)));

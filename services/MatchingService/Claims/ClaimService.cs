@@ -105,9 +105,8 @@ public sealed class ClaimService
                 "These reports do not meet the 60% threshold.");
         }
 
-        if (pair.ClaimantRole == "FOUND" &&
-            (string.IsNullOrWhiteSpace(claimantEmail) ||
-            string.IsNullOrWhiteSpace(claimantPhone)))
+        if (string.IsNullOrWhiteSpace(claimantEmail) ||
+            string.IsNullOrWhiteSpace(claimantPhone))
         {
             throw new ClaimException(
                 StatusCodes.Status409Conflict,
@@ -120,7 +119,9 @@ public sealed class ClaimService
             userId,
             cancellationToken,
             pair.ClaimantRole == "FOUND" ? claimantEmail : null,
-            pair.ClaimantRole == "FOUND" ? claimantPhone : null);
+            pair.ClaimantRole == "FOUND" ? claimantPhone : null,
+            pair.ClaimantRole == "LOST" ? claimantEmail : null,
+            pair.ClaimantRole == "LOST" ? claimantPhone : null);
     }
 
     private async Task<VerifiedPair> VerifyPairAsync(

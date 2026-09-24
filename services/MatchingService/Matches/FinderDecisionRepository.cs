@@ -5,21 +5,21 @@ using MySqlConnector;
 
 namespace MatchingService.Matches;
 
-public sealed record LostReporterDecisionResult(
+public sealed record FinderDecisionResult(
     Guid MatchId,
     string Status,
     DateTime DecidedAt);
 
-public sealed record FinderReturnContact(
+public sealed record LostReporterReturnContact(
     string Email,
     string Phone);
 
-public sealed class LostReporterDecisionRepository
+public sealed class FinderDecisionRepository
 {
     private readonly IDbConnectionFactory _connections;
     private readonly TimeProvider _time;
 
-    public LostReporterDecisionRepository(
+    public FinderDecisionRepository(
         IDbConnectionFactory connections,
         TimeProvider time)
     {
@@ -27,13 +27,13 @@ public sealed class LostReporterDecisionRepository
         _time = time;
     }
 
-    public async Task<LostReporterDecisionResult> DecideAsync(
+    public async Task<FinderDecisionResult> DecideAsync(
         Guid matchId,
         Guid userId,
         bool confirm,
-        CancellationToken cancellationToken,
-        string? lostReporterEmail = null,
-        string? lostReporterPhone = null)
+        string? finderEmail,
+        string? finderPhone,
+        CancellationToken cancellationToken)
     {
         await using var connection = _connections.Create();
         await connection.OpenAsync(cancellationToken);
@@ -43,22 +43,19 @@ public sealed class LostReporterDecisionRepository
                 IsolationLevel.ReadCommitted,
                 cancellationToken);
 
-        Guid lostReporterId;
+        Guid finderId;
         string previousStatus;
         bool isActive;
 
-        // Lock the match so simultaneous decisions cannot both succeed.
         const string selectSql = """
-            SELECT lost_reporter_id, status, is_active
+            SELECT finder_id, status, is_active
             FROM matches
             WHERE id = @matchId
             FOR UPDATE;
             """;
 
         await using (var select = new MySqlCommand(
-            selectSql,
-            connection,
-            transaction))
+            selectSql, connection, transaction))
         {
             select.Parameters.AddWithValue("@matchId", matchId);
 
@@ -67,25 +64,23 @@ public sealed class LostReporterDecisionRepository
 
             if (!await reader.ReadAsync(cancellationToken))
             {
-                throw new ClaimException(
-                    404,
-                    "Match not found.");
+                throw new ClaimException(404, "Match not found.");
             }
 
-            lostReporterId = reader.GetGuid(0);
+            finderId = reader.GetGuid(0);
             previousStatus = reader.GetString(1);
             isActive = reader.GetBoolean(2);
         }
 
-        if (lostReporterId != userId)
+        if (finderId != userId)
         {
             throw new ClaimException(
                 403,
-                "Only this match's lost reporter can make this decision.");
+                "Only this match's finder can make this decision.");
         }
 
         if (!isActive ||
-            previousStatus != "FINDER_CONFIRMED")
+            previousStatus != "LOST_REPORTER_CONFIRMED")
         {
             throw new ClaimException(
                 409,
@@ -93,76 +88,52 @@ public sealed class LostReporterDecisionRepository
         }
 
         if (confirm &&
-            (string.IsNullOrWhiteSpace(lostReporterEmail) ||
-             string.IsNullOrWhiteSpace(lostReporterPhone)))
+            (string.IsNullOrWhiteSpace(finderEmail) ||
+             string.IsNullOrWhiteSpace(finderPhone)))
         {
             throw new ClaimException(
                 409,
                 "Your contact details are unavailable. Please sign in again before confirming.");
         }
 
-        var newStatus = confirm
-            ? "CONFIRMED"
-            : "REJECTED";
-
-        var action = confirm
-            ? "CONFIRM"
-            : "REJECT";
-
+        var newStatus = confirm ? "CONFIRMED" : "REJECTED";
+        var action = confirm ? "CONFIRM" : "REJECT";
         var now = _time.GetUtcNow().UtcDateTime;
 
         const string updateSql = """
             UPDATE matches
             SET status = @status,
                 updated_at = @now,
-                lost_reporter_email =
+                finder_email =
                     CASE WHEN @confirm = 1
                          THEN @email
-                         ELSE lost_reporter_email
+                         ELSE finder_email
                     END,
-                lost_reporter_phone =
+                finder_phone =
                     CASE WHEN @confirm = 1
                          THEN @phone
-                         ELSE lost_reporter_phone
+                         ELSE finder_phone
                     END
             WHERE id = @matchId;
             """;
 
         await using (var update = new MySqlCommand(
-            updateSql,
-            connection,
-            transaction))
+            updateSql, connection, transaction))
         {
-            update.Parameters.AddWithValue(
-                "@status",
-                newStatus);
-
-            update.Parameters.AddWithValue(
-                "@now",
-                now);
-
-            update.Parameters.AddWithValue(
-                "@matchId",
-                matchId);
-
-            update.Parameters.AddWithValue(
-                "@confirm",
-                confirm);
+            update.Parameters.AddWithValue("@status", newStatus);
+            update.Parameters.AddWithValue("@now", now);
+            update.Parameters.AddWithValue("@matchId", matchId);
+            update.Parameters.AddWithValue("@confirm", confirm);
 
             update.Parameters.AddWithValue(
                 "@email",
-                confirm
-                    ? (object)lostReporterEmail!.Trim()
-                    : DBNull.Value);
+                confirm ? finderEmail!.Trim() : DBNull.Value);
 
             update.Parameters.AddWithValue(
                 "@phone",
-                confirm
-                    ? (object)lostReporterPhone!.Trim()
-                    : DBNull.Value);
+                confirm ? finderPhone!.Trim() : DBNull.Value);
 
-            await update.ExecuteNonQueryAsync(
-                cancellationToken);
+            await update.ExecuteNonQueryAsync(cancellationToken);
         }
 
         const string auditSql = """
@@ -180,7 +151,7 @@ public sealed class LostReporterDecisionRepository
                 @id,
                 @matchId,
                 @userId,
-                'LOST',
+                'FOUND',
                 @action,
                 @previousStatus,
                 @newStatus,
@@ -189,62 +160,42 @@ public sealed class LostReporterDecisionRepository
             """;
 
         await using (var audit = new MySqlCommand(
-            auditSql,
-            connection,
-            transaction))
+            auditSql, connection, transaction))
         {
-            audit.Parameters.AddWithValue(
-                "@id",
-                Guid.NewGuid());
-
-            audit.Parameters.AddWithValue(
-                "@matchId",
-                matchId);
-
-            audit.Parameters.AddWithValue(
-                "@userId",
-                userId);
-
-            audit.Parameters.AddWithValue(
-                "@action",
-                action);
-
+            audit.Parameters.AddWithValue("@id", Guid.NewGuid());
+            audit.Parameters.AddWithValue("@matchId", matchId);
+            audit.Parameters.AddWithValue("@userId", userId);
+            audit.Parameters.AddWithValue("@action", action);
             audit.Parameters.AddWithValue(
                 "@previousStatus",
                 previousStatus);
+            audit.Parameters.AddWithValue("@newStatus", newStatus);
+            audit.Parameters.AddWithValue("@now", now);
 
-            audit.Parameters.AddWithValue(
-                "@newStatus",
-                newStatus);
-
-            audit.Parameters.AddWithValue(
-                "@now",
-                now);
-
-            await audit.ExecuteNonQueryAsync(
-                cancellationToken);
+            await audit.ExecuteNonQueryAsync(cancellationToken);
         }
 
         await transaction.CommitAsync(cancellationToken);
 
-        return new LostReporterDecisionResult(
+        return new FinderDecisionResult(
             matchId,
             newStatus,
             now);
     }
 
-    public async Task<FinderReturnContact> GetFinderContactAsync(
-        Guid matchId,
-        Guid userId,
-        CancellationToken cancellationToken)
+    public async Task<LostReporterReturnContact>
+        GetLostReporterContactAsync(
+            Guid matchId,
+            Guid userId,
+            CancellationToken cancellationToken)
     {
         const string sql = """
             SELECT
-                lost_reporter_id,
+                finder_id,
                 status,
                 is_active,
-                finder_email,
-                finder_phone
+                lost_reporter_email,
+                lost_reporter_phone
             FROM matches
             WHERE id = @matchId;
             """;
@@ -255,18 +206,14 @@ public sealed class LostReporterDecisionRepository
         await using var command =
             new MySqlCommand(sql, connection);
 
-        command.Parameters.AddWithValue(
-            "@matchId",
-            matchId);
+        command.Parameters.AddWithValue("@matchId", matchId);
 
         await using var reader =
             await command.ExecuteReaderAsync(cancellationToken);
 
         if (!await reader.ReadAsync(cancellationToken))
         {
-            throw new ClaimException(
-                404,
-                "Match not found.");
+            throw new ClaimException(404, "Match not found.");
         }
 
         if (reader.GetGuid(0) != userId)
@@ -299,15 +246,13 @@ public sealed class LostReporterDecisionRepository
             throw ContactUnavailable();
         }
 
-        return new FinderReturnContact(
-            email,
-            phone);
+        return new LostReporterReturnContact(email, phone);
     }
 
     private static ClaimException ContactUnavailable()
     {
         return new ClaimException(
             503,
-            "The finder's contact details were not saved for this claim.");
+            "The lost reporter's contact details were not saved for this claim.");
     }
 }
