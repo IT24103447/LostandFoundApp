@@ -7,6 +7,7 @@ import { MatchReportComparison } from "../components/MatchReportComparison";
 import { LostReporterDecisionPanel } from "../components/LostReporterDecisionPanel";
 import { ArrangeReturnPanel } from "../components/ArrangeReturnPanel";
 import { useMatchRequest } from "../hooks/useMatchRequest";
+import { FinderDecisionPanel } from "../components/FinderDecisionPanel";
 
 export function MatchReviewPage() {
   const { matchId } = useParams<{ matchId: string }>();
@@ -112,12 +113,11 @@ export function MatchReviewPage() {
                     </p>
                   </div>
 
-                  {state.data.yourRole === "LOST" && (
-                    <ArrangeReturnPanel
-                      key={state.data.id}
-                      matchId={state.data.id}
-                    />
-                  )}
+                  <ArrangeReturnPanel
+                    key={state.data.id}
+                    matchId={state.data.id}
+                    yourRole={state.data.yourRole}
+                  />
                 </>
               ) : state.data.yourRole === "LOST" &&
                 state.data.status === "FINDER_CONFIRMED" ? (
@@ -127,17 +127,14 @@ export function MatchReviewPage() {
                   onDecisionSaved={retry}
                   onRefresh={retry}
                 />
-              ) : state.data.isYourTurn ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-                  <p className="font-semibold text-amber-900">
-                    Awaiting your decision
-                  </p>
-
-                  <p className="mt-2 text-sm text-amber-800">
-                    Finder confirmation and rejection controls
-                    are not available yet.
-                  </p>
-                </div>
+              ) : state.data.yourRole === "FOUND" &&
+                state.data.status === "LOST_REPORTER_CONFIRMED" ? (
+                <FinderDecisionPanel
+                  key={state.data.id}
+                  matchId={state.data.id}
+                  onDecisionSaved={retry}
+                  onRefresh={retry}
+                />
               ) : (
                 <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5">
                   <p className="font-semibold text-violet-900">

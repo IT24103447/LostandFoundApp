@@ -34,3 +34,25 @@ export function getFinderReturnContact(
     signal,
   );
 }
+
+export function decideAsFinder(
+  matchId: string,
+  decision: "confirm" | "reject",
+): Promise<MatchDecisionResult> {
+  return apiPost<Record<string, never>, MatchDecisionResult>(
+    "matching",
+    `/api/matches/${encodeURIComponent(matchId)}/finder/${decision}`,
+    {},
+  );
+}
+
+export function getLostReporterReturnContact(
+  matchId: string,
+  signal?: AbortSignal,
+): Promise<FinderReturnContact> {
+  return apiGet<FinderReturnContact>(
+    "matching",
+    `/api/matches/${encodeURIComponent(matchId)}/finder/return-contact`,
+    signal,
+  );
+}

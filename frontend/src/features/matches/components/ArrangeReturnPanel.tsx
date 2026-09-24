@@ -1,9 +1,14 @@
 import { useCallback, useState } from "react";
-import { getFinderReturnContact } from "../api/matchDecisions";
+import {
+  getFinderReturnContact,
+  getLostReporterReturnContact,
+} from "../api/matchDecisions";
+import type { ReportType } from "../api/matches";
 import { useMatchRequest } from "../hooks/useMatchRequest";
 
 type Props = {
   matchId: string;
+  yourRole: ReportType;
 };
 
 type ContactFieldProps = {
@@ -53,14 +58,22 @@ function ContactField({ label, value }: ContactFieldProps) {
   );
 }
 
-export function ArrangeReturnPanel({ matchId }: Props) {
+export function ArrangeReturnPanel({
+  matchId,
+  yourRole,
+}: Props) {
   const load = useCallback(
     (signal: AbortSignal) =>
-      getFinderReturnContact(matchId, signal),
-    [matchId],
+      yourRole === "LOST"
+        ? getFinderReturnContact(matchId, signal)
+        : getLostReporterReturnContact(matchId, signal),
+    [matchId, yourRole],
   );
 
   const { state, retry } = useMatchRequest(load);
+
+  const otherParty =
+    yourRole === "LOST" ? "finder" : "lost reporter";
 
   return (
     <section
@@ -72,7 +85,7 @@ export function ArrangeReturnPanel({ matchId }: Props) {
       </h2>
 
       <p className="mt-2 text-sm text-emerald-900">
-        Contact the finder to arrange collecting your item.
+        Contact the {otherParty} to arrange returning the item.
       </p>
 
       {state.status === "loading" && (
@@ -86,7 +99,9 @@ export function ArrangeReturnPanel({ matchId }: Props) {
           role="alert"
           className="mt-4 rounded-xl border border-emerald-200 bg-white p-4"
         >
-          <p className="text-sm text-slate-700">{state.error}</p>
+          <p className="text-sm text-slate-700">
+            {state.error}
+          </p>
 
           <button
             type="button"
