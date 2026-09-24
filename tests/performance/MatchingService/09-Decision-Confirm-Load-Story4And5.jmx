@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-MS-09 - Story 4/5 Concurrent Lost-Reporter Confirm Load" enabled="true">
+      <stringProp name="TestPlan.comments">Story 4 (lost reporter confirms a match) and Story 5's shared confirmation pipeline: puts concurrent load on LostReporterDecisionRepository.DecideAsync's confirm path across many DIFFERENT matches at once, proving the outbox-row INSERT that fires on every confirm does not contend or deadlock under real concurrent writes to the same match_confirmation_outbox table. This is deliberately NOT the same-match race - that is plan 10's job. Each thread confirms its OWN match (one CSV row, consumed once), then reads back the finder's contact through the real return-contact endpoint, proving the confirm-then-reveal sequence works under load, not just for one request at a time.
+
+Each row in PENDING_MATCHES_CSV must be the id of a match already sitting at FINDER_CONFIRMED (the finder has already claimed it; only the lost reporter's decision is outstanding) and owned, on the lost-reporter side, by whichever user AUTH_TOKEN belongs to - confirming is a one-time transition, so a match cannot be reused across runs or across threads. HOST/PORT default to localhost/5179 (MatchingService).</stringProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument"><stringProp name="Argument.name">HOST</stringProp><stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp></elementProp>
+          <elementProp name="PORT" elementType="Argument"><stringProp name="Argument.name">PORT</stringProp><stringProp name="Argument.value">${__P(PORT,5179)}</stringProp></elementProp>
+          <elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">${__P(AUTH_TOKEN,SET_ME)}</stringProp></elementProp>
+          <elementProp name="THREADS" elementType="Argument"><stringProp name="Argument.name">THREADS</stringProp><stringProp name="Argument.value">${__P(THREADS,5)}</stringProp></elementProp>
+          <elementProp name="RAMP_SECONDS" elementType="Argument"><stringProp name="Argument.name">RAMP_SECONDS</stringProp><stringProp name="Argument.value">${__P(RAMP_SECONDS,5)}</stringProp></elementProp>
+          <elementProp name="PENDING_MATCHES_CSV" elementType="Argument"><stringProp name="Argument.name">PENDING_MATCHES_CSV</stringProp><stringProp name="Argument.value">${__P(PENDING_MATCHES_CSV,story4and5-pending-matches.csv)}</stringProp></elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Lost reporter authentication" enabled="true">
+        <stringProp name="TestPlan.comments">Sends the JWT as the auth_token cookie (LostReporterDecisionsController accepts it as a fallback, same as every other controller in this repo).</stringProp>
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="auth-cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp>
+        </collectionProp>
+      </HeaderManager>
+      <hashTree/>
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Pending FINDER_CONFIRMED matches, one per thread" enabled="true">
+        <stringProp name="TestPlan.comments">recycle=false and shareMode "All threads" together mean the pool is shared and each thread consumes the NEXT unread row, never the same row twice - required because confirming is a one-time transition. Needs at least THREADS rows or later threads fail at EOF (a deliberate, visible failure, not silently reusing a row that would only produce 409s).</stringProp>
+        <stringProp name="filename">${PENDING_MATCHES_CSV}</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="variableNames">matchId</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <stringProp name="delimiter">,</stringProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">false</boolProp>
+        <boolProp name="stopThread">true</boolProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Concurrent lost reporters" enabled="true">
+        <stringProp name="TestPlan.comments">${THREADS} users, ramped over ${RAMP_SECONDS}s, one loop each - each thread confirms exactly one match, so the CSV needs at least THREADS rows.</stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">CONTINUE</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">1</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">${THREADS}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${RAMP_SECONDS}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Lost reporter confirms the match" enabled="true">
+          <stringProp name="TestPlan.comments">POST .../lost-reporter/confirm - no body needed, the caller's email/phone come from the JWT's own claims. Writes an audit row and a match_confirmation_outbox row in the same transaction.</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/${matchId}/lost-reporter/confirm</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Confirm returns 200" enabled="true">
+            <stringProp name="TestPlan.comments">A failure here means the CSV row's match wasn't really at FINDER_CONFIRMED, or didn't belong to AUTH_TOKEN's user on the lost-reporter side - see Troubleshooting in JMeterTesting.md.</stringProp>
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Read back the finder's contact" enabled="true">
+          <stringProp name="TestPlan.comments">GET .../lost-reporter/return-contact, immediately after confirming the same match - proves the confirm-then-reveal sequence (Scenario 6) holds under concurrent load, not only one request at a time.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/${matchId}/lost-reporter/return-contact</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Return-contact is 200 with an email field" enabled="true">
+            <stringProp name="TestPlan.comments">Catches a 200 with an empty/malformed body, the same defensive pattern the other plans use for their own key response fields.</stringProp>
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="1">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Body contains an email field" enabled="true">
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">email</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">16</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
