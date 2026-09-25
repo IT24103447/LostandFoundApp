@@ -22,7 +22,10 @@ public sealed class MatchReadServiceTests
     private static StoredMatch NewMatch(
         string status,
         bool isActive = true,
-        Guid? claimantId = null) => new(
+        Guid? claimantId = null,
+        string? deactivationReason = null,
+        Guid? deactivatedItemId = null,
+        string? deactivatedItemType = null) => new(
             Guid.NewGuid(),
             LostReporterId,
             FinderId,
@@ -32,7 +35,13 @@ public sealed class MatchReadServiceTests
             75m,
             DateTime.UtcNow,
             new ClaimItemView(Guid.NewGuid(), "LOST", "Lost item", "Accessories", "desc", "2026-09-01", "Malabe"),
-            new ClaimItemView(Guid.NewGuid(), "FOUND", "Found item", "Accessories", "desc", "2026-09-01", "Malabe"));
+            new ClaimItemView(Guid.NewGuid(), "FOUND", "Found item", "Accessories", "desc", "2026-09-01", "Malabe"))
+        {
+            DeactivatedAt = deactivationReason is null ? null : DateTime.UtcNow,
+            DeactivationReason = deactivationReason,
+            DeactivatedItemId = deactivatedItemId,
+            DeactivatedItemType = deactivatedItemType
+        };
 
     // An unrecognised section name is rejected before the repository is ever queried.
     [Fact]
@@ -265,5 +274,67 @@ public sealed class MatchReadServiceTests
         Assert.Equal(10, page.Size);
         Assert.Equal(11, page.TotalCount);
         Assert.Single(page.Items);
+    }
+
+    // ---- Story 7: deactivated-but-visible matches (read-only history) --------------------
+
+    [Theory]
+    [InlineData("ITEM_RESOLVED")]
+    [InlineData("ITEM_DELETED")]
+    [InlineData("MATCH_CONFIRMED_ELSEWHERE")]
+    public async Task GetByIdAsync_DeactivatedWithAQualifyingReason_IsVisibleNotNotFound(string reason)
+    {
+        var repository = new Mock<IMatchReadRepository>();
+        var itemId = Guid.NewGuid();
+        repository
+            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NewMatch(
+                "LOST_REPORTER_CONFIRMED", isActive: false,
+                deactivationReason: reason, deactivatedItemId: itemId, deactivatedItemType: "LOST"));
+
+        var service = new MatchReadService(repository.Object);
+        var entry = await service.GetByIdAsync(Guid.NewGuid(), LostReporterId, CancellationToken.None);
+
+        Assert.Equal("DEACTIVATED", entry.Status);
+        Assert.Equal("deactivated", entry.Section);
+        Assert.Equal(reason, entry.DeactivationReason);
+        Assert.Equal(itemId, entry.DeactivatedItemId);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_InactiveWithoutAQualifyingReason_StillThrowsNotFound()
+    {
+        // A deactivation reason outside the known allow-list (nothing in the shipped code writes one,
+        // but the read side must not assume that) is treated the same as no reason at all - hidden.
+        var repository = new Mock<IMatchReadRepository>();
+        repository
+            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NewMatch(
+                "LOST_REPORTER_CONFIRMED", isActive: false, deactivationReason: "SOMETHING_UNEXPECTED"));
+
+        var service = new MatchReadService(repository.Object);
+
+        var exception = await Assert.ThrowsAsync<ClaimException>(() =>
+            service.GetByIdAsync(Guid.NewGuid(), LostReporterId, CancellationToken.None));
+
+        Assert.Equal(404, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_DeactivatedConfirmedMatch_IsNotTreatedAsDeactivated()
+    {
+        // ItemLifecycleRepository/MatchConfirmationOutbox never deactivate a CONFIRMED match (Scenario
+        // 3), but the read side's own gate is proven directly too: a CONFIRMED status always takes the
+        // normal path, regardless of is_active/deactivation_reason on the row.
+        var repository = new Mock<IMatchReadRepository>();
+        repository
+            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NewMatch("CONFIRMED"));
+
+        var service = new MatchReadService(repository.Object);
+        var entry = await service.GetByIdAsync(Guid.NewGuid(), LostReporterId, CancellationToken.None);
+
+        Assert.Equal("CONFIRMED", entry.Status);
+        Assert.Equal("confirmed", entry.Section);
     }
 }

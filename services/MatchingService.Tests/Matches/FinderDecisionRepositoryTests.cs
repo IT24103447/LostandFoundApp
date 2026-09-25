@@ -307,6 +307,104 @@ public sealed class FinderDecisionRepositoryTests : IClassFixture<ClaimServiceDb
         Assert.False(otherIsActive);
     }
 
+    // Story 7: the outbox-interlock deactivation now also covers a still-pending (not yet claimed by
+    // anyone) match for the same item, not just the two half-confirmed statuses.
+    [Fact]
+    public async Task DecideAsync_Confirm_DeactivatesAnAwaitingClaimantConfirmationMatchForTheSameItem()
+    {
+        var sharedFoundItemId = Guid.NewGuid();
+        var (otherMatchId, _, _) = await InsertMatchAsync(
+            Guid.NewGuid(), Guid.NewGuid(), "AWAITING_CLAIMANT_CONFIRMATION", foundItemId: sharedFoundItemId);
+
+        var finderId = Guid.NewGuid();
+        var (matchId, _, _) = await InsertMatchAsync(
+            Guid.NewGuid(), finderId, "LOST_REPORTER_CONFIRMED", foundItemId: sharedFoundItemId);
+
+        await _repository.DecideAsync(matchId, finderId, confirm: true,
+            "finder@example.com", "+94771234567", CancellationToken.None);
+
+        var (_, otherIsActive) = await ReadMatchStateAsync(otherMatchId);
+        Assert.False(otherIsActive);
+    }
+
+    // Story 7: the deactivated competing match carries the same audit trail
+    // (reason/item id/item type) the item-lifecycle deactivation path uses.
+    [Fact]
+    public async Task DecideAsync_Confirm_RecordsWhyAndWhichItemDeactivatedTheOtherMatch()
+    {
+        var sharedFoundItemId = Guid.NewGuid();
+        var (otherMatchId, _, _) = await InsertMatchAsync(
+            Guid.NewGuid(), Guid.NewGuid(), "FINDER_CONFIRMED", foundItemId: sharedFoundItemId);
+
+        var finderId = Guid.NewGuid();
+        var (matchId, _, _) = await InsertMatchAsync(
+            Guid.NewGuid(), finderId, "LOST_REPORTER_CONFIRMED", foundItemId: sharedFoundItemId);
+
+        await _repository.DecideAsync(matchId, finderId, confirm: true,
+            "finder@example.com", "+94771234567", CancellationToken.None);
+
+        await using var connection = _fixture.Connections.Create();
+        await connection.OpenAsync();
+        await using var command = new MySqlCommand("""
+            SELECT deactivation_reason, deactivated_item_id, deactivated_item_type
+            FROM matches WHERE id = @id;
+            """, connection);
+        command.Parameters.AddWithValue("@id", otherMatchId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+        await reader.ReadAsync();
+
+        Assert.Equal("MATCH_CONFIRMED_ELSEWHERE", reader.GetString(0));
+        Assert.Equal(sharedFoundItemId, reader.GetGuid(1));
+        Assert.Equal("FOUND", reader.GetString(2));
+    }
+
+    // Story 7: a pending/failed reminder for the match that just lost the race is cancelled, not left
+    // to retry forever against a match nobody can act on any more.
+    [Fact]
+    public async Task DecideAsync_Confirm_CancelsPendingNotificationsForTheDeactivatedOtherMatch()
+    {
+        var sharedFoundItemId = Guid.NewGuid();
+        var (otherMatchId, _, _) = await InsertMatchAsync(
+            Guid.NewGuid(), Guid.NewGuid(), "FINDER_CONFIRMED", foundItemId: sharedFoundItemId);
+
+        Guid pendingNotificationId;
+        await using (var connection = _fixture.Connections.Create())
+        {
+            await connection.OpenAsync();
+            pendingNotificationId = Guid.NewGuid();
+
+            await using var command = new MySqlCommand("""
+                INSERT INTO match_notifications (
+                    id, match_id, recipient_user_id, notification_type, status, attempts,
+                    next_attempt_at, created_at, updated_at
+                ) VALUES (
+                    @id, @matchId, @recipientId, 'COUNTERPART_ACTION', 'PENDING', 0,
+                    UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
+                );
+                """, connection);
+            command.Parameters.AddWithValue("@id", pendingNotificationId);
+            command.Parameters.AddWithValue("@matchId", otherMatchId);
+            command.Parameters.AddWithValue("@recipientId", Guid.NewGuid());
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var finderId = Guid.NewGuid();
+        var (matchId, _, _) = await InsertMatchAsync(
+            Guid.NewGuid(), finderId, "LOST_REPORTER_CONFIRMED", foundItemId: sharedFoundItemId);
+
+        await _repository.DecideAsync(matchId, finderId, confirm: true,
+            "finder@example.com", "+94771234567", CancellationToken.None);
+
+        await using var readConnection = _fixture.Connections.Create();
+        await readConnection.OpenAsync();
+        await using var readCommand = new MySqlCommand(
+            "SELECT status FROM match_notifications WHERE id = @id;", readConnection);
+        readCommand.Parameters.AddWithValue("@id", pendingNotificationId);
+
+        Assert.Equal("CANCELLED", (string)(await readCommand.ExecuteScalarAsync())!);
+    }
+
     // Scenario 6: once Confirmed, the finder can read back the lost reporter's stored contact details.
     [Fact]
     public async Task GetLostReporterContactAsync_MatchConfirmedWithContactStored_ReturnsEmailAndPhone()

@@ -690,4 +690,117 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
 
         Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
     }
+
+    // ---- Story 7: claims are blocked against a resolved/deleted report ------------------
+
+    private async Task MarkItemInactiveAsync(string itemType, Guid itemId, string reason)
+    {
+        await using var connection = _fixture.Connections.Create();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand("""
+            INSERT INTO matching_item_states (item_type, item_id, inactive_reason, updated_at)
+            VALUES (@type, @itemId, @reason, UTC_TIMESTAMP(3));
+            """, connection);
+        command.Parameters.AddWithValue("@type", itemType);
+        command.Parameters.AddWithValue("@itemId", itemId);
+        command.Parameters.AddWithValue("@reason", reason);
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+    [Theory]
+    [InlineData("RESOLVED")]
+    [InlineData("DELETED")]
+    public async Task PairExistsAsync_LostItemAlreadyInactive_ThrowsConflict(string reason)
+    {
+        var repository = new ClaimRepository(_fixture.Connections, new BlobUrlPhotoKeyGenerator());
+        var lostId = Guid.NewGuid();
+        var foundId = Guid.NewGuid();
+        await MarkItemInactiveAsync("LOST", lostId, reason);
+
+        var exception = await Assert.ThrowsAsync<ClaimException>(() =>
+            repository.PairExistsAsync(lostId, foundId, CancellationToken.None));
+
+        Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task PairExistsAsync_FoundItemAlreadyInactive_ThrowsConflict()
+    {
+        var repository = new ClaimRepository(_fixture.Connections, new BlobUrlPhotoKeyGenerator());
+        var lostId = Guid.NewGuid();
+        var foundId = Guid.NewGuid();
+        await MarkItemInactiveAsync("FOUND", foundId, "RESOLVED");
+
+        var exception = await Assert.ThrowsAsync<ClaimException>(() =>
+            repository.PairExistsAsync(lostId, foundId, CancellationToken.None));
+
+        Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
+    }
+
+    [Fact]
+    public async Task PairExistsAsync_NeitherItemInactive_ChecksTheRealPairTableNormally()
+    {
+        // The Story 7 guard must not short-circuit the pre-existing behavior when both items are
+        // genuinely active - an untouched pair still reads as "no existing match".
+        var repository = new ClaimRepository(_fixture.Connections, new BlobUrlPhotoKeyGenerator());
+
+        var exists = await repository.PairExistsAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(exists);
+    }
+
+    [Fact]
+    public async Task CreateAsync_LostItemAlreadyResolved_ThrowsConflictAndInsertsNoMatch()
+    {
+        var repository = new ClaimRepository(_fixture.Connections, new BlobUrlPhotoKeyGenerator());
+        var lostId = Guid.NewGuid();
+        var foundId = Guid.NewGuid();
+        await MarkItemInactiveAsync("LOST", lostId, "RESOLVED");
+
+        var lost = new ItemReport { Id = lostId, UserId = Guid.NewGuid(), Status = "ACTIVE" };
+        var found = new ItemReport { Id = foundId, UserId = Guid.NewGuid(), Status = "ACTIVE" };
+        var pair = new VerifiedPair(lost, found, "LOST");
+
+        var preview = new ClaimPreview(
+            lost.ToView("LOST"), found.ToView("FOUND"), 100m, ClaimService.Threshold, true, "LOST", "v1",
+            new ScoreBreakdown(100m, 100m, 100m, 0m, 0m));
+
+        var exception = await Assert.ThrowsAsync<ClaimException>(() =>
+            repository.CreateAsync(pair, preview, lost.UserId, CancellationToken.None));
+
+        Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
+
+        await using var connection = _fixture.Connections.Create();
+        await connection.OpenAsync();
+        await using var check = new MySqlCommand(
+            "SELECT COUNT(*) FROM matches WHERE lost_item_id = @lostId AND found_item_id = @foundId;",
+            connection);
+        check.Parameters.AddWithValue("@lostId", lostId);
+        check.Parameters.AddWithValue("@foundId", foundId);
+        Assert.Equal(0L, Convert.ToInt64(await check.ExecuteScalarAsync()));
+    }
+
+    [Fact]
+    public async Task CreateAsync_FoundItemAlreadyDeleted_ThrowsConflictAndInsertsNoMatch()
+    {
+        var repository = new ClaimRepository(_fixture.Connections, new BlobUrlPhotoKeyGenerator());
+        var lostId = Guid.NewGuid();
+        var foundId = Guid.NewGuid();
+        await MarkItemInactiveAsync("FOUND", foundId, "DELETED");
+
+        var lost = new ItemReport { Id = lostId, UserId = Guid.NewGuid(), Status = "ACTIVE" };
+        var found = new ItemReport { Id = foundId, UserId = Guid.NewGuid(), Status = "ACTIVE" };
+        var pair = new VerifiedPair(lost, found, "FOUND");
+
+        var preview = new ClaimPreview(
+            lost.ToView("LOST"), found.ToView("FOUND"), 100m, ClaimService.Threshold, true, "FOUND", "v1",
+            new ScoreBreakdown(100m, 100m, 100m, 0m, 0m));
+
+        var exception = await Assert.ThrowsAsync<ClaimException>(() =>
+            repository.CreateAsync(pair, preview, found.UserId, CancellationToken.None));
+
+        Assert.Equal(StatusCodes.Status409Conflict, exception.StatusCode);
+    }
 }
