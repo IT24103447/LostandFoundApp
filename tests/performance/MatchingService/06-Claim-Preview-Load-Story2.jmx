@@ -6,13 +6,13 @@
 
 None of these endpoints touch Gemini. The pairs in PAIRS_CSV need their image_descriptions rows (if any) already in a settled state (COMPLETED, or no photo at all). A pair whose photo is still PENDING/PROCESSING would fail the preview assertion below on purpose (409, "still being analysed"), which is the correct behaviour, not a plan bug.
 
-Variables: HOST, PORT, THREADS and RAMP_SECONDS follow the same convention as the Item Service plans (defaults: localhost, 5179, 10, 10). AUTH_TOKEN is the JWT from POST /api/auth/login for the user who owns the LOST side of every pair in PAIRS_CSV; no secret is stored in this file. PAIRS_CSV defaults to the tracked template tests/performance/MatchingService/story2-pairs.csv, resolved relative to this file, and needs real report ids in place of its placeholder rows.</stringProp>
+Variables: HOST, PORT, THREADS and RAMP_SECONDS follow the same convention as the Item Service plans (defaults: localhost, 5179, 20, 10). AUTH_TOKEN is the JWT from POST /api/auth/login for the user who owns the LOST side of every pair in PAIRS_CSV; no secret is stored in this file. PAIRS_CSV defaults to the tracked template tests/performance/MatchingService/story2-pairs.csv, resolved relative to this file, and needs real report ids in place of its placeholder rows.</stringProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
         <collectionProp name="Arguments.arguments">
           <elementProp name="HOST" elementType="Argument"><stringProp name="Argument.name">HOST</stringProp><stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp></elementProp>
           <elementProp name="PORT" elementType="Argument"><stringProp name="Argument.name">PORT</stringProp><stringProp name="Argument.value">${__P(PORT,5179)}</stringProp></elementProp>
           <elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">${__P(AUTH_TOKEN,SET_ME)}</stringProp></elementProp>
-          <elementProp name="THREADS" elementType="Argument"><stringProp name="Argument.name">THREADS</stringProp><stringProp name="Argument.value">${__P(THREADS,10)}</stringProp></elementProp>
+          <elementProp name="THREADS" elementType="Argument"><stringProp name="Argument.name">THREADS</stringProp><stringProp name="Argument.value">${__P(THREADS,20)}</stringProp></elementProp>
           <elementProp name="RAMP_SECONDS" elementType="Argument"><stringProp name="Argument.name">RAMP_SECONDS</stringProp><stringProp name="Argument.value">${__P(RAMP_SECONDS,10)}</stringProp></elementProp>
           <elementProp name="PAIRS_CSV" elementType="Argument"><stringProp name="Argument.name">PAIRS_CSV</stringProp><stringProp name="Argument.value">${__P(PAIRS_CSV,story2-pairs.csv)}</stringProp></elementProp>
         </collectionProp>

@@ -4,14 +4,14 @@
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-MS-08 - Story 3 Matches Page Read Load" enabled="true">
       <stringProp name="TestPlan.comments">Story 3 (view potential matches), read-side load against MatchQueriesController - the endpoint pair Story 2's own plan 06 does not exercise, since plan 06 predates the real Matches page moving onto it. THREADS concurrent users, each authenticated as the same real user (AUTH_TOKEN), each mirroring the real page's own request shape: the four section panels (Waiting On You, Waiting On The Other Party, Confirmed, Rejected) fetch independently and in parallel, the profile page's Possible Matches tile fetches a one-row "active" count separately again, and the review screen fetches one match by id. None of these mutate anything, so the same account and the same match id are reused (recycled) across every thread and iteration.
 
-Variables: HOST, PORT, THREADS and RAMP_SECONDS follow the same convention as every other plan in this repo (defaults: localhost, 5179, 10, 10). AUTH_TOKEN is the JWT from POST /api/auth/login for a user with at least one match in some section, so the section reads return real rows rather than only proving emptiness. MATCH_ID is a match this same user is a party to, for the details sampler.</stringProp>
+Variables: HOST, PORT, THREADS and RAMP_SECONDS follow the same convention as every other plan in this repo (defaults: localhost, 5179, 20, 10). AUTH_TOKEN is the JWT from POST /api/auth/login for a user with at least one match in some section, so the section reads return real rows rather than only proving emptiness. MATCH_ID is a match this same user is a party to, for the details sampler.</stringProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
         <collectionProp name="Arguments.arguments">
           <elementProp name="HOST" elementType="Argument"><stringProp name="Argument.name">HOST</stringProp><stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp></elementProp>
           <elementProp name="PORT" elementType="Argument"><stringProp name="Argument.name">PORT</stringProp><stringProp name="Argument.value">${__P(PORT,5179)}</stringProp></elementProp>
           <elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">${__P(AUTH_TOKEN,SET_ME)}</stringProp></elementProp>
           <elementProp name="MATCH_ID" elementType="Argument"><stringProp name="Argument.name">MATCH_ID</stringProp><stringProp name="Argument.value">${__P(MATCH_ID,SET_ME)}</stringProp></elementProp>
-          <elementProp name="THREADS" elementType="Argument"><stringProp name="Argument.name">THREADS</stringProp><stringProp name="Argument.value">${__P(THREADS,10)}</stringProp></elementProp>
+          <elementProp name="THREADS" elementType="Argument"><stringProp name="Argument.name">THREADS</stringProp><stringProp name="Argument.value">${__P(THREADS,20)}</stringProp></elementProp>
           <elementProp name="RAMP_SECONDS" elementType="Argument"><stringProp name="Argument.name">RAMP_SECONDS</stringProp><stringProp name="Argument.value">${__P(RAMP_SECONDS,10)}</stringProp></elementProp>
         </collectionProp>
       </elementProp>
