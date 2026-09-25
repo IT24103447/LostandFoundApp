@@ -61,41 +61,7 @@ public sealed class MatchEmailSender : IMatchEmailSender
         string recipientEmail,
         CancellationToken cancellationToken)
     {
-        if (!MailAddress.TryCreate(recipientEmail, out var recipient))
-        {
-            throw new NotificationDeliveryException(
-                "RECIPIENT_EMAIL_INVALID");
-        }
-
-        var subject = job.Type switch
-        {
-            NotificationTypes.CounterpartAction =>
-                "A claim was submitted for your report",
-
-            NotificationTypes.MatchConfirmed =>
-                "Your match was confirmed",
-
-            NotificationTypes.MatchRejected =>
-                "Your match was rejected",
-
-            _ => throw new NotificationDeliveryException(
-                "NOTIFICATION_TYPE_INVALID")
-        };
-
-        var link = new Uri(
-            _frontendBaseUri, $"matched-items/{job.MatchId:D}");
-
-        using var message = new MailMessage
-        {
-            From = new MailAddress(_fromAddress, _fromName),
-            Subject = subject,
-            Body = link.AbsoluteUri,
-            IsBodyHtml = false,
-            SubjectEncoding = Encoding.UTF8,
-            BodyEncoding = Encoding.UTF8
-        };
-
-        message.To.Add(recipient);
+        using var message = BuildMessage(job, recipientEmail);
 
         using var client = new SmtpClient(_host, _port)
         {
@@ -119,6 +85,50 @@ public sealed class MatchEmailSender : IMatchEmailSender
         {
             throw new NotificationDeliveryException("SMTP_TIMEOUT");
         }
+    }
+
+    public MailMessage BuildMessage(
+        NotificationJob job,
+        string recipientEmail)
+    {
+        if (!MailAddress.TryCreate(recipientEmail, out var recipient))
+        {
+            throw new NotificationDeliveryException(
+                "RECIPIENT_EMAIL_INVALID");
+        }
+
+        var subject = job.Type switch
+        {
+            NotificationTypes.CounterpartAction =>
+                "A claim was submitted for your report",
+
+            NotificationTypes.MatchConfirmed =>
+                "Your match was confirmed",
+
+            NotificationTypes.MatchRejected =>
+                "Your match was rejected",
+
+            _ => throw new NotificationDeliveryException(
+                "NOTIFICATION_TYPE_INVALID")
+        };
+
+        var link = new Uri(
+            _frontendBaseUri,
+            $"matched-items/{job.MatchId:D}");
+
+        var message = new MailMessage
+        {
+            From = new MailAddress(_fromAddress, _fromName),
+            Subject = subject,
+            Body = link.AbsoluteUri,
+            IsBodyHtml = false,
+            SubjectEncoding = Encoding.UTF8,
+            BodyEncoding = Encoding.UTF8
+        };
+
+        message.To.Add(recipient);
+
+        return message;
     }
 
     private static string Required(
