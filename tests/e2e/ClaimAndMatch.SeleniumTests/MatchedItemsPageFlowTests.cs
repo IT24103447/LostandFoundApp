@@ -5,22 +5,9 @@ using Xunit;
 
 namespace ClaimAndMatch.SeleniumTests;
 
-/// <summary>
-/// Story 3 (view potential matches) browser coverage: the dedicated Matches page (four sections,
-/// pagination, empty/loading/error states), the shared review screen's read-only states, ownership
-/// isolation, and the profile page's live-count tile. Reuses ClaimAndMatchFixture (real login, real
-/// report creation, the same seeded accounts) since this is the same feature area as Story 2's claim
-/// flow, just the read side.
-///
-/// Confirm/Reject actions (Scenario 5/6's actionable case) are not covered here: they're Story 4/5's
-/// own real backend endpoints and UI controls, exercised end to end in LostReporterDecisionFlowTests.cs
-/// and FinderDecisionFlowTests.cs instead. AUTO_REJECTED_LOW_CONFIDENCE and deactivated matches - still
-/// not reachable through any real endpoint - are seeded directly here (ClaimAndMatchFixture.
-/// InsertMatchDirectly), the same justified pattern MatchReadRepositoryTests already uses at the xUnit
-/// level for the same reason; CONFIRMED and REJECTED matches are seeded the same way purely for this
-/// file's own section-grouping/ordering tests, where driving a real two-party confirm/reject through
-/// the browser for every row would be needless overhead - the real flow itself is proven elsewhere.
-/// </summary>
+// Story 3: the Matches page, the review screen's read-only states, ownership isolation, and the
+// profile page's live-count tile. Confirm/Reject is Story 4/5's own coverage. Matches needing a
+// status no real endpoint produces are seeded via ClaimAndMatchFixture.InsertMatchDirectly.
 [Trait("Story", "3")]
 public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixture>
 {
@@ -33,9 +20,8 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         _fixture = fixture;
     }
 
-    // Scenarios 2 + 4: a real half-confirmed match's row shows the other party's item, the confidence
-    // percentage, and a role label without expanding anything; expanding "View details" additionally
-    // reveals category/date/location; the row's review link opens the shared review screen.
+    // Scenarios 2 + 4: a row shows the other party's item and confidence collapsed; expanding it
+    // reveals more detail, and the review link opens the shared review screen.
     [Fact]
     public void MatchesPage_RowShowsOtherPartyAndConfidence_AndOpensSharedReviewScreen()
     {
@@ -60,14 +46,9 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/matched-items");
         Wait.Until(d => d.PageSource.Contains(title, StringComparison.Ordinal));
 
-        // Scoped to this test's own card (by its unique title), not just "the first card on the
-        // page": the seeded accounts accumulate many matches across the whole suite's lifetime, so a
-        // page-wide "//button[contains(.,'View details')]" search can expand a different match
-        // entirely, one that happens to share the same generic category/location text.
         var cardXPath = By.XPath($"//article[.//p[normalize-space()='{title}']]");
         Wait.Until(d => d.FindElement(cardXPath));
 
-        // Visible on the row itself, without expanding: role label and confidence percentage.
         var cardText = Driver.FindElement(cardXPath).Text;
         Assert.Contains("You submitted this claim", cardText, StringComparison.Ordinal);
         Assert.Contains("Similarity", cardText, StringComparison.Ordinal);
@@ -81,9 +62,7 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Wait.Until(d => d.PageSource.Contains(title, StringComparison.Ordinal));
     }
 
-    // Scenario 6: the claimant who already confirmed their own side sees read-only waiting text on the
-    // review screen, never Confirm/Reject controls - a real, honest assertion of today's behavior, not
-    // a claim that Scenario 5's actionable case (the other party's side) is implemented.
+    // Scenario 6: the claimant who already confirmed sees read-only waiting text, never Confirm/Reject.
     [Fact]
     public void ReviewScreen_ClaimantWaitingOnOtherParty_ShowsReadOnlyText_NoConfirmOrRejectButtons()
     {
@@ -107,16 +86,14 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
 
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/matched-items/{matchId}");
         Wait.Until(d => d.PageSource.Contains(
-            "You confirmed your claim. The other person needs to review it and decide.",
+            "You confirmed your claim. The other person needs to review it.",
             StringComparison.Ordinal));
 
         Assert.Empty(Driver.FindElements(By.XPath("//button[contains(.,'Confirm')]")));
         Assert.Empty(Driver.FindElements(By.XPath("//button[contains(.,'Reject')]")));
     }
 
-    // Scenario 3: matches are grouped into all four sections, and Rejected starts collapsed while the
-    // other three start expanded. CONFIRMED/REJECTED matches are seeded directly, since nothing in the
-    // real product can move a match into either status yet.
+    // Scenario 3: matches group into all four sections; Rejected starts collapsed, the rest expanded.
     [Fact]
     public void MatchesPage_FourSections_RejectedCollapsedByDefault_OthersExpanded()
     {
@@ -131,17 +108,13 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         _fixture.LoginAs(ClaimAndMatchFixture.UserAEmail, ClaimAndMatchFixture.UserAPassword);
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/matched-items");
 
-        Wait.Until(d => d.FindElements(By.XPath(
-            "//button[@aria-expanded and .//span[normalize-space()='Confirmed']]")).Count > 0);
+        Wait.Until(d => d.PageSource.Contains("Selenium seeded confirmed lost", StringComparison.Ordinal));
 
         AssertSectionExpanded("Waiting On You", true);
         AssertSectionExpanded("Waiting On The Other Party", true);
         AssertSectionExpanded("Confirmed", true);
         AssertSectionExpanded("Rejected", false);
 
-        Wait.Until(d => d.PageSource.Contains("Selenium seeded confirmed lost", StringComparison.Ordinal));
-
-        // Expanding Rejected reveals the seeded rejected match.
         var rejectedHeader = SectionHeaderButton("Rejected");
         rejectedHeader.Click();
         Wait.Until(d => rejectedHeader.GetAttribute("aria-expanded") == "true");
@@ -164,8 +137,7 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Assert.Contains("Match closed: Rejected", Driver.PageSource, StringComparison.Ordinal);
     }
 
-    // Scenario 8: Auto Rejected Low Confidence and deactivated matches never appear anywhere in the
-    // list, even after expanding every section (including the normally-collapsed Rejected one).
+    // Scenario 8: auto-rejected and deactivated matches never appear, even in an expanded Rejected.
     [Fact]
     public void MatchesPage_AutoRejectedAndDeactivatedMatches_NeverAppearInAnySection()
     {
@@ -183,8 +155,8 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         _fixture.LoginAs(ClaimAndMatchFixture.UserAEmail, ClaimAndMatchFixture.UserAPassword);
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/matched-items");
 
-        Wait.Until(d => d.FindElements(By.XPath(
-            "//button[@aria-expanded and .//span[normalize-space()='Confirmed']]")).Count > 0);
+        Wait.Until(d => d.PageSource.Contains(
+            "Review claims linked to your lost and found reports.", StringComparison.Ordinal));
         SectionHeaderButton("Rejected").Click();
         Wait.Until(d => SectionHeaderButton("Rejected").GetAttribute("aria-expanded") == "true");
 
@@ -212,9 +184,7 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Assert.DoesNotContain("Selenium isolation-check", Driver.PageSource, StringComparison.Ordinal);
     }
 
-    // Scenario 10: a genuinely new account, freshly registered and never having claimed or been
-    // claimed against, sees the empty-state message. The two long-lived seeded accounts (UserA/UserB)
-    // can't stand in for this - they accumulate real matches across every earlier test in this suite.
+    // Scenario 10: a fresh account with no matches sees the empty-state message.
     [Fact]
     public void MatchesPage_FreshAccountWithNoMatches_ShowsEmptyStateMessage()
     {
@@ -226,9 +196,7 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Wait.Until(d => d.PageSource.Contains("No potential matches yet", StringComparison.Ordinal));
     }
 
-    // Scenario 11: while the page's request is in flight, a loading indicator is shown. A heavily
-    // throttled (not fully offline) network keeps the request pending long enough to observe this
-    // deterministically, then lets it complete normally so the test still finishes.
+    // Scenario 11: a loading indicator shows while the page's request is in flight.
     [Fact]
     public void MatchesPage_RequestInFlight_ShowsLoadingIndicator()
     {
@@ -250,8 +218,7 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Wait.Until(d => !d.PageSource.Contains("Loading matches", StringComparison.Ordinal));
     }
 
-    // Scenario 12: a failed fetch shows a friendly error message with a working retry button, proven
-    // with a real network failure (CDP offline emulation) rather than by inspecting component state.
+    // Scenario 12: a failed fetch shows an error message with a working retry button.
     [Fact]
     public void MatchesPage_NetworkFailure_ShowsErrorStateWithWorkingRetry()
     {
@@ -271,8 +238,6 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
             ResetNetworkConditions();
         }
 
-        // Find-and-click as one retried step: a plain find-then-click can race the alert panel's own
-        // re-render (same reasoning as WaitForAlertText) and throw StaleElementReferenceException.
         Wait.Until(d =>
         {
             try
@@ -288,16 +253,13 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Wait.Until(d => d.FindElements(By.CssSelector("[role='alert']")).Count == 0);
     }
 
-    // Definition of Done: the profile page's Possible Matches tile shows a live count (not a stuck
-    // "Loading" or "unavailable" state) and links to the real Matches page.
+    // DoD: the profile page's Possible Matches tile shows a live count and links to the Matches page.
     [Fact]
     public void ProfilePage_PossibleMatchesTile_ShowsLiveCountAndLinksToMatchesPage()
     {
         _fixture.LoginAs(ClaimAndMatchFixture.UserAEmail, ClaimAndMatchFixture.UserAPassword);
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/profile");
 
-        // The h2's parent is the tile's own <Link to="/matched-items"> - the whole tile is one anchor,
-        // not a <section> wrapping a separate nested link.
         var tile = Wait.Until(d => d.FindElement(By.XPath("//h2[normalize-space()='Possible Matches']/..")));
         Wait.Until(d => !tile.Text.Contains("Loading count", StringComparison.Ordinal));
         Assert.DoesNotContain("Count unavailable", tile.Text, StringComparison.Ordinal);
@@ -309,9 +271,6 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
 
     // ---- Helpers -----------------------------------------------------------------------------
 
-    // Minimal claim-dialog drive: create/preview/submit only, no cancel or error branches - those are
-    // already fully covered in ClaimAndMatchFlowTests. Deliberately duplicated rather than shared,
-    // since this file only ever needs the one straight-through path to seed a real half-confirmed match.
     private void SubmitClaim(Guid targetFoundItemId, string candidateTitle)
     {
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/items/{targetFoundItemId}");
@@ -330,20 +289,13 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         Wait.Until(d => d.PageSource.Contains("Claim submitted", StringComparison.Ordinal));
     }
 
-    // Waits for a real, positive signal that the SPA has mounted and its initial request has
-    // finished - the Refresh button existing - rather than for "Loading matches" text to be absent
-    // from the page source. That negative check is also true of the raw pre-hydration HTML shell
-    // (before React has rendered anything at all), so it can pass vacuously, immediately after
-    // navigation, well before the page - or the Refresh button a caller is about to click - actually
-    // exists.
+    // Waits for the Refresh button to exist, a positive signal the SPA has mounted.
     private void WaitForInitialPageLoad()
     {
         Wait.Until(d => d.FindElements(By.XPath("//button[contains(.,'Refresh')]")).Count > 0);
     }
 
-    // Finds and reads the alert element as one atomic, retried step. A separate find-then-read (find
-    // via Wait.Until, then read .Text afterward) can race a React re-render between the two and throw
-    // StaleElementReferenceException even though the alert is, from the user's perspective, still there.
+    // Finds and reads the alert element as one atomic, retried step.
     private string WaitForAlertText()
     {
         var text = string.Empty;
@@ -368,9 +320,11 @@ public sealed class MatchedItemsPageFlowTests : IClassFixture<ClaimAndMatchFixtu
         return text;
     }
 
+    // The title span's own text also carries the section's count badge once loaded (e.g. "Waiting On
+    // You" + "7"), so this matches on contains(), not an exact normalize-space() equality.
     private IWebElement SectionHeaderButton(string title) =>
-        Driver.FindElement(By.XPath(
-            $"//button[@aria-expanded and .//span[normalize-space()='{title}']]"));
+        Wait.Until(d => d.FindElement(By.XPath(
+            $"//button[@aria-expanded and .//span[contains(normalize-space(), '{title}')]]")));
 
     private void AssertSectionExpanded(string title, bool expected)
     {
