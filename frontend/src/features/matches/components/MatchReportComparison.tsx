@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import type { MatchListEntry } from "../api/matchQueries";
+import { isClosedMatch, type MatchListEntry } from "../api/matchQueries";
 import { MatchItemCard } from "./MatchItemCard";
 
 type Props = {
@@ -12,71 +12,31 @@ export function MatchReportComparison({
   showDescriptions = false,
 }: Props) {
   const [showOwnReport, setShowOwnReport] = useState(false);
-  const ownReportPanelId = useId();
+  const ownPanelId = useId();
 
-  const ownItem =
-    match.yourRole === "LOST" ? match.lost : match.found;
-
-  const theirItem =
-    match.yourRole === "LOST" ? match.found : match.lost;
-
-  const isClosed =
-    match.status === "CONFIRMED" ||
-    match.status === "REJECTED";
-
-  const ownTypeLabel =
-    ownItem.type === "LOST" ? "lost" : "found";
-
-  const theirTypeLabel =
-    theirItem.type === "LOST" ? "lost" : "found";
+  const ownItem = match.yourRole === "LOST" ? match.lost : match.found;
+  const theirItem = match.yourRole === "LOST" ? match.found : match.lost;
+  const closed = isClosedMatch(match);
 
   return (
-    <div className="text-left">
-      <div className="mb-4 space-y-4 rounded-xl bg-gray-50 p-4">
-        <div>
-          <p className="font-semibold leading-relaxed text-gray-900">
-            {match.isClaimant
-              ? "You started this claim"
-              : "The other person started this claim"}
-          </p>
+    <div className="space-y-4 text-left">
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-sm font-semibold text-slate-900">
+          {match.isClaimant
+            ? "You submitted this claim"
+            : "They submitted this claim"}
+        </p>
 
-          <p className="mt-1 text-sm leading-relaxed text-gray-600">
-            {match.isClaimant
-              ? "You selected their report as a possible match for yours."
-              : "They selected your report as a possible match for theirs."}
-          </p>
-        </div>
-
-        <dl className="space-y-3 text-sm">
-          <div className="grid gap-1 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4">
-            <dt className="font-medium text-gray-500">
-              Your {ownTypeLabel} report
-            </dt>
-            <dd className="min-w-0 break-words font-semibold text-gray-900">
-              {ownItem.title}
-            </dd>
-          </div>
-
-          <div className="grid gap-1 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4">
-            <dt className="font-medium text-gray-500">
-              Their {theirTypeLabel} report
-            </dt>
-            <dd className="min-w-0 break-words font-semibold text-gray-900">
-              {theirItem.title}
-            </dd>
-          </div>
-        </dl>
-
-        {!isClosed && (
-          <p className="border-t border-gray-200 pt-3 text-sm font-medium leading-relaxed text-indigo-700">
+        {!closed && (
+          <p className="mt-2 text-sm text-slate-600">
             {match.isYourTurn
-              ? "They have confirmed their claim. Your decision is next."
-              : "You have confirmed your claim. Their decision is next."}
+              ? "Review both reports before deciding."
+              : "Waiting for the other person's decision."}
           </p>
         )}
       </div>
 
-      {isClosed ? (
+      {closed ? (
         <div className="grid items-stretch gap-4 sm:grid-cols-2">
           <MatchItemCard
             item={ownItem}
@@ -100,19 +60,19 @@ export function MatchReportComparison({
           <button
             type="button"
             aria-expanded={showOwnReport}
-            aria-controls={ownReportPanelId}
+            aria-controls={ownPanelId}
             onClick={() => setShowOwnReport((value) => !value)}
-            className="block w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-left hover:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-600"
+            className="w-full rounded-xl border border-violet-200 bg-violet-50 p-4 text-left hover:bg-violet-100"
           >
-            <span className="block font-semibold text-indigo-700">
-              {showOwnReport ? "Hide" : "Show"} your {ownTypeLabel} report
+            <span className="block text-sm font-semibold text-violet-800">
+              {showOwnReport ? "Hide your report" : "Show your report"}
             </span>
-            <span className="mt-1 block break-words text-sm leading-relaxed text-gray-700">
+            <span className="mt-1 block text-sm text-slate-700">
               {ownItem.title}
             </span>
           </button>
 
-          <div id={ownReportPanelId} hidden={!showOwnReport}>
+          <div id={ownPanelId} hidden={!showOwnReport}>
             {showOwnReport && (
               <MatchItemCard
                 item={ownItem}
