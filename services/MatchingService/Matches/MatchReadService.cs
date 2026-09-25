@@ -38,7 +38,11 @@ public sealed class MatchReadService(IMatchReadRepository repository)
         }
 
         var result = await repository.GetPageAsync(
-            userId, normalized, page, size, cancellationToken);
+            userId,
+            normalized,
+            page,
+            size,
+            cancellationToken);
 
         return new MatchPage(
             result.Items.Select(match => ToEntry(match, userId)).ToList(),
@@ -52,22 +56,28 @@ public sealed class MatchReadService(IMatchReadRepository repository)
         Guid userId,
         CancellationToken cancellationToken)
     {
-        var match = await repository.GetByIdAsync(matchId, cancellationToken);
+        var match = await repository.GetByIdAsync(
+            matchId,
+            cancellationToken);
 
         if (match is null)
         {
             throw new ClaimException(404, "Match not found.");
         }
 
-        if (match.LostReporterId != userId && match.FinderId != userId)
+        if (match.LostReporterId != userId &&
+            match.FinderId != userId)
         {
             throw new ClaimException(
-                403, "You do not have permission to view this match.");
+                403,
+                "You do not have permission to view this match.");
         }
 
         var normallyVisible = match.IsActive &&
-            (match.Status is "LOST_REPORTER_CONFIRMED" or "FINDER_CONFIRMED"
-                or "CONFIRMED" or "REJECTED");
+            (match.Status is "LOST_REPORTER_CONFIRMED"
+                or "FINDER_CONFIRMED"
+                or "CONFIRMED"
+                or "REJECTED");
 
         if (!normallyVisible && !IsVisibleDeactivatedMatch(match))
         {
@@ -79,12 +89,16 @@ public sealed class MatchReadService(IMatchReadRepository repository)
 
     private static bool IsVisibleDeactivatedMatch(StoredMatch match) =>
         !match.IsActive &&
-        (match.DeactivationReason is null or "ITEM_DELETED"
-            or "ITEM_RESOLVED" or "MATCH_CONFIRMED_ELSEWHERE") &&
+        (match.DeactivationReason is "ITEM_DELETED"
+            or "ITEM_RESOLVED"
+            or "MATCH_CONFIRMED_ELSEWHERE") &&
         (match.Status is "AWAITING_CLAIMANT_CONFIRMATION"
-            or "LOST_REPORTER_CONFIRMED" or "FINDER_CONFIRMED");
+            or "LOST_REPORTER_CONFIRMED"
+            or "FINDER_CONFIRMED");
 
-    private static MatchListEntry ToEntry(StoredMatch match, Guid userId)
+    private static MatchListEntry ToEntry(
+        StoredMatch match,
+        Guid userId)
     {
         var lostReporter = match.LostReporterId == userId;
         var claimant = match.ClaimantId == userId;
@@ -94,12 +108,16 @@ public sealed class MatchReadService(IMatchReadRepository repository)
             ((lostReporter && match.Status == "FINDER_CONFIRMED") ||
              (!lostReporter && match.Status == "LOST_REPORTER_CONFIRMED"));
 
-        var section = deactivated ? "deactivated" : match.Status switch
-        {
-            "CONFIRMED" => "confirmed",
-            "REJECTED" => "rejected",
-            _ => yourTurn ? "waiting-on-you" : "waiting-on-other"
-        };
+        var section = deactivated
+            ? "deactivated"
+            : match.Status switch
+            {
+                "CONFIRMED" => "confirmed",
+                "REJECTED" => "rejected",
+                _ => yourTurn
+                    ? "waiting-on-you"
+                    : "waiting-on-other"
+            };
 
         return new MatchListEntry(
             match.Id,
@@ -108,7 +126,9 @@ public sealed class MatchReadService(IMatchReadRepository repository)
             match.CreatedAt,
             lostReporter ? "LOST" : "FOUND",
             claimant,
-            claimant ? "You claimed this item" : "Someone claimed your item",
+            claimant
+                ? "You claimed this item"
+                : "Someone claimed your item",
             section,
             yourTurn,
             lostReporter ? match.Found : match.Lost,

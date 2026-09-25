@@ -20,17 +20,12 @@ public sealed class MatchReadRepository(
         deactivated_item_id, deactivated_item_type
         """;
 
-    // Null reasons are retained for older deactivations. The UI shows a
-    // generic explanation rather than inventing a reason or timestamp.
     private const string DeactivatedFilter = """
         is_active = 0
-        AND (
-            deactivation_reason IN (
-                'ITEM_DELETED',
-                'ITEM_RESOLVED',
-                'MATCH_CONFIRMED_ELSEWHERE'
-            )
-            OR deactivation_reason IS NULL
+        AND deactivation_reason IN (
+            'ITEM_DELETED',
+            'ITEM_RESOLVED',
+            'MATCH_CONFIRMED_ELSEWHERE'
         )
         AND status IN (
             'AWAITING_CLAIMANT_CONFIRMATION',
@@ -65,13 +60,15 @@ public sealed class MatchReadRepository(
         await connection.OpenAsync(cancellationToken);
 
         await using var transaction = await connection.BeginTransactionAsync(
-            IsolationLevel.RepeatableRead, cancellationToken);
+            IsolationLevel.RepeatableRead,
+            cancellationToken);
 
         long total;
 
         await using (var count = new MySqlCommand(
             $"SELECT COUNT(*) FROM matches WHERE {filter};",
-            connection, transaction))
+            connection,
+            transaction))
         {
             count.Parameters.AddWithValue("@userId", userId);
 
@@ -90,7 +87,9 @@ public sealed class MatchReadRepository(
         var items = new List<StoredMatch>();
 
         await using (var command = new MySqlCommand(
-            sql, connection, transaction))
+            sql,
+            connection,
+            transaction))
         {
             command.Parameters.AddWithValue("@userId", userId);
             command.Parameters.AddWithValue("@size", size);
@@ -106,6 +105,7 @@ public sealed class MatchReadRepository(
         }
 
         await transaction.CommitAsync(cancellationToken);
+
         return new StoredMatchPage(items, total);
     }
 
@@ -181,13 +181,17 @@ public sealed class MatchReadRepository(
             ReadSnapshot(reader.GetString(9)))
         {
             DeactivatedAt = reader.IsDBNull(10)
-                ? null : Utc(reader.GetDateTime(10)),
+                ? null
+                : Utc(reader.GetDateTime(10)),
             DeactivationReason = reader.IsDBNull(11)
-                ? null : reader.GetString(11),
+                ? null
+                : reader.GetString(11),
             DeactivatedItemId = reader.IsDBNull(12)
-                ? null : reader.GetGuid(12),
+                ? null
+                : reader.GetGuid(12),
             DeactivatedItemType = reader.IsDBNull(13)
-                ? null : reader.GetString(13)
+                ? null
+                : reader.GetString(13)
         };
 
     private static DateTime Utc(DateTime value) =>
