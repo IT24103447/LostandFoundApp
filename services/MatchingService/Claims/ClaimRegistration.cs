@@ -1,4 +1,5 @@
 using System.Text;
+using MatchingService.Lifecycle;
 using MatchingService.Matches;
 using MatchingService.Notifications;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -23,14 +24,12 @@ public static class ClaimRegistration
             string.IsNullOrWhiteSpace(audience))
         {
             throw new InvalidOperationException(
-                "Matching Service requires Jwt:Secret, " +
-                "Jwt:Issuer and Jwt:Audience.");
+                "Matching Service requires Jwt:Secret, Jwt:Issuer and Jwt:Audience.");
         }
 
-        var itemServiceUrl = configuration["ItemService:BaseUrl"];
-
         if (!Uri.TryCreate(
-                itemServiceUrl, UriKind.Absolute, out var baseUri) ||
+                configuration["ItemService:BaseUrl"],
+                UriKind.Absolute, out var baseUri) ||
             (baseUri.Scheme != Uri.UriSchemeHttp &&
              baseUri.Scheme != Uri.UriSchemeHttps) ||
             !string.IsNullOrEmpty(baseUri.UserInfo) ||
@@ -41,59 +40,48 @@ public static class ClaimRegistration
                 "ItemService:BaseUrl must be a valid HTTP or HTTPS URL.");
         }
 
-        if (!environment.IsDevelopment() &&
-            baseUri.Scheme != Uri.UriSchemeHttps)
+        if (!environment.IsDevelopment() && baseUri.Scheme != Uri.UriSchemeHttps)
         {
             throw new InvalidOperationException(
                 "ItemService:BaseUrl must use HTTPS outside Development.");
         }
 
-        var origins = configuration
-            .GetSection("Cors:AllowedOrigins")
-            .Get<string[]>()
-            ?? ["http://localhost:5173"];
+        var origins = configuration.GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ?? ["http://localhost:5173"];
 
         services.AddCors(options =>
         {
             options.AddPolicy("matching-frontend", policy =>
-            {
-                policy
-                    .WithOrigins(origins)
+                policy.WithOrigins(origins)
                     .AllowAnyHeader()
                     .AllowAnyMethod()
-                    .AllowCredentials();
-            });
+                    .AllowCredentials());
         });
 
-        services
-            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
-                options.TokenValidationParameters =
-                    new TokenValidationParameters
-                    {
-                        ValidateIssuer = true,
-                        ValidateAudience = true,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = issuer,
-                        ValidAudience = audience,
-                        IssuerSigningKey = new SymmetricSecurityKey(
-                            Encoding.UTF8.GetBytes(secret)),
-                        ClockSkew = TimeSpan.FromMinutes(2),
-                        ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
-                    };
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = issuer,
+                    ValidAudience = audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(secret)),
+                    ClockSkew = TimeSpan.FromMinutes(2),
+                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
+                };
 
                 options.Events = new JwtBearerEvents
                 {
                     OnMessageReceived = context =>
                     {
-                        var authorization =
-                            context.Request.Headers.Authorization.ToString();
-
-                        if (string.IsNullOrWhiteSpace(authorization) &&
-                            context.Request.Cookies.TryGetValue(
-                                "auth_token", out var token))
+                        if (string.IsNullOrWhiteSpace(
+                                context.Request.Headers.Authorization.ToString()) &&
+                            context.Request.Cookies.TryGetValue("auth_token", out var token))
                         {
                             context.Token = token;
                         }
@@ -106,23 +94,16 @@ public static class ClaimRegistration
         services.AddAuthorization(options =>
         {
             options.AddPolicy("VerifiedClaimUser", policy =>
-            {
-                policy
-                    .RequireAuthenticatedUser()
-                    .RequireClaim("email_verified", "1");
-            });
+                policy.RequireAuthenticatedUser().RequireClaim("email_verified", "1"));
         });
 
         services.AddHttpContextAccessor();
 
         services.AddHttpClient<ClaimItemClient>(client =>
         {
-            client.BaseAddress =
-                new Uri(baseUri.AbsoluteUri.TrimEnd('/') + "/");
-
+            client.BaseAddress = new Uri(baseUri.AbsoluteUri.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(15);
-        })
-        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
             UseCookies = false,
             AllowAutoRedirect = false
@@ -135,13 +116,15 @@ public static class ClaimRegistration
         services.AddScoped<LostReporterDecisionRepository>();
         services.AddScoped<FinderDecisionRepository>();
 
+        services.AddSingleton<ItemLifecycleRepository>();
+        services.AddHostedService<ItemLifecycleConsumer>();
+
         if (configuration.GetValue<bool>("Notifications:Enabled"))
         {
             services.AddSingleton<NotificationRepository>();
             services.AddSingleton<NotificationDiscoveryService>();
             services.AddSingleton<IMatchEmailSender, MatchEmailSender>();
             services.AddSingleton<NotificationDeliveryService>();
-
             services.AddHostedService<NotificationContactConsumer>();
             services.AddHostedService<MatchNotificationWorker>();
         }
