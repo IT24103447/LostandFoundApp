@@ -80,6 +80,8 @@ builder.Services.AddSingleton<IConsumer<string, string>>(services =>
 });
 
 builder.Services.AddHostedService<ItemCreatedEventConsumer>();
+builder.Services.AddSingleton<MatchingService.Matches.MatchConfirmationDeliveryStore>();
+builder.Services.AddHostedService<MatchConfirmationPublisher>();
 
 var processingEnabled = builder.Configuration
     .GetValue<bool>("ImageProcessing:Enabled");

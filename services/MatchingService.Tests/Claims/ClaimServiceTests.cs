@@ -385,7 +385,9 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         var match = await service.SubmitAsync(
             new SubmitClaimRequest(lostId, foundId, preview.PreviewVersion),
             lostOwner,
-            CancellationToken.None);
+            CancellationToken.None,
+            claimantEmail: "lostreporter@example.com",
+            claimantPhone: "+94771234567");
 
         Assert.Equal("LOST_REPORTER_CONFIRMED", match.Status);
         Assert.Equal("LOST", match.ClaimantRole);
@@ -409,7 +411,9 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         var match = await service.SubmitAsync(
             new SubmitClaimRequest(lostId, foundId, preview.PreviewVersion),
             foundOwner,
-            CancellationToken.None);
+            CancellationToken.None,
+            claimantEmail: "finder@example.com",
+            claimantPhone: "+94771234567");
 
         Assert.Equal("FINDER_CONFIRMED", match.Status);
         Assert.Equal("FOUND", match.ClaimantRole);
@@ -562,7 +566,8 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         var firstPreview = await service.PreviewAsync(
             new PairRequest(lostId, foundId), lostOwner, CancellationToken.None);
         await service.SubmitAsync(
-            new SubmitClaimRequest(lostId, foundId, firstPreview.PreviewVersion), lostOwner, CancellationToken.None);
+            new SubmitClaimRequest(lostId, foundId, firstPreview.PreviewVersion), lostOwner, CancellationToken.None,
+            claimantEmail: "lostreporter@example.com", claimantPhone: "+94771234567");
 
         // Even a fresh, valid preview of the same pair is rejected once a match already exists.
         var secondPreviewAttempt = await Assert.ThrowsAsync<ClaimException>(() =>
@@ -618,7 +623,8 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
         Assert.True(freshPreview.CanClaim);
 
         var match = await service.SubmitAsync(
-            new SubmitClaimRequest(lostId, foundId, freshPreview.PreviewVersion), lostOwner, CancellationToken.None);
+            new SubmitClaimRequest(lostId, foundId, freshPreview.PreviewVersion), lostOwner, CancellationToken.None,
+            claimantEmail: "lostreporter@example.com", claimantPhone: "+94771234567");
 
         Assert.Equal("LOST_REPORTER_CONFIRMED", match.Status);
     }

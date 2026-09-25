@@ -10,6 +10,8 @@ export type ClaimItem = {
   description: string;
   date: string;
   location: string;
+  photoUrl?: string | null;
+  photoSnapshotCaptured?: boolean;
 };
 
 export type PairRequest = {

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-MS-10 - Story 4/5 Duplicate Decision Race Condition" enabled="true">
+      <stringProp name="TestPlan.comments">Story 4/5's own version of plan 07's race: LostReporterDecisionRepositoryTests.DecideAsync_ConfirmAtFinderConfirmed_MovesToConfirmedStoresContactAndWritesAudit proves the SEQUENTIAL case (confirm once, a later second attempt is rejected as a conflict). What it cannot prove is a genuine production double-click or a client-side retry: two REAL, SIMULTANEOUS confirm requests for the SAME match from the SAME lost reporter, racing the status check inside DecideAsync's transaction. The correct outcome is exactly one 200 and one 409 - never two 200s, which would mean two audit rows and two outbox rows were written for a single confirm action (a real duplicate-delivery defect, since MatchConfirmationOutbox would then relay the same match twice down the Kafka pipeline).
+
+Exactly 2 threads, both authenticated as the same lost reporter (AUTH_TOKEN), both targeting the identical matchId from RACE_MATCH_ID_CSV. A Synchronizing Timer holds both threads immediately before the confirm request until both have arrived, releasing them together. Unlike plan 07 there is no preview step first - confirm takes no body, only the match's current status decides the outcome. HOST/PORT default to localhost/5179 (MatchingService).</stringProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument"><stringProp name="Argument.name">HOST</stringProp><stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp></elementProp>
+          <elementProp name="PORT" elementType="Argument"><stringProp name="Argument.name">PORT</stringProp><stringProp name="Argument.value">${__P(PORT,5179)}</stringProp></elementProp>
+          <elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">${__P(AUTH_TOKEN,SET_ME)}</stringProp></elementProp>
+          <elementProp name="RACE_MATCH_ID_CSV" elementType="Argument"><stringProp name="Argument.name">RACE_MATCH_ID_CSV</stringProp><stringProp name="Argument.value">${__P(RACE_MATCH_ID_CSV,story4and5-race-match.csv)}</stringProp></elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Lost reporter authentication" enabled="true">
+        <stringProp name="TestPlan.comments">Sends the JWT as the auth_token cookie, same fallback mechanism every other plan in this repo relies on.</stringProp>
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="auth-cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp>
+        </collectionProp>
+      </HeaderManager>
+      <hashTree/>
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Story 4/5 single race match" enabled="true">
+        <stringProp name="TestPlan.comments">Exactly one data row expected: a matchId already at FINDER_CONFIRMED, owned on the lost-reporter side by AUTH_TOKEN's user. shareMode "All threads" plus recycle=true means both of the two threads below read the SAME row (there is only one), which is what makes them race the same match rather than two different ones.</stringProp>
+        <stringProp name="filename">${RACE_MATCH_ID_CSV}</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="variableNames">matchId</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <stringProp name="delimiter">,</stringProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <boolProp name="stopThread">false</boolProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Two simultaneous confirms" enabled="true">
+        <stringProp name="TestPlan.comments">Exactly 2 threads, 1 loop each, no ramp-up (both start together) - a fixed shape matching the Synchronizing Timer's hard-set group size of 2 below.</stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">CONTINUE</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">1</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">2</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Confirm the shared match" enabled="true">
+          <stringProp name="TestPlan.comments">POST .../lost-reporter/confirm, fired by both threads at (as close to) the same instant as the Synchronizing Timer below can arrange. Exactly one of the two concurrent samples is expected to land 200 and the other 409; this sampler's own assertion only confirms each individual response was one of the two acceptable outcomes, not that the pair actually split correctly.</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/${matchId}/lost-reporter/confirm</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="Synchronizing Timer - hold both racers until both are ready" enabled="true">
+            <stringProp name="TestPlan.comments">Blocks each thread here until all 2 threads have reached this point, then releases both together, so the two confirm requests fire as close to simultaneously as JMeter can manage. groupSize must stay 2 - it matches this plan's fixed 2-thread shape.</stringProp>
+            <intProp name="groupSize">2</intProp>
+          </SyncTimer>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Confirm returns 200 or 409" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="1">200</stringProp>
+              <stringProp name="2">409</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

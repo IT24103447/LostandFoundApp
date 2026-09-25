@@ -25,6 +25,13 @@ export function MatchItemCard({
     setPhotoLoading(true);
     setPhotoFailed(false);
 
+    // Match snapshots remain readable after the original report is resolved.
+    if (item.photoSnapshotCaptured || item.photoUrl != null) {
+      setPhotoUrl(item.photoUrl ?? null);
+      setPhotoLoading(false);
+      return () => controller.abort();
+    }
+
     getItemDetails(item.id, controller.signal)
       .then((details) => {
         if (!controller.signal.aborted) {
@@ -43,7 +50,7 @@ export function MatchItemCard({
       });
 
     return () => controller.abort();
-  }, [item.id]);
+  }, [item.id, item.photoUrl, item.photoSnapshotCaptured]);
 
   const isLost = item.type === "LOST";
 

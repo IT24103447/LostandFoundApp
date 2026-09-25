@@ -1,0 +1,20 @@
+CREATE TABLE match_confirmation_outbox (
+    event_id CHAR(36) NOT NULL PRIMARY KEY,
+    match_id CHAR(36) NOT NULL,
+    lost_item_id CHAR(36) NOT NULL,
+    found_item_id CHAR(36) NOT NULL,
+    topic VARCHAR(255) NOT NULL,
+    payload JSON NOT NULL,
+    created_at DATETIME(3) NOT NULL,
+    next_attempt_at DATETIME(3) NOT NULL,
+    attempts INT NOT NULL DEFAULT 0,
+    lease_token CHAR(36) NULL,
+    lease_until DATETIME(3) NULL,
+    published_at DATETIME(3) NULL,
+    error_code VARCHAR(80) NULL,
+    UNIQUE KEY uq_confirmation_match (match_id),
+    UNIQUE KEY uq_confirmation_lost (lost_item_id),
+    UNIQUE KEY uq_confirmation_found (found_item_id),
+    INDEX ix_confirmation_delivery (published_at, next_attempt_at),
+    CONSTRAINT fk_confirmation_match FOREIGN KEY (match_id) REFERENCES matches(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

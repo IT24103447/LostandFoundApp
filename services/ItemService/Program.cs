@@ -69,6 +69,10 @@ builder.Services.AddScoped<IEventPublisher, OutboxEventPublisher>();
 builder.Services.AddSingleton<IOutboxStore, OutboxStore>();
 builder.Services.AddHostedService<OutboxRelayService>();
 
+// changed during sprint 3 by dev
+builder.Services.AddScoped<ConfirmedMatchHandler>();
+builder.Services.AddHostedService<ConfirmedMatchConsumer>();
+
 // Producer used only by the relay. Durability now lives in the database, so a failed send can be short:
 // the relay retries with backoff instead of keeping messages queued in memory for minutes.
 builder.Services.AddSingleton<IProducer<string, string>>(sp =>

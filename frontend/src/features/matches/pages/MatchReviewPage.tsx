@@ -4,7 +4,10 @@ import { AppHeader } from "../../items/layout/AppHeader";
 import { getMatch } from "../api/matchQueries";
 import MatchBanner from "../components/MatchBanner";
 import { MatchReportComparison } from "../components/MatchReportComparison";
+import { LostReporterDecisionPanel } from "../components/LostReporterDecisionPanel";
+import { ArrangeReturnPanel } from "../components/ArrangeReturnPanel";
 import { useMatchRequest } from "../hooks/useMatchRequest";
+import { FinderDecisionPanel } from "../components/FinderDecisionPanel";
 
 export function MatchReviewPage() {
   const { matchId } = useParams<{ matchId: string }>();
@@ -31,79 +34,119 @@ export function MatchReviewPage() {
       <main className="mx-auto max-w-5xl px-6 py-10">
         <Link
           to="/matched-items"
-          className="text-sm font-medium text-indigo-600"
+          className="text-sm font-semibold text-violet-700 hover:text-violet-900"
         >
-          ← Back to Matched Items
+          Back to Matched Items
         </Link>
 
-        <h1 className="mb-6 mt-4 text-2xl font-bold text-gray-900">
-          Review match
-        </h1>
+        <div className="mb-6 mt-4 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-slate-900">
+            Review match
+          </h1>
+
+          <button
+            type="button"
+            disabled={state.status === "loading"}
+            onClick={retry}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Refresh
+          </button>
+        </div>
 
         {state.status === "loading" ? (
-          <p role="status">Loading match…</p>
+          <p role="status" className="text-sm text-slate-600">
+            Loading match...
+          </p>
         ) : state.status === "error" ? (
-          <div role="alert" className="rounded-xl bg-red-50 p-5">
-            <p className="text-red-700">{state.error}</p>
+          <div
+            role="alert"
+            className="rounded-xl border border-rose-200 bg-rose-50 p-5"
+          >
+            <p className="text-sm text-rose-800">
+              {state.error}
+            </p>
+
             <button
               type="button"
               onClick={retry}
-              className="mt-3 rounded-lg border bg-white px-4 py-2"
+              className="mt-3 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-800"
             >
-              Retry
+              Try again
             </button>
           </div>
         ) : (
           <>
-            <div className="mb-6 rounded-2xl border bg-white p-5">
+            <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5">
               <MatchBanner match={state.data} />
-              <p className="mt-3 text-sm text-gray-600">
+
+              <p className="mt-3 text-xs text-slate-500">
                 Similarity does not prove ownership.
               </p>
             </div>
 
-            <MatchReportComparison
-              key={state.data.id}
-              match={state.data}
-              showDescriptions
-            />
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+              <MatchReportComparison
+                key={state.data.id}
+                match={state.data}
+                showDescriptions
+              />
+            </div>
 
-            <p className="mt-4 text-xs text-gray-500">
-              Report text was saved when the claim was submitted.
-              Photos are loaded from the currently available reports.
+            <p className="mt-3 text-xs leading-5 text-slate-500">
+              Report details and available photos were saved with this match.
             </p>
 
-            <section
-              aria-label="Match decision"
-              aria-live="polite"
-              className="mt-6 rounded-2xl border bg-white p-5"
-            >
+            <div className="mt-6 space-y-4">
               {state.data.status === "REJECTED" ? (
-                <p className="rounded-xl bg-red-50 p-4 font-medium text-red-700">
-                  Match closed - Rejected
-                </p>
-              ) : state.data.status === "CONFIRMED" ? (
-                <p className="rounded-xl bg-emerald-50 p-4 font-medium text-emerald-700">
-                  Match confirmed by both parties
-                </p>
-              ) : state.data.isYourTurn ? (
-                <div className="rounded-xl bg-indigo-50 p-4">
-                  <p className="font-medium text-indigo-700">
-                    The other person confirmed this claim.
-                    It is your turn to decide.
-                  </p>
-                  <p className="mt-2 text-sm text-gray-600">
-                    Confirmation and rejection controls are
-                    not available yet.
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5">
+                  <p className="font-semibold text-rose-900">
+                    Match closed: Rejected
                   </p>
                 </div>
+              ) : state.data.status === "CONFIRMED" ? (
+                <>
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                    <p className="font-semibold text-emerald-900">
+                      Match confirmed by both parties
+                    </p>
+                  </div>
+
+                  <ArrangeReturnPanel
+                    key={state.data.id}
+                    matchId={state.data.id}
+                    yourRole={state.data.yourRole}
+                  />
+                </>
+              ) : state.data.yourRole === "LOST" &&
+                state.data.status === "FINDER_CONFIRMED" ? (
+                <LostReporterDecisionPanel
+                  key={state.data.id}
+                  matchId={state.data.id}
+                  onDecisionSaved={retry}
+                  onRefresh={retry}
+                />
+              ) : state.data.yourRole === "FOUND" &&
+                state.data.status === "LOST_REPORTER_CONFIRMED" ? (
+                <FinderDecisionPanel
+                  key={state.data.id}
+                  matchId={state.data.id}
+                  onDecisionSaved={retry}
+                  onRefresh={retry}
+                />
               ) : (
-                <p className="rounded-xl bg-gray-50 p-4 text-gray-700">
-                  You confirmed this claim. Waiting for the
-                  other person to review your report and decide.
-                </p>
+                <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5">
+                  <p className="font-semibold text-violet-900">
+                    Waiting for the other person
+                  </p>
+
+                  <p className="mt-2 text-sm text-violet-800">
+                    You confirmed your claim. The other person
+                    needs to review it and decide.
+                  </p>
+                </div>
               )}
-            </section>
+            </div>
           </>
         )}
       </main>

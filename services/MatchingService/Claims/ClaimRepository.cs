@@ -29,8 +29,9 @@ public sealed class ClaimRepository
         const string sql = """
             SELECT 1
             FROM matches
-            WHERE lost_item_id = @lostItemId
-              AND found_item_id = @foundItemId
+            WHERE (lost_item_id = @lostItemId AND found_item_id = @foundItemId)
+               OR (status = 'CONFIRMED' AND is_active = 1
+                   AND (lost_item_id = @lostItemId OR found_item_id = @foundItemId))
             LIMIT 1;
             """;
 
@@ -175,7 +176,11 @@ public sealed class ClaimRepository
         VerifiedPair pair,
         ClaimPreview preview,
         Guid claimantId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? finderEmail = null,
+        string? finderPhone = null,
+        string? lostReporterEmail = null,
+        string? lostReporterPhone = null)
     {
         var id = Guid.NewGuid();
         var now = DateTime.UtcNow;
@@ -198,6 +203,10 @@ public sealed class ClaimRepository
                 scoring_version,
                 lost_snapshot,
                 found_snapshot,
+                finder_email,
+                finder_phone,
+                lost_reporter_email,
+                lost_reporter_phone,
                 created_at,
                 updated_at
             )
@@ -214,6 +223,10 @@ public sealed class ClaimRepository
                 @scoringVersion,
                 @lostSnapshot,
                 @foundSnapshot,
+                @finderEmail,
+                @finderPhone,
+                @lostReporterEmail,
+                @lostReporterPhone,
                 @now,
                 @now
             );
@@ -274,6 +287,30 @@ public sealed class ClaimRepository
             JsonSerializer.Serialize(
                 preview.Found,
                 JsonOptions));
+        
+        command.Parameters.AddWithValue(
+            "@finderEmail",
+            string.IsNullOrWhiteSpace(finderEmail)
+                ? DBNull.Value
+                : finderEmail.Trim());
+
+        command.Parameters.AddWithValue(
+            "@finderPhone",
+            string.IsNullOrWhiteSpace(finderPhone)
+                ? DBNull.Value
+                : finderPhone.Trim());
+
+        command.Parameters.AddWithValue(
+            "@lostReporterEmail",
+            string.IsNullOrWhiteSpace(lostReporterEmail)
+                ? DBNull.Value
+                : lostReporterEmail.Trim());
+
+        command.Parameters.AddWithValue(
+            "@lostReporterPhone",
+            string.IsNullOrWhiteSpace(lostReporterPhone)
+                ? DBNull.Value
+                : lostReporterPhone.Trim());
 
         command.Parameters.AddWithValue("@now", now);
 
