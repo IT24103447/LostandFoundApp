@@ -1,5 +1,8 @@
 import { apiGet } from "../../../lib/apiClient";
-import type { ClaimItem, ReportType } from "./matches";
+import type {
+  ClaimItem,
+  ReportType,
+} from "./matches";
 
 export type MatchSection =
   | "waiting-on-you"
@@ -42,16 +45,21 @@ export type MatchPage = {
 };
 
 export function getMatchPage(
-  section: MatchSection | "active" | "closed" | "all",
+  section:
+    | MatchSection
+    | "active"
+    | "closed"
+    | "all",
   page = 1,
   size = 10,
   signal?: AbortSignal,
 ): Promise<MatchPage> {
-  const query = new URLSearchParams({
-    section,
-    page: String(page),
-    size: String(size),
-  });
+  const query =
+    new URLSearchParams({
+      section,
+      page: String(page),
+      size: String(size),
+    });
 
   return apiGet<MatchPage>(
     "matching",
@@ -66,64 +74,98 @@ export function getMatch(
 ): Promise<MatchListEntry> {
   return apiGet<MatchListEntry>(
     "matching",
-    `/api/matches/${encodeURIComponent(matchId)}`,
+    `/api/matches/${encodeURIComponent(
+      matchId,
+    )}`,
     signal,
   );
 }
 
-export function matchStatusLabel(status: MatchStatus): string {
+export function matchStatusLabel(
+  status: MatchStatus,
+): string {
   switch (status) {
     case "LOST_REPORTER_CONFIRMED":
       return "Awaiting finder";
+
     case "FINDER_CONFIRMED":
       return "Awaiting lost reporter";
+
     case "CONFIRMED":
       return "Confirmed";
+
     case "REJECTED":
       return "Rejected";
+
     case "DEACTIVATED":
       return "Deactivated";
   }
 }
 
-export function deactivationLabel(match: MatchListEntry): string {
+export function deactivationLabel(
+  match: MatchListEntry,
+): string {
   switch (match.deactivationReason) {
     case "ITEM_DELETED":
       return "Report deleted";
+
     case "ITEM_RESOLVED":
       return "Report resolved";
+
     case "MATCH_CONFIRMED_ELSEWHERE":
       return "Another match confirmed";
+
+    case "ITEM_UPDATED_NO_LONGER_MATCHES":
+      return "Report changed";
+
     default:
       return "Match deactivated";
   }
 }
 
-export function deactivationMessage(match: MatchListEntry): string {
-  const affectedItem = [match.lost, match.found].find(
-    (item) =>
-      item.id === match.deactivatedItemId &&
-      (!match.deactivatedItemType ||
-        item.type === match.deactivatedItemType),
-  );
+export function deactivationMessage(
+  match: MatchListEntry,
+): string {
+  const affectedItem =
+    [match.lost, match.found].find(
+      (item) =>
+        item.id ===
+          match.deactivatedItemId &&
+        (!match.deactivatedItemType ||
+          item.type ===
+            match.deactivatedItemType),
+    );
 
   const report = affectedItem
-    ? `${affectedItem.type === match.yourRole ? "Your" : "Their"} report "${affectedItem.title}"`
+    ? `${
+        affectedItem.type ===
+        match.yourRole
+          ? "Your"
+          : "Their"
+      } report "${affectedItem.title}"`
     : "A report involved in this match";
 
   switch (match.deactivationReason) {
     case "ITEM_DELETED":
       return `${report} was deleted. This match is closed.`;
+
     case "ITEM_RESOLVED":
       return `${report} was marked as resolved. This match is closed.`;
+
     case "MATCH_CONFIRMED_ELSEWHERE":
       return `${report} was confirmed in another match. This claim is now closed.`;
+
+    case "ITEM_UPDATED_NO_LONGER_MATCHES":
+      return `${report} was updated. The reports no longer meet the 60% similarity threshold, so this match is closed.`;
+
     default:
       return "This match is no longer active. Its saved report details remain available.";
   }
 }
 
-export function isClosedMatch(match: MatchListEntry): boolean {
+export function isClosedMatch(
+  match: MatchListEntry,
+): boolean {
   return (
     match.status === "CONFIRMED" ||
     match.status === "REJECTED" ||
