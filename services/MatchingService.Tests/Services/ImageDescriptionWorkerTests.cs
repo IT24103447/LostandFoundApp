@@ -9,16 +9,7 @@ using Moq;
 
 namespace MatchingService.Tests.Services;
 
-/// <summary>
-/// Story 1, Scenarios 3/6/7 contract tests for the background Pending -> Completed/Failed worker.
-/// ImageDescriptionWorker is a sealed BackgroundService with no public single-cycle method (unlike
-/// ItemService's OutboxRelayService, which exposes ProcessBatchAsync for exactly this reason). It's
-/// driven here through IHostedService.StartAsync/StopAsync directly. That's the supported, documented
-/// way to exercise a BackgroundService's ExecuteAsync loop from a test without subclassing or reflection.
-/// Each test lets the worker claim and process exactly one job (the repository mock returns a job on
-/// the first ClaimNextAsync call and null afterwards), waits for the outcome via a
-/// TaskCompletionSource signalled from inside the relevant repository call, then stops the worker.
-/// </summary>
+/// <summary>Story 1 contract tests for the background Pending → Completed/Failed worker, driven through IHostedService.StartAsync/StopAsync since ImageDescriptionWorker exposes no public single-cycle method.</summary>
 public sealed class ImageDescriptionWorkerTests
 {
     private static readonly Guid JobId = Guid.NewGuid();
@@ -64,8 +55,7 @@ public sealed class ImageDescriptionWorkerTests
                     : null);
     }
 
-    /* Scenario 3: a successful Gemini call results in the job being completed with the generated
-       description and the configured model name. */
+    // Scenario 3: a successful Gemini call completes the job with the generated description and model name.
     [Fact]
     public async Task Worker_SuccessfulGeneration_CompletesJobWithDescriptionAndModelName()
     {
@@ -99,8 +89,7 @@ public sealed class ImageDescriptionWorkerTests
             Times.Never);
     }
 
-    /* Scenario 7: Gemini taking longer than RequestTimeoutSeconds must fail the job as AI_TIMEOUT,
-       retryable, rather than hang the worker indefinitely on one slow request. */
+    // Scenario 7: Gemini exceeding RequestTimeoutSeconds fails the job as AI_TIMEOUT, retryable, rather than hanging.
     [Fact]
     public async Task Worker_GenerationExceedsRequestTimeout_RecordsFailureAsAiTimeoutRetryable()
     {

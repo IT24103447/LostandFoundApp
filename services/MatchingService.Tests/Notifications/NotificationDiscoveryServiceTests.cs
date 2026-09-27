@@ -5,20 +5,8 @@ using Xunit;
 
 namespace MatchingService.Tests.Notifications;
 
-/// <summary>
-/// Story 6 (email notifications). Real, disposable MySQL (Testcontainers, via ClaimServiceDbFixture)
-/// proving NotificationDiscoveryService's polling queries: Scenario 2 (counterpart notified once the
-/// claimant confirms), Scenarios 3/4 (both parties notified on Confirmed/Rejected), Scenario 5 (no
-/// notification for an auto-rejected claim), Scenario 8's insertion half of duplicate prevention (the
-/// UNIQUE constraint plus INSERT IGNORE meaning re-running discovery never creates a second row for the
-/// same match/recipient/type), and the stuck-in-flight cleanup that stops indefinite retries after a
-/// crashed worker used its final attempt without saving a result.
-///
-/// match_notification_activation's activated_at is seeded to a point in the past by migration
-/// 009_CreateMatchNotifications.sql itself (INSERT ... VALUES (1, UTC_TIMESTAMP(3)) at migration time,
-/// which ran before any of these tests' own matches/match_actions rows are created), so every row these
-/// tests insert is already "after activation" without needing to touch that table directly.
-/// </summary>
+/// <summary>Story 6 contract tests for NotificationDiscoveryService's polling queries against real MySQL: counterpart/both-party notification, no notification for auto-rejected claims, duplicate-insertion prevention, and stuck-in-flight cleanup.</summary>
+[Collection("Docker Integration Tests 8")]
 public sealed class NotificationDiscoveryServiceTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -152,9 +140,9 @@ public sealed class NotificationDiscoveryServiceTests : IClassFixture<ClaimServi
     [Fact]
     public async Task DiscoverAsync_RunTwice_NeverCreatesADuplicateCounterpartNotification()
     {
-        // Scenario 8 (dedup), the discovery half: the UNIQUE (match_id, recipient_user_id,
-        // notification_type) constraint plus INSERT IGNORE means re-discovering an
-        // already-queued transition is a no-op, not a second row.
+        /* Scenario 8 (dedup), the discovery half: the UNIQUE (match_id, recipient_user_id,
+           notification_type) constraint plus INSERT IGNORE means re-discovering an
+           already-queued transition is a no-op, not a second row. */
         var matchId = await InsertMatchAsync("LOST_REPORTER_CONFIRMED", "LOST");
 
         var discovery = new NotificationDiscoveryService(_fixture.Connections);
@@ -192,8 +180,8 @@ public sealed class NotificationDiscoveryServiceTests : IClassFixture<ClaimServi
     [Fact]
     public async Task DiscoverAsync_MatchActionButMatchNoLongerAtThatStatus_QueuesNothing()
     {
-        // The match_actions row is historical; if the match's own current status has since
-        // moved on again, the outcome query's own "m.status = a.new_status" guard must skip it.
+        /* The match_actions row is historical; if the match's own current status has since
+           moved on again, the outcome query's own "m.status = a.new_status" guard must skip it. */
         var matchId = await InsertMatchAsync("REJECTED", "LOST");
         await InsertMatchActionAsync(
             matchId, Guid.NewGuid(), "FOUND", "CONFIRM", "LOST_REPORTER_CONFIRMED", "CONFIRMED");

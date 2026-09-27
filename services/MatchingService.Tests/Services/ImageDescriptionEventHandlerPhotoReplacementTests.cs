@@ -6,14 +6,7 @@ using Moq;
 
 namespace MatchingService.Tests.Services;
 
-/// <summary>
-/// Story 1, Scenario 10 (photo replacement -> superseded description) contract tests for the
-/// updated-event side of ImageDescriptionEventHandler, and the second clause of Scenario 2
-/// ("or an updated event when a photo is replaced"). Item Service publishes a lost_item.updated or
-/// found_item.updated event carrying the full current photo list whenever a report is edited or its
-/// photo is replaced. The handler must turn a new photo URL into a pending row tagged as an update,
-/// stamped with the event's own timestamp, so the repository can later supersede the prior description.
-/// </summary>
+/// <summary>Story 1 contract tests for the updated-event side of ImageDescriptionEventHandler: a new photo URL from an item-updated event becomes a pending row tagged as an update, so the repository can later supersede the prior description.</summary>
 public sealed class ImageDescriptionEventHandlerPhotoReplacementTests
 {
     private static readonly Guid EventId = Guid.Parse("44444444-4444-4444-4444-444444444444");

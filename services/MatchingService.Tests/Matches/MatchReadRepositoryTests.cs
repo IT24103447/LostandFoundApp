@@ -4,18 +4,8 @@ using MySqlConnector;
 
 namespace MatchingService.Tests.Matches;
 
-/// <summary>
-/// Story 3 (view potential matches) contract tests for MatchReadRepository's own SQL, against a real,
-/// disposable MySQL database (Testcontainers, via ClaimServiceDbFixture, reused from Story 2). This is
-/// the Matches page's read side: MatchReadServiceTests mocks IMatchReadRepository entirely, which
-/// proves MatchReadService's own section/ownership logic but never runs a real query; this class is
-/// the counterpart that proves the section filters (GetSectionFilter) and the count-plus-page
-/// transaction actually behave correctly against real SQL, matching Story 1's pairing of a
-/// mocked-repository test class with a separate real-database one. Rows are inserted directly with
-/// arbitrary status/is_active combinations (ClaimRepository.CreateAsync, Story 2's write side, only
-/// ever writes the two half-confirmed statuses, so it cannot produce the CONFIRMED/REJECTED/
-/// AUTO_REJECTED_LOW_CONFIDENCE/inactive rows these tests need).
-/// </summary>
+/// <summary>Story 3 contract tests for MatchReadRepository's own SQL against real MySQL — the real-database counterpart to MatchReadServiceTests' mocked-repository tests. Rows are inserted directly since ClaimRepository.CreateAsync can't produce every status these tests need.</summary>
+[Collection("Docker Integration Tests 6")]
 public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -306,9 +296,9 @@ public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixtu
     [Fact]
     public async Task GetPageAsync_DeactivatedRejectedMatch_IsNotShownAsDeactivated()
     {
-        // A match already REJECTED before its item was later resolved/deleted is a terminal outcome
-        // in its own right, not a "history" case this section is for - ItemLifecycleRepository itself
-        // never deactivates a REJECTED match, but this proves the read-side filter agrees.
+        /* A match already REJECTED before its item was later resolved/deleted is a terminal outcome
+           in its own right, not a "history" case this section is for - ItemLifecycleRepository itself
+           never deactivates a REJECTED match, but this proves the read-side filter agrees. */
         var userId = Guid.NewGuid();
         await InsertMatchAsync(
             userId, Guid.NewGuid(), "REJECTED", isActive: false, deactivationReason: "ITEM_RESOLVED");

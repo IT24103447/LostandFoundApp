@@ -6,15 +6,8 @@ using Xunit;
 
 namespace MatchingService.Tests.Lifecycle;
 
-/// <summary>
-/// Story 7 (item lifecycle to match deactivation). Real, disposable MySQL (Testcontainers, via
-/// ClaimServiceDbFixture, running migration 010_AddItemLifecycle.sql) proving ItemLifecycleRepository's
-/// own SQL: Scenario 1/2 (resolve/delete deactivates active matches), Scenario 3 (a Confirmed match is
-/// protected), Scenario 4/6 (deactivated matches carry an audit trail and are excluded going forward -
-/// their pending notifications are cancelled, not silently left to retry forever), Scenario 8-style
-/// duplicate-event prevention, and EnsurePairActiveAsync (the claim-creation-time guard ClaimRepository
-/// relies on to block a claim against an already-resolved/deleted report).
-/// </summary>
+/// <summary>Story 7 contract tests for ItemLifecycleRepository against real MySQL: resolve/delete deactivation, Confirmed-match protection, the audit trail, notification cancellation, and EnsurePairActiveAsync's claim-time guard.</summary>
+[Collection("Docker Integration Tests 5")]
 public sealed class ItemLifecycleRepositoryTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;

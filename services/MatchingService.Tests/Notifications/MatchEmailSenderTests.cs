@@ -6,14 +6,7 @@ using Xunit;
 
 namespace MatchingService.Tests.Notifications;
 
-/// <summary>
-/// Story 6 (email notifications). Pure, no-network coverage of MatchEmailSender.BuildMessage - the
-/// subject-per-type switch, the matched-items/{id} link construction, recipient-address validation,
-/// and the constructor's own config guards - none of which need real SMTP credentials, since dev split
-/// message-building out from the actual client.SendMailAsync call specifically so this could be tested
-/// without them (see Bugs_Sprint3.md history / commit b5fc189). Always runs in CI: dummy, well-formed
-/// config values are all this needs, never real ones.
-/// </summary>
+/// <summary>Story 6 pure, no-network coverage of MatchEmailSender.BuildMessage — subject-per-type, link construction, recipient validation, and config guards. Always runs in CI; no real SMTP credentials needed.</summary>
 public sealed class MatchEmailSenderTests
 {
     private static MatchEmailSender CreateSender(
@@ -113,9 +106,9 @@ public sealed class MatchEmailSenderTests
     [Fact]
     public void BuildMessage_FrontendBaseUrlWithoutTrailingSlash_StillProducesACorrectLink()
     {
-        // The constructor normalizes BaseUrl to always end with a single trailing slash before
-        // combining it with the relative "matched-items/{id}" path - this proves that normalization
-        // doesn't produce a double slash or drop a path segment either way.
+        /* The constructor normalizes BaseUrl to always end with a single trailing slash before
+           combining it with the relative "matched-items/{id}" path - this proves that normalization
+           doesn't produce a double slash or drop a path segment either way. */
         var sender = CreateSender(frontendBaseUrl: "https://app.example.com/");
         var job = JobOfType(NotificationTypes.MatchRejected);
 
@@ -127,9 +120,9 @@ public sealed class MatchEmailSenderTests
     [Fact]
     public void BuildMessage_NeverIncludesAnyContactOrHiddenMatchingInformation()
     {
-        // DoD: "containing only an app link... no contact information and no hidden matching
-        // information in any of them." The body is the link alone - this pins that down so a future
-        // change can't accidentally start interpolating anything else into it.
+        /* DoD: "containing only an app link... no contact information and no hidden matching
+           information in any of them." The body is the link alone - this pins that down so a future
+           change can't accidentally start interpolating anything else into it. */
         var sender = CreateSender();
         var job = JobOfType(NotificationTypes.CounterpartAction);
 
@@ -207,8 +200,8 @@ public sealed class MatchEmailSenderTests
     [Fact]
     public void Constructor_HttpFrontendBaseUrlOutsideDevelopment_ThrowsInvalidOperationException()
     {
-        // Mirrors the rest of this project's own convention (Story 1's Blob/Gemini validation):
-        // plain HTTP is only tolerated in Development, never in a deployed environment.
+        /* Mirrors the rest of this project's own convention (Story 1's Blob/Gemini validation):
+           plain HTTP is only tolerated in Development, never in a deployed environment. */
         Assert.Throws<InvalidOperationException>(
             () => CreateSender(frontendBaseUrl: "http://app.example.com", development: false));
     }

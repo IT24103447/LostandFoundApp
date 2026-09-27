@@ -5,13 +5,8 @@ using Xunit;
 
 namespace MatchingService.Tests.Notifications;
 
-/// <summary>
-/// Story 6 (email notifications). Real, disposable MySQL (Testcontainers, via ClaimServiceDbFixture,
-/// running the real migrations including 009_CreateMatchNotifications.sql) proving NotificationRepository's
-/// own SQL: claim/lease semantics, recipient-relevance rules per notification type, and the Sent/Failed/
-/// Cancelled status transitions (Scenarios 6, 7, and the claim-exclusivity half of Scenario 8's dedup).
-/// No IMatchEmailSender/SMTP involved anywhere here - this is the repository layer only.
-/// </summary>
+/// <summary>Story 6 contract tests for NotificationRepository's own SQL against real MySQL: claim/lease semantics, recipient-relevance rules, and Sent/Failed/Cancelled transitions. No SMTP involved — repository layer only.</summary>
+[Collection("Docker Integration Tests 8")]
 public sealed class NotificationRepositoryTests : IClassFixture<ClaimServiceDbFixture>, IAsyncLifetime
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -21,13 +16,11 @@ public sealed class NotificationRepositoryTests : IClassFixture<ClaimServiceDbFi
         _fixture = fixture;
     }
 
-    // ClaimServiceDbFixture's MySQL container is shared across every test method in this class
-    // (xUnit's IClassFixture semantics) and test methods run sequentially, not isolated per method -
-    // so a due row a previous test left unclaimed would otherwise get picked up by a later test's own
-    // plain ClaimNextAsync() call before that test's own freshly-inserted row is reached (ClaimNextAsync
-    // always claims the globally oldest due row, with no per-test scoping). Draining any such leftovers
-    // before every test method runs (xUnit constructs a fresh instance of this class per test method,
-    // so IAsyncLifetime.InitializeAsync runs once per test) resets the "due queue" to empty each time.
+    /* ClaimServiceDbFixture's MySQL container is shared across every test method in this class, so a
+       due row a previous test left unclaimed would otherwise get picked up by a later test's own
+       plain ClaimNextAsync() call (which always claims the globally oldest due row, with no per-test
+       scoping). Draining any such leftovers before every test method runs resets the "due queue" to
+       empty each time. */
     public async Task InitializeAsync()
     {
         var repository = new NotificationRepository(_fixture.Connections);
@@ -227,8 +220,8 @@ public sealed class NotificationRepositoryTests : IClassFixture<ClaimServiceDbFi
     [Fact]
     public async Task ClaimNextAsync_RowWithExpiredLease_IsReclaimable()
     {
-        // Simulates a worker that crashed after leasing but before delivering - the lease
-        // expiring must let a later worker pick the same row back up.
+        /* Simulates a worker that crashed after leasing but before delivering - the lease
+           expiring must let a later worker pick the same row back up. */
         var matchId = await InsertMatchAsync("LOST_REPORTER_CONFIRMED", "FOUND");
         var notificationId = await InsertNotificationAsync(
             matchId, Guid.NewGuid(), NotificationTypes.CounterpartAction,
@@ -367,8 +360,8 @@ public sealed class NotificationRepositoryTests : IClassFixture<ClaimServiceDbFi
     [Fact]
     public async Task GetRecipientAsync_CounterpartActionNoLongerAtThatStatus_ReturnsNoLongerRelevant()
     {
-        // The match moved on (e.g. already CONFIRMED) by the time the worker got to this job -
-        // the counterpart-action reminder is stale and must not be sent.
+        /* The match moved on (e.g. already CONFIRMED) by the time the worker got to this job -
+           the counterpart-action reminder is stale and must not be sent. */
         var lostReporterId = Guid.NewGuid();
         var finderId = Guid.NewGuid();
         var matchId = await InsertMatchAsync(
@@ -438,8 +431,8 @@ public sealed class NotificationRepositoryTests : IClassFixture<ClaimServiceDbFi
     [Fact]
     public async Task GetRecipientAsync_NoContactRowYet_ReturnsCanSendTrueWithNullEmail()
     {
-        // No notification_contacts row synced yet - GetRecipientAsync itself does not suppress
-        // this; NotificationDeliveryService is the one that turns a null email into a failure.
+        /* No notification_contacts row synced yet - GetRecipientAsync itself does not suppress
+           this; NotificationDeliveryService is the one that turns a null email into a failure. */
         var lostReporterId = Guid.NewGuid();
         var finderId = Guid.NewGuid();
         var matchId = await InsertMatchAsync(

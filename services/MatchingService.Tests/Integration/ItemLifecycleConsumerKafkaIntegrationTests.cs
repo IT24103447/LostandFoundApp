@@ -12,15 +12,11 @@ using Xunit;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Story 7 (item lifecycle to match deactivation). Real, disposable MySQL (Testcontainers, via
-/// ClaimServiceDbFixture) AND a real, disposable Kafka broker (Testcontainers) at once, deliberately -
-/// the same justified exception MatchConfirmationKafkaIntegrationTests and
-/// NotificationContactConsumerKafkaIntegrationTests already use, since ItemLifecycleConsumer's entire
-/// job is relaying real Item Service events onto a real deactivation. ItemLifecycleRepository.ApplyAsync
-/// itself is already thoroughly proven for real in ItemLifecycleRepositoryTests.cs; this file's job is
-/// only to prove the real Kafka wiring (subscribe, consume, parse, dispatch, commit) - not to re-prove
-/// ApplyAsync's own business logic.
+/// Story 7 integration tests. Real MySQL and a real Kafka broker at once, deliberately, since
+/// ItemLifecycleConsumer's job is relaying real events into a real deactivation; proves the Kafka
+/// wiring only, not ApplyAsync's own logic (see ItemLifecycleRepositoryTests.cs for that).
 /// </summary>
+[Collection("Docker Integration Tests 2")]
 public sealed class ItemLifecycleConsumerKafkaIntegrationTests
     : IClassFixture<ClaimServiceDbFixture>, IAsyncLifetime
 {
@@ -144,6 +140,7 @@ public sealed class ItemLifecycleConsumerKafkaIntegrationTests
         producer.Flush(TimeSpan.FromSeconds(10));
     }
 
+    // Scenario 1, end to end through the real consumer.
     [Fact]
     public async Task RealLostItemResolvedEvent_DeactivatesTheRealActiveMatch()
     {
@@ -172,6 +169,7 @@ public sealed class ItemLifecycleConsumerKafkaIntegrationTests
         }
     }
 
+    // Scenario 1's mirror, found side.
     [Fact]
     public async Task RealFoundItemResolvedEvent_DeactivatesTheRealActiveMatch()
     {
@@ -200,6 +198,7 @@ public sealed class ItemLifecycleConsumerKafkaIntegrationTests
         }
     }
 
+    // Scenario 2, end to end through the real consumer.
     [Fact]
     public async Task RealItemDeleteRequestedEvent_DeactivatesTheRealActiveMatch()
     {

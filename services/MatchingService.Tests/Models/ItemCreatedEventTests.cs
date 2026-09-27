@@ -2,12 +2,7 @@ using MatchingService.Models;
 
 namespace MatchingService.Tests.Models;
 
-/// <summary>
-/// Story 1, Scenario 5 contract tests for ItemCreatedEvent.GetItemId. The same throw path is also
-/// exercised indirectly through ImageDescriptionEventHandlerTests, but is tested here in isolation
-/// too, matching ItemService.Tests's own precedent of a dedicated Models/ test file for model classes
-/// that carry real logic rather than just being plain data.
-/// </summary>
+/// <summary>Story 1 contract tests for ItemCreatedEvent.GetItemId in isolation, matching ItemService.Tests's precedent of a dedicated Models/ file for model classes with real logic.</summary>
 public sealed class ItemCreatedEventTests
 {
     // Scenario 5: a lost-type lookup against a payload that actually carries LostItemId succeeds.

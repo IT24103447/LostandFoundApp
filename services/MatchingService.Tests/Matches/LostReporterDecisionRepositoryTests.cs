@@ -5,13 +5,8 @@ using MySqlConnector;
 
 namespace MatchingService.Tests.Matches;
 
-/// <summary>
-/// Story 4 (lost reporter confirms/rejects a match) contract tests for LostReporterDecisionRepository,
-/// against a real, disposable MySQL database (Testcontainers, via ClaimServiceDbFixture, reused from
-/// Story 2/3). Rows are inserted directly at FINDER_CONFIRMED (and other statuses), since nothing in
-/// this test project drives a match all the way to that state through the real claim flow alone -
-/// FakeItemServiceHandler has no notion of a second party's own claim submission.
-/// </summary>
+/// <summary>Story 4 contract tests for LostReporterDecisionRepository against real MySQL. Rows are inserted directly at FINDER_CONFIRMED since FakeItemServiceHandler can't drive a match there through a real second-party claim.</summary>
+[Collection("Docker Integration Tests 6")]
 public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -185,8 +180,8 @@ public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimSer
         Assert.Equal(409, exception.StatusCode);
     }
 
-    // Scenario 2, plus the audit-row bullet of the Definition of Done: confirming moves the match to
-    // Confirmed, stores the lost reporter's own contact details, and writes an audit row for it.
+    /* Scenario 2, plus the audit-row bullet of the Definition of Done: confirming moves the match to
+       Confirmed, stores the lost reporter's own contact details, and writes an audit row for it. */
     [Fact]
     public async Task DecideAsync_ConfirmAtFinderConfirmed_MovesToConfirmedStoresContactAndWritesAudit()
     {
@@ -284,8 +279,8 @@ public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimSer
         Assert.Equal(409, exception.StatusCode);
     }
 
-    // Confirming one match for a report deactivates any other still-pending match for the same report,
-    // since only one match per report can ever reach Confirmed.
+    /* Confirming one match for a report deactivates any other still-pending match for the same report,
+       since only one match per report can ever reach Confirmed. */
     [Fact]
     public async Task DecideAsync_Confirm_DeactivatesOtherPendingMatchesForTheSameItems()
     {
@@ -304,8 +299,8 @@ public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimSer
         Assert.False(otherIsActive);
     }
 
-    // Story 7: the outbox-interlock deactivation now also covers a still-pending (not yet claimed by
-    // anyone) match for the same item, not just the two half-confirmed statuses.
+    /* Story 7: the outbox-interlock deactivation now also covers a still-pending (not yet claimed by
+       anyone) match for the same item, not just the two half-confirmed statuses. */
     [Fact]
     public async Task DecideAsync_Confirm_DeactivatesAnAwaitingClaimantConfirmationMatchForTheSameItem()
     {
@@ -324,8 +319,8 @@ public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimSer
         Assert.False(otherIsActive);
     }
 
-    // Story 7: the deactivated competing match carries the same audit trail
-    // (reason/item id/item type) the item-lifecycle deactivation path uses.
+    /* Story 7: the deactivated competing match carries the same audit trail
+       (reason/item id/item type) the item-lifecycle deactivation path uses. */
     [Fact]
     public async Task DecideAsync_Confirm_RecordsWhyAndWhichItemDeactivatedTheOtherMatch()
     {
@@ -356,8 +351,8 @@ public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimSer
         Assert.Equal("LOST", reader.GetString(2));
     }
 
-    // Story 7: a pending/failed reminder for the match that just lost the race is cancelled, not left
-    // to retry forever against a match nobody can act on any more.
+    /* Story 7: a pending/failed reminder for the match that just lost the race is cancelled, not left
+       to retry forever against a match nobody can act on any more. */
     [Fact]
     public async Task DecideAsync_Confirm_CancelsPendingNotificationsForTheDeactivatedOtherMatch()
     {

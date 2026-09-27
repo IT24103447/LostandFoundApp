@@ -7,16 +7,8 @@ using Xunit;
 
 namespace MatchingService.Tests.Notifications;
 
-/// <summary>
-/// Story 6 (email notifications). Real, disposable MySQL (Testcontainers, via ClaimServiceDbFixture) and
-/// the REAL NotificationDiscoveryService/NotificationRepository/NotificationDeliveryService - only
-/// IMatchEmailSender is faked (the same CI-safe boundary NotificationDeliveryServiceTests already uses),
-/// but here they're driven through the real MatchNotificationWorker itself via StartAsync/StopAsync, the
-/// same pattern already used for MatchConfirmationPublisher in MatchConfirmationKafkaIntegrationTests.
-/// This is what closes the 0%-covered gap in the worker's own orchestration loop (the 15-second discovery
-/// cadence, the claim-or-wait polling, the outer catch-and-continue) that the three dependencies' own
-/// individual test files structurally cannot prove on their own.
-/// </summary>
+/// <summary>Story 6 tests driving the real MatchNotificationWorker via StartAsync/StopAsync against real MySQL — only IMatchEmailSender is faked. Closes the orchestration-loop gap (discovery cadence, claim-or-wait polling) the dependencies' own test files can't prove alone.</summary>
+[Collection("Docker Integration Tests 7")]
 public sealed class MatchNotificationWorkerTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -40,10 +32,7 @@ public sealed class MatchNotificationWorkerTests : IClassFixture<ClaimServiceDbF
         }
     }
 
-    /// <summary>Wraps the real connection factory but throws on the first N calls to Create() - used to
-    /// force a genuine exception out of a real dependency (NotificationDiscoveryService.DiscoverAsync,
-    /// whose first line calls connections.Create()), the only way to reach the worker's own
-    /// catch-and-continue branch without mocking the worker's dependencies themselves.</summary>
+    // Wraps the real connection factory but throws on the first N calls, to reach the worker's catch-and-continue branch without mocking its dependencies.
     private sealed class FailOnDemandConnectionFactory(IDbConnectionFactory inner) : IDbConnectionFactory
     {
         public int RemainingFailures { get; set; }
@@ -157,16 +146,13 @@ public sealed class MatchNotificationWorkerTests : IClassFixture<ClaimServiceDbF
                 await Task.Delay(200);
             }
 
-            // Both parties' notifications were discovered, claimed and delivered by the real worker
-            // loop itself - not by calling DiscoverAsync/ClaimNextAsync/DeliverAsync directly.
+            // Both parties were discovered, claimed and delivered by the real worker loop itself.
             Assert.Equal(2, await CountSentAsync(matchId));
             Assert.Equal(2, sender.Sent.Count);
         }
         finally
         {
-            // Both rows are already SENT, so the worker is now sitting in its "queue empty" branch,
-            // either about to or already inside its 5-second wait - StopAsync cancels that wait
-            // immediately, exercising the graceful mid-delay shutdown path too.
+            // The worker is now idling in its "queue empty" wait; StopAsync exercises the graceful mid-delay shutdown path too.
             await worker.StopAsync(CancellationToken.None);
         }
     }
@@ -187,8 +173,7 @@ public sealed class MatchNotificationWorkerTests : IClassFixture<ClaimServiceDbF
         await worker.StartAsync(CancellationToken.None);
         try
         {
-            // The worker's own catch(Exception)-log-and-continue branch, plus its 5-second recovery
-            // delay before the retry, so this genuinely needs a real wait past that window.
+            // Exercises the worker's catch-and-continue branch plus its recovery delay before retrying.
             var deadline = DateTime.UtcNow.AddSeconds(30);
             while (DateTime.UtcNow < deadline && await CountSentAsync(matchId) < 2)
             {

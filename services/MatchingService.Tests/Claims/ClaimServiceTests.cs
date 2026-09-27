@@ -9,13 +9,8 @@ using MySqlConnector;
 
 namespace MatchingService.Tests.Claims;
 
-/// <summary>
-/// Story 2 (LF-173, claim and match) contract tests for ClaimService, driven against a real,
-/// disposable MySQL database (Testcontainers, via ClaimServiceDbFixture) and a faked Item Service
-/// (FakeItemServiceHandler). ClaimService/ClaimRepository/ClaimItemClient have no interfaces, so they
-/// are constructed directly rather than through DI, the same "one real dependency, one faked" shape
-/// Story 1's MatchingServiceDbApiFactory tests use.
-/// </summary>
+/// <summary>Story 2 contract tests for ClaimService, against a real MySQL (Testcontainers) and a faked Item Service (FakeItemServiceHandler).</summary>
+[Collection("Docker Integration Tests 1")]
 public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -742,8 +737,8 @@ public sealed class ClaimServiceTests : IClassFixture<ClaimServiceDbFixture>
     [Fact]
     public async Task PairExistsAsync_NeitherItemInactive_ChecksTheRealPairTableNormally()
     {
-        // The Story 7 guard must not short-circuit the pre-existing behavior when both items are
-        // genuinely active - an untouched pair still reads as "no existing match".
+        /* The Story 7 guard must not short-circuit the pre-existing behavior when both items are
+           genuinely active - an untouched pair still reads as "no existing match". */
         var repository = new ClaimRepository(_fixture.Connections, new BlobUrlPhotoKeyGenerator());
 
         var exists = await repository.PairExistsAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);

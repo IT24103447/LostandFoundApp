@@ -6,12 +6,10 @@ using Xunit;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Story 1, Scenarios 3/7/8 integration tests. Proves ImageDescriptionRepository's real SQL against a
-/// real, disposable MySQL database (Testcontainers) running the app's own real migrations.
-/// This covers the unique-constraint idempotency and the claim/lease/complete/fail lifecycle,
-/// not just that the repository interface is called with the right arguments (unit tests cover that).
-/// Each test uses its own unique photo key/blob URL so tests sharing the one database don't collide.
+/// Story 1 integration tests proving ImageDescriptionRepository's real SQL against a real,
+/// disposable MySQL database, including the unique-constraint idempotency and claim/lease/complete/fail lifecycle.
 /// </summary>
+[Collection("Docker Integration Tests 3")]
 public sealed class ImageDescriptionRepositoryIntegrationTests : IClassFixture<MatchingServiceDbApiFactory>
 {
     private readonly IImageDescriptionRepository _repository;

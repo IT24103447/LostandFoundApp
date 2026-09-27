@@ -4,17 +4,9 @@ using System.Text.Json;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Small Mailtrap REST client for MatchingService.Tests, mirroring
-/// tests/e2e/VerifyEmailForm.SeleniumTests/MailtrapClient.cs (a separate project/assembly, so this is a
-/// deliberate duplicate rather than a shared reference). Reads a real captured email's subject and body
-/// via Mailtrap's own API, rather than extracting an OTP - this project needs to verify notification
-/// content (the right subject per type, the right matched-items link), not fill in a form field.
-///
-/// Needs the same three environment variables as the Selenium client: MAILTRAP_API_TOKEN,
-/// MAILTRAP_ACCOUNT_ID, MAILTRAP_INBOX_ID. If any are missing, IsConfigured returns false and the
-/// Mailtrap-dependent test self-skips (see MatchNotificationMailtrapIntegrationTests) rather than
-/// failing - this is a local-only, real-SMTP check, deliberately never wired into CI (see
-/// JMeterTesting.md/session history: real third-party network calls stay local-only in this project).
+/// Small Mailtrap REST client reading a real captured email's subject/body, a deliberate duplicate
+/// of tests/e2e/VerifyEmailForm.SeleniumTests/MailtrapClient.cs (separate assembly). If
+/// MAILTRAP_API_TOKEN/ACCOUNT_ID/INBOX_ID are missing, IsConfigured is false and the dependent test self-skips rather than failing.
 /// </summary>
 public sealed class MailtrapVerificationClient
 {

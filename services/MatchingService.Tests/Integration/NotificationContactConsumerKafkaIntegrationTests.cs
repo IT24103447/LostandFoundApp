@@ -11,15 +11,8 @@ using Xunit;
 
 namespace MatchingService.Tests.Integration;
 
-/// <summary>
-/// Story 6 (email notifications). Real, disposable MySQL (Testcontainers, via ClaimServiceDbFixture) AND
-/// a real, disposable Kafka broker (Testcontainers) at once, deliberately - the same justified exception
-/// MatchConfirmationKafkaIntegrationTests already uses, since NotificationContactConsumer's entire job is
-/// relaying real Auth Service events onto a real local cache table (notification_contacts). Proves the
-/// "last event wins" ordering logic and each topic's own effect (Gap #3 in Bugs_Sprint3.md records that
-/// this Kafka-cache mechanism, not an Auth Service HTTP endpoint, is what recipient resolution actually
-/// relies on).
-/// </summary>
+/// <summary>Story 6 integration tests. Real MySQL and a real Kafka broker at once, since NotificationContactConsumer relays real Auth Service events into the local notification_contacts cache; proves the "last event wins" ordering (see Bugs_Sprint3.md Gap #3 for why this cache, not an Auth Service endpoint, drives recipient resolution).</summary>
+[Collection("Docker Integration Tests 4")]
 public sealed class NotificationContactConsumerKafkaIntegrationTests
     : IClassFixture<ClaimServiceDbFixture>, IAsyncLifetime
 {
@@ -200,8 +193,8 @@ public sealed class NotificationContactConsumerKafkaIntegrationTests
             // A stale/out-of-order redelivery of an OLDER event must never overwrite newer data.
             await PublishAsync("auth.user.profile_updated", userId, "stale@example.com", now.AddMinutes(-10));
 
-            // No positive wait to prove absence deterministically - give the (incorrect) update every
-            // chance to land, then confirm it didn't.
+            /* No positive wait to prove absence deterministically - give the (incorrect) update every
+               chance to land, then confirm it didn't. */
             await Task.Delay(TimeSpan.FromSeconds(5));
             var (_, email, _, _) = await WaitForContactAsync(userId, TimeSpan.FromSeconds(5));
 

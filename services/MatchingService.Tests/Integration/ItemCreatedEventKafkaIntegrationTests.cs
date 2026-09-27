@@ -7,12 +7,10 @@ using Xunit;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Story 1, Scenarios 2 and 10 integration tests. Proves a real Kafka message on a real, disposable broker is
-/// actually consumed by the real ItemCreatedEventConsumer and turned into a real repository call, for both
-/// the created topics and the updated topics (photo replacement).
-/// This is not just proof that the in-process handler logic is correct (see
-/// ImageDescriptionEventHandlerTests for that). Requires Docker running locally (Testcontainers.Kafka).
+/// Story 1 integration tests proving a real Kafka message is consumed by the real
+/// ItemCreatedEventConsumer and turned into a real repository call, for both created and updated topics.
 /// </summary>
+[Collection("Docker Integration Tests 1")]
 public sealed class ItemCreatedEventKafkaIntegrationTests : IClassFixture<MatchingServiceKafkaApiFactory>
 {
     private readonly MatchingServiceKafkaApiFactory _factory;
@@ -177,5 +175,48 @@ public sealed class ItemCreatedEventKafkaIntegrationTests : IClassFixture<Matchi
         Assert.Equal(ItemType.Found, captured!.ItemType);
         Assert.Equal(itemId, captured.ItemId);
         Assert.Equal(ItemEventType.Updated, captured.SourceEventType);
+    }
+
+    /* Story 8: the same real broker also reaches MatchReevaluationEventHandler, recording a real
+       snapshot and queuing a real re-evaluation job - not just the image pipeline above. */
+    [Fact]
+    public async Task RealLostItemUpdatedMessage_AlsoRecordsASnapshotAndQueuesAReevaluationJob()
+    {
+        var eventId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var json = $$"""
+            {
+                "eventId": "{{eventId}}",
+                "timestamp": "{{DateTime.UtcNow:O}}",
+                "userId": "{{Guid.NewGuid()}}",
+                "lostItemId": "{{itemId}}",
+                "title": "A brown wallet",
+                "category": "Accessories",
+                "description": "A worn brown leather wallet.",
+                "status": "ACTIVE",
+                "dateLost": "2026-09-01",
+                "lastKnownLocation": "Main Street",
+                "photoUrls": []
+            }
+            """;
+
+        await PublishAsync("items.lost_item.updated", itemId.ToString(), json);
+
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        long jobCount = 0;
+
+        while (DateTime.UtcNow < deadline && jobCount == 0)
+        {
+            await using var connection = _factory.OpenDbConnection();
+            await using var command = new MySqlConnector.MySqlCommand(
+                "SELECT COUNT(*) FROM match_reevaluation_jobs WHERE event_id = @eventId;", connection);
+            command.Parameters.AddWithValue("@eventId", eventId);
+            jobCount = (long)(await command.ExecuteScalarAsync())!;
+
+            if (jobCount == 0) await Task.Delay(300);
+        }
+
+        Assert.Equal(1L, jobCount);
     }
 }

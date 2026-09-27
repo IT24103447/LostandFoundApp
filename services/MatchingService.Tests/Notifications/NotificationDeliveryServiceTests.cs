@@ -8,15 +8,8 @@ using Xunit;
 
 namespace MatchingService.Tests.Notifications;
 
-/// <summary>
-/// Story 6 (email notifications). Real MySQL (Testcontainers, via ClaimServiceDbFixture) and the real
-/// NotificationRepository - only IMatchEmailSender is swapped for an in-memory fake, the same "fake at
-/// the SMTP boundary, real everywhere else" design agreed with the user: this is what runs in CI, where
-/// no real SMTP credentials exist, and it still genuinely exercises recipient-relevance resolution,
-/// status recording, and retry-backoff math against real SQL - only the literal network send is faked.
-/// The real MatchEmailSender itself is proven separately, locally, by
-/// MatchNotificationMailtrapIntegrationTests, which self-skips without real Mailtrap credentials.
-/// </summary>
+/// <summary>Story 6 tests against real MySQL and the real NotificationRepository — only IMatchEmailSender is faked, the CI-safe SMTP boundary. The real sender is proven separately by MatchNotificationMailtrapIntegrationTests.</summary>
+[Collection("Docker Integration Tests 7")]
 public sealed class NotificationDeliveryServiceTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -392,16 +385,16 @@ public sealed class NotificationDeliveryServiceTests : IClassFixture<ClaimServic
         using var cts = new CancellationTokenSource();
         var deliverTask = delivery.DeliverAsync(job, cts.Token);
 
-        // Cancel while the fake sender is still mid-"send" (its own 5s delay), not before or after -
-        // this is what actually drives DeliverAsync's own cancellation-mid-flight rethrow branch,
-        // rather than the trivial case of an already-cancelled token.
+        /* Cancel while the fake sender is still mid-"send" (its own 5s delay), not before or after -
+           this is what actually drives DeliverAsync's own cancellation-mid-flight rethrow branch,
+           rather than the trivial case of an already-cancelled token. */
         await Task.Delay(300);
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => deliverTask);
 
-        // Cancellation is not a delivery outcome - it must not be recorded as SENT/FAILED/CANCELLED,
-        // since the caller (the worker loop) is the one who decides what a shutdown mid-delivery means.
+        /* Cancellation is not a delivery outcome - it must not be recorded as SENT/FAILED/CANCELLED,
+           since the caller (the worker loop) is the one who decides what a shutdown mid-delivery means. */
         Assert.Equal("PENDING", await ReadStatusAsync(notificationId));
     }
 
@@ -418,10 +411,10 @@ public sealed class NotificationDeliveryServiceTests : IClassFixture<ClaimServic
         var notificationId = await InsertLeasedNotificationAsync(
             matchId, finderId, NotificationTypes.MatchConfirmed, leaseToken);
 
-        // Call #1 is GetRecipientAsync's own connection (must succeed, so the send is genuinely
-        // reached); call #2 is MarkSentAsync's (must fail, after the "SMTP accepted" send already
-        // happened) - this is the only way to reach the "accepted but not saved" branch, since SMTP
-        // acceptance itself can't be faked to fail selectively at that exact moment any other way.
+        /* Call #1 is GetRecipientAsync's own connection (must succeed, so the send is genuinely
+           reached); call #2 is MarkSentAsync's (must fail, after the "SMTP accepted" send already
+           happened) - this is the only way to reach the "accepted but not saved" branch, since SMTP
+           acceptance itself can't be faked to fail selectively at that exact moment any other way. */
         var failingConnections = new FailFromNthCallConnectionFactory(_fixture.Connections, failFromCallNumber: 2);
         var repository = new NotificationRepository(failingConnections);
         var sender = new FakeMatchEmailSender();
@@ -431,15 +424,15 @@ public sealed class NotificationDeliveryServiceTests : IClassFixture<ClaimServic
         var job = new NotificationJob(
             notificationId, matchId, finderId, NotificationTypes.MatchConfirmed, 1, leaseToken);
 
-        // Does not throw - the whole point of this branch is that a DB failure after a real send
-        // succeeds is logged, not surfaced as an exception the worker loop would otherwise retry.
+        /* Does not throw - the whole point of this branch is that a DB failure after a real send
+           succeeds is logged, not surfaced as an exception the worker loop would otherwise retry. */
         await delivery.DeliverAsync(job, CancellationToken.None);
 
         Assert.Single(sender.Sent);
 
-        // Read back through the real, unwrapped connection - the row's own status was never
-        // successfully updated (the write that would have done so is exactly what failed), so it must
-        // still read PENDING, not SENT - proving this branch doesn't silently mislabel the outcome.
+        /* Read back through the real, unwrapped connection - the row's own status was never
+           successfully updated (the write that would have done so is exactly what failed), so it must
+           still read PENDING, not SENT - proving this branch doesn't silently mislabel the outcome. */
         Assert.Equal("PENDING", await ReadStatusAsync(notificationId));
     }
 }

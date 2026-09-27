@@ -7,13 +7,9 @@ using Testcontainers.MySql;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Real, disposable MySQL (Testcontainers) for Story 2's ClaimRepository, running the app's own real
-/// migrations (001-005), the same DbInitializer path the real app uses. Unlike
-/// MatchingServiceDbApiFactory, this does not host Program.cs at all: ClaimService/ClaimRepository/
-/// ClaimItemClient are plain classes with no interfaces to swap via DI (unlike
-/// IImageDescriptionRepository in Story 1), so tests construct them directly and only need a real
-/// IDbConnectionFactory, not a full ASP.NET Core host, JWT bearer setup, or Kafka consumer.
-/// The real JWT/HTTP host is exercised separately, in ClaimsApiFactory.
+/// Real, disposable MySQL, running the app's real migrations via DbInitializer. Does not host
+/// Program.cs — plain classes are constructed directly against a real IDbConnectionFactory. The
+/// real JWT/HTTP host is exercised separately, in ClaimsApiFactory.
 /// </summary>
 public sealed class ClaimServiceDbFixture : IAsyncLifetime
 {

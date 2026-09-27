@@ -8,23 +8,8 @@ using Xunit;
 
 namespace MatchingService.Tests.Integration;
 
-/// <summary>
-/// Story 6 (email notifications). The one real-SMTP test in this pipeline: a real match confirmed in
-/// real, disposable MySQL (Testcontainers, via ClaimServiceDbFixture) is discovered, claimed, and
-/// delivered by the REAL MatchEmailSender/NotificationDeliveryService/NotificationRepository - no fakes
-/// anywhere - over real SMTP to a real Mailtrap sandbox, then verified by reading the actually-captured
-/// message back out via Mailtrap's own REST API (MailtrapVerificationClient). This is the one thing the
-/// fake-swap tests (NotificationDeliveryServiceTests) structurally cannot prove: that a real subject and
-/// a real matched-items link actually survive a real SMTP round trip.
-///
-/// Self-skips (a vacuous pass, not a failure) whenever the required config/credentials aren't present -
-/// this always runs locally (Smtp:* comes from MatchingService's own user-secrets, the same ones the
-/// real app uses; MAILTRAP_API_TOKEN/ACCOUNT_ID/INBOX_ID are plain env vars) and always skips in CI,
-/// where neither exists (see matching-service-ci-cd.yml - no Smtp:*/Mailtrap secrets are wired in
-/// anywhere). Deliberately kept that way: a real third-party network call is inherently
-/// non-deterministic, and this project's own precedent (AuthService's Mailtrap-backed Selenium tests)
-/// already keeps real-SMTP checks local-only rather than gating CI on them.
-/// </summary>
+/// <summary>Story 6's one real-SMTP test: a real confirmed match is delivered over real SMTP to a real Mailtrap sandbox, then verified via MailtrapVerificationClient. Self-skips (not a failure) when Smtp:*/Mailtrap credentials aren't present, which is always the case in CI — deliberately local-only, same precedent as AuthService's Mailtrap-backed Selenium tests.</summary>
+[Collection("Docker Integration Tests 9")]
 public sealed class MatchNotificationMailtrapIntegrationTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -45,11 +30,7 @@ public sealed class MatchNotificationMailtrapIntegrationTests : IClassFixture<Cl
 
     private static IConfiguration BuildRealConfiguration()
     {
-        // The same user-secrets store the real MatchingService app reads (AddUserSecrets<Program>
-        // points at its UserSecretsId, "matching-service-local-development"), so setting Smtp:* once
-        // via `dotnet user-secrets set ... --project services/MatchingService` is picked up here too -
-        // no separate test-only config to maintain. Environment variables layer on top, so CI secrets
-        // (if ever added - see the class doc comment) would work with zero code changes.
+        // Reads the same user-secrets store the real app uses, so no separate test-only config to maintain.
         return new ConfigurationBuilder()
             .AddUserSecrets<Program>(optional: true)
             .AddEnvironmentVariables()
@@ -69,10 +50,7 @@ public sealed class MatchNotificationMailtrapIntegrationTests : IClassFixture<Cl
         var lostReporterId = Guid.NewGuid();
         var finderId = Guid.NewGuid();
         var matchId = Guid.NewGuid();
-        // Scenario 3 notifies BOTH parties on Confirmed, and ClaimNextAsync claims whichever of the
-        // two resulting rows sorts first (both share the same created_at, inserted by the same
-        // INSERT...SELECT) - so both need a real contact row, not just one, or whichever gets claimed
-        // first non-deterministically fails with RECIPIENT_EMAIL_UNAVAILABLE.
+        // Both parties get notified on Confirmed and ClaimNextAsync claims non-deterministically between them, so both need a real contact row.
         var lostReporterEmail = $"story6-test-lost-{Guid.NewGuid():N}@example.com";
         var finderEmail = $"story6-test-found-{Guid.NewGuid():N}@example.com";
         var snapshot = """{"id":"11111111-1111-1111-1111-111111111111","type":"LOST","title":"t","category":"c","description":"d","date":"2026-09-01","location":"l"}""";
@@ -139,9 +117,7 @@ public sealed class MatchNotificationMailtrapIntegrationTests : IClassFixture<Cl
 
         if (!SmtpIsConfigured(configuration) || !_mailtrap.IsConfigured)
         {
-            // No real SMTP config and/or no Mailtrap REST credentials - this test can't prove
-            // anything about a real send without them, so it skips itself rather than failing the
-            // whole suite. See the class doc comment: this always skips in CI by design.
+            // Self-skips without real SMTP/Mailtrap credentials rather than failing the suite.
             return;
         }
 
@@ -156,8 +132,7 @@ public sealed class MatchNotificationMailtrapIntegrationTests : IClassFixture<Cl
         Assert.NotNull(job);
         Assert.Equal(matchId, job!.MatchId);
 
-        // Scenario 3 queues a row for both parties with identical created_at - whichever one
-        // ClaimNextAsync happens to claim first is the one this run actually verifies.
+        // Whichever party ClaimNextAsync claims first is the one this run verifies.
         var recipientEmail = job.RecipientUserId == lostReporterId ? lostReporterEmail : finderEmail;
         Assert.True(
             job.RecipientUserId == lostReporterId || job.RecipientUserId == finderId,
