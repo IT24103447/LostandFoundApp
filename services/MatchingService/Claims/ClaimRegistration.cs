@@ -2,6 +2,7 @@ using System.Text;
 using MatchingService.Lifecycle;
 using MatchingService.Matches;
 using MatchingService.Notifications;
+using MatchingService.Reevaluation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -29,7 +30,8 @@ public static class ClaimRegistration
 
         if (!Uri.TryCreate(
                 configuration["ItemService:BaseUrl"],
-                UriKind.Absolute, out var baseUri) ||
+                UriKind.Absolute,
+                out var baseUri) ||
             (baseUri.Scheme != Uri.UriSchemeHttp &&
              baseUri.Scheme != Uri.UriSchemeHttps) ||
             !string.IsNullOrEmpty(baseUri.UserInfo) ||
@@ -40,93 +42,165 @@ public static class ClaimRegistration
                 "ItemService:BaseUrl must be a valid HTTP or HTTPS URL.");
         }
 
-        if (!environment.IsDevelopment() && baseUri.Scheme != Uri.UriSchemeHttps)
+        if (!environment.IsDevelopment() &&
+            baseUri.Scheme != Uri.UriSchemeHttps)
         {
             throw new InvalidOperationException(
                 "ItemService:BaseUrl must use HTTPS outside Development.");
         }
 
-        var origins = configuration.GetSection("Cors:AllowedOrigins")
-            .Get<string[]>() ?? ["http://localhost:5173"];
+        var origins = configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ??
+            ["http://localhost:5173"];
 
         services.AddCors(options =>
         {
-            options.AddPolicy("matching-frontend", policy =>
-                policy.WithOrigins(origins)
-                    .AllowAnyHeader()
-                    .AllowAnyMethod()
-                    .AllowCredentials());
+            options.AddPolicy(
+                "matching-frontend",
+                policy =>
+                    policy.WithOrigins(origins)
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials());
         });
 
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        services
+            .AddAuthentication(
+                JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = issuer,
-                    ValidAudience = audience,
-                    IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(secret)),
-                    ClockSkew = TimeSpan.FromMinutes(2),
-                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
-                };
-
-                options.Events = new JwtBearerEvents
-                {
-                    OnMessageReceived = context =>
+                options.TokenValidationParameters =
+                    new TokenValidationParameters
                     {
-                        if (string.IsNullOrWhiteSpace(
-                                context.Request.Headers.Authorization.ToString()) &&
-                            context.Request.Cookies.TryGetValue("auth_token", out var token))
-                        {
-                            context.Token = token;
-                        }
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = issuer,
+                        ValidAudience = audience,
+                        IssuerSigningKey =
+                            new SymmetricSecurityKey(
+                                Encoding.UTF8.GetBytes(
+                                    secret)),
+                        ClockSkew =
+                            TimeSpan.FromMinutes(2),
+                        ValidAlgorithms =
+                            [
+                                SecurityAlgorithms
+                                    .HmacSha256
+                            ]
+                    };
 
-                        return Task.CompletedTask;
-                    }
-                };
+                options.Events =
+                    new JwtBearerEvents
+                    {
+                        OnMessageReceived =
+                            context =>
+                            {
+                                if (string
+                                        .IsNullOrWhiteSpace(
+                                            context.Request
+                                                .Headers
+                                                .Authorization
+                                                .ToString()) &&
+                                    context.Request
+                                        .Cookies
+                                        .TryGetValue(
+                                            "auth_token",
+                                            out var token))
+                                {
+                                    context.Token = token;
+                                }
+
+                                return Task.CompletedTask;
+                            }
+                    };
             });
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("VerifiedClaimUser", policy =>
-                policy.RequireAuthenticatedUser().RequireClaim("email_verified", "1"));
+            options.AddPolicy(
+                "VerifiedClaimUser",
+                policy =>
+                    policy
+                        .RequireAuthenticatedUser()
+                        .RequireClaim(
+                            "email_verified",
+                            "1"));
         });
 
         services.AddHttpContextAccessor();
 
-        services.AddHttpClient<ClaimItemClient>(client =>
-        {
-            client.BaseAddress = new Uri(baseUri.AbsoluteUri.TrimEnd('/') + "/");
-            client.Timeout = TimeSpan.FromSeconds(15);
-        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-        {
-            UseCookies = false,
-            AllowAutoRedirect = false
-        });
+        services.AddHttpClient<ClaimItemClient>(
+            client =>
+            {
+                client.BaseAddress =
+                    new Uri(
+                        baseUri.AbsoluteUri
+                            .TrimEnd('/') +
+                        "/");
+
+                client.Timeout =
+                    TimeSpan.FromSeconds(15);
+            })
+            .ConfigurePrimaryHttpMessageHandler(
+                () => new HttpClientHandler
+                {
+                    UseCookies = false,
+                    AllowAutoRedirect = false
+                });
 
         services.AddScoped<ClaimRepository>();
         services.AddScoped<ClaimService>();
-        services.AddScoped<IMatchReadRepository, MatchReadRepository>();
+
+        services.AddScoped<
+            IMatchReadRepository,
+            MatchReadRepository>();
+
         services.AddScoped<MatchReadService>();
-        services.AddScoped<LostReporterDecisionRepository>();
-        services.AddScoped<FinderDecisionRepository>();
+        services.AddScoped<
+            LostReporterDecisionRepository>();
 
-        services.AddSingleton<ItemLifecycleRepository>();
-        services.AddHostedService<ItemLifecycleConsumer>();
+        services.AddScoped<
+            FinderDecisionRepository>();
 
-        if (configuration.GetValue<bool>("Notifications:Enabled"))
+        services.AddSingleton<
+            ItemLifecycleRepository>();
+
+        services.AddHostedService<
+            ItemLifecycleConsumer>();
+
+        services.AddSingleton<
+            MatchReevaluationRepository>();
+
+        services.AddSingleton<
+            MatchReevaluationEventHandler>();
+
+        services.AddHostedService<
+            MatchReevaluationWorker>();
+
+        if (configuration.GetValue<bool>(
+            "Notifications:Enabled"))
         {
-            services.AddSingleton<NotificationRepository>();
-            services.AddSingleton<NotificationDiscoveryService>();
-            services.AddSingleton<IMatchEmailSender, MatchEmailSender>();
-            services.AddSingleton<NotificationDeliveryService>();
-            services.AddHostedService<NotificationContactConsumer>();
-            services.AddHostedService<MatchNotificationWorker>();
+            services.AddSingleton<
+                NotificationRepository>();
+
+            services.AddSingleton<
+                NotificationDiscoveryService>();
+
+            services.AddSingleton<
+                IMatchEmailSender,
+                MatchEmailSender>();
+
+            services.AddSingleton<
+                NotificationDeliveryService>();
+
+            services.AddHostedService<
+                NotificationContactConsumer>();
+
+            services.AddHostedService<
+                MatchNotificationWorker>();
         }
 
         return services;

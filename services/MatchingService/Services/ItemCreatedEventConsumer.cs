@@ -1,25 +1,35 @@
 using System.Text.Json;
 using Confluent.Kafka;
 using MatchingService.Configuration;
+using MatchingService.Reevaluation;
 using Microsoft.Extensions.Options;
 
 namespace MatchingService.Services;
 
-public sealed class ItemCreatedEventConsumer : BackgroundService
+public sealed class ItemCreatedEventConsumer
+    : BackgroundService
 {
     private readonly IConsumer<string, string> _consumer;
-    private readonly ImageDescriptionEventHandler _handler;
+    private readonly ImageDescriptionEventHandler
+        _imageHandler;
+    private readonly MatchReevaluationEventHandler
+        _reevaluationHandler;
     private readonly KafkaSettings _settings;
-    private readonly ILogger<ItemCreatedEventConsumer> _logger;
+    private readonly ILogger<ItemCreatedEventConsumer>
+        _logger;
 
     public ItemCreatedEventConsumer(
         IConsumer<string, string> consumer,
-        ImageDescriptionEventHandler handler,
+        ImageDescriptionEventHandler imageHandler,
+        MatchReevaluationEventHandler
+            reevaluationHandler,
         IOptions<KafkaSettings> settings,
         ILogger<ItemCreatedEventConsumer> logger)
     {
         _consumer = consumer;
-        _handler = handler;
+        _imageHandler = imageHandler;
+        _reevaluationHandler =
+            reevaluationHandler;
         _settings = settings.Value;
         _logger = logger;
     }
@@ -42,23 +52,23 @@ public sealed class ItemCreatedEventConsumer : BackgroundService
 
         try
         {
-            while (!stoppingToken.IsCancellationRequested)
+            while (!stoppingToken
+                .IsCancellationRequested)
             {
-                ConsumeResult<string, string> result;
+                ConsumeResult<string, string>
+                    result;
 
                 try
                 {
-                    result = _consumer.Consume(stoppingToken);
+                    result = _consumer.Consume(
+                        stoppingToken);
                 }
                 catch (ConsumeException exception)
                     when (exception.Error.Code ==
                           ErrorCode.UnknownTopicOrPart)
                 {
                     _logger.LogWarning(
-                        """
-                        A subscribed Kafka topic does not exist yet.
-                        Create all configured item topics.
-                        """);
+                        "A subscribed Kafka topic does not exist yet.");
 
                     await Task.Delay(
                         TimeSpan.FromSeconds(5),
@@ -69,10 +79,7 @@ public sealed class ItemCreatedEventConsumer : BackgroundService
                 catch (ConsumeException exception)
                 {
                     _logger.LogError(
-                        """
-                        Kafka consumption failed.
-                        Code: {ErrorCode}.
-                        """,
+                        "Kafka consumption failed. Code: {ErrorCode}.",
                         exception.Error.Code);
 
                     await Task.Delay(
@@ -84,25 +91,35 @@ public sealed class ItemCreatedEventConsumer : BackgroundService
 
                 try
                 {
-                    if (result.Message?.Value is null)
+                    if (result.Message?.Value
+                        is null)
                     {
-                        throw new InvalidDataException(
-                            "The Kafka message body is empty.");
+                        throw new
+                            InvalidDataException(
+                                "The Kafka message body is empty.");
                     }
 
-                    await _handler.HandleAsync(
+                    await _imageHandler.HandleAsync(
                         result.Topic,
                         result.Message.Value,
                         stoppingToken);
 
+                    await _reevaluationHandler
+                        .HandleAsync(
+                            result.Topic,
+                            result.Message.Value,
+                            stoppingToken);
+
                     _consumer.Commit(result);
                 }
-                catch (InvalidDataException exception)
+                catch (InvalidDataException
+                    exception)
                 {
                     _logger.LogError(
                         exception,
                         "Discarding malformed event at {Position}.",
-                        result.TopicPartitionOffset);
+                        result
+                            .TopicPartitionOffset);
 
                     _consumer.Commit(result);
                 }
@@ -111,23 +128,25 @@ public sealed class ItemCreatedEventConsumer : BackgroundService
                     _logger.LogError(
                         exception,
                         "Discarding unreadable event at {Position}.",
-                        result.TopicPartitionOffset);
+                        result
+                            .TopicPartitionOffset);
 
                     _consumer.Commit(result);
                 }
                 catch (Exception exception)
-                    when (!stoppingToken.IsCancellationRequested)
+                    when (!stoppingToken
+                        .IsCancellationRequested)
                 {
                     _logger.LogError(
-                        """
-                        Could not persist item event at {Position}.
-                        Exception type: {ExceptionType}.
-                        The event will be retried.
-                        """,
-                        result.TopicPartitionOffset,
-                        exception.GetType().FullName);
+                        "Could not persist item event at {Position}. Type: {Type}.",
+                        result
+                            .TopicPartitionOffset,
+                        exception.GetType()
+                            .FullName);
 
-                    _consumer.Seek(result.TopicPartitionOffset);
+                    _consumer.Seek(
+                        result
+                            .TopicPartitionOffset);
 
                     await Task.Delay(
                         TimeSpan.FromSeconds(5),
@@ -136,7 +155,8 @@ public sealed class ItemCreatedEventConsumer : BackgroundService
             }
         }
         catch (OperationCanceledException)
-            when (stoppingToken.IsCancellationRequested)
+            when (stoppingToken
+                .IsCancellationRequested)
         {
         }
         finally
