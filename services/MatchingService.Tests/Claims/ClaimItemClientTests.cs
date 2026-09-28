@@ -6,12 +6,8 @@ using Microsoft.AspNetCore.Http;
 namespace MatchingService.Tests.Claims;
 
 /// <summary>
-/// Story 2 (LF-173) contract tests for ClaimItemClient, the only thing in Matching Service that calls
-/// Item Service over HTTP. Covers the incoming-credential forwarding (Bearer header or auth_token
-/// cookie, whichever the caller's own request carried), the HTTP status mapping ClaimsController and
-/// ClaimService rely on, and GetMineAsync's own-report/ACTIVE filtering, which is what Scenario 1's
-/// report-picker popup is actually built from.
-/// Item Service itself is never called: FakeItemServiceHandler stands in for it.
+/// Story 2 contract tests for ClaimItemClient, the only HTTP caller into Item Service. Item Service
+/// itself is never called: FakeItemServiceHandler stands in for it.
 /// </summary>
 public sealed class ClaimItemClientTests
 {

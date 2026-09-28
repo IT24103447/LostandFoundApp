@@ -5,13 +5,8 @@ using MySqlConnector;
 
 namespace MatchingService.Tests.Matches;
 
-/// <summary>
-/// Story 4 (lost reporter confirms/rejects a match) contract tests for LostReporterDecisionRepository,
-/// against a real, disposable MySQL database (Testcontainers, via ClaimServiceDbFixture, reused from
-/// Story 2/3). Rows are inserted directly at FINDER_CONFIRMED (and other statuses), since nothing in
-/// this test project drives a match all the way to that state through the real claim flow alone -
-/// FakeItemServiceHandler has no notion of a second party's own claim submission.
-/// </summary>
+/// <summary>Story 4 contract tests for LostReporterDecisionRepository against real MySQL. Rows are inserted directly at FINDER_CONFIRMED since FakeItemServiceHandler can't drive a match there through a real second-party claim.</summary>
+[Collection("Docker Integration Tests 6")]
 public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -185,8 +180,8 @@ public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimSer
         Assert.Equal(409, exception.StatusCode);
     }
 
-    // Scenario 2, plus the audit-row bullet of the Definition of Done: confirming moves the match to
-    // Confirmed, stores the lost reporter's own contact details, and writes an audit row for it.
+    /* Scenario 2, plus the audit-row bullet of the Definition of Done: confirming moves the match to
+       Confirmed, stores the lost reporter's own contact details, and writes an audit row for it. */
     [Fact]
     public async Task DecideAsync_ConfirmAtFinderConfirmed_MovesToConfirmedStoresContactAndWritesAudit()
     {
@@ -284,8 +279,8 @@ public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimSer
         Assert.Equal(409, exception.StatusCode);
     }
 
-    // Confirming one match for a report deactivates any other still-pending match for the same report,
-    // since only one match per report can ever reach Confirmed.
+    /* Confirming one match for a report deactivates any other still-pending match for the same report,
+       since only one match per report can ever reach Confirmed. */
     [Fact]
     public async Task DecideAsync_Confirm_DeactivatesOtherPendingMatchesForTheSameItems()
     {
@@ -302,6 +297,104 @@ public sealed class LostReporterDecisionRepositoryTests : IClassFixture<ClaimSer
 
         var (_, otherIsActive) = await ReadMatchStateAsync(otherMatchId);
         Assert.False(otherIsActive);
+    }
+
+    /* Story 7: the outbox-interlock deactivation now also covers a still-pending (not yet claimed by
+       anyone) match for the same item, not just the two half-confirmed statuses. */
+    [Fact]
+    public async Task DecideAsync_Confirm_DeactivatesAnAwaitingClaimantConfirmationMatchForTheSameItem()
+    {
+        var sharedLostItemId = Guid.NewGuid();
+        var (otherMatchId, _, _) = await InsertMatchAsync(
+            Guid.NewGuid(), Guid.NewGuid(), "AWAITING_CLAIMANT_CONFIRMATION", lostItemId: sharedLostItemId);
+
+        var lostReporterId = Guid.NewGuid();
+        var (matchId, _, _) = await InsertMatchAsync(
+            lostReporterId, Guid.NewGuid(), "FINDER_CONFIRMED", lostItemId: sharedLostItemId);
+
+        await _repository.DecideAsync(matchId, lostReporterId, confirm: true, CancellationToken.None,
+            "lostreporter@example.com", "+94771234567");
+
+        var (_, otherIsActive) = await ReadMatchStateAsync(otherMatchId);
+        Assert.False(otherIsActive);
+    }
+
+    /* Story 7: the deactivated competing match carries the same audit trail
+       (reason/item id/item type) the item-lifecycle deactivation path uses. */
+    [Fact]
+    public async Task DecideAsync_Confirm_RecordsWhyAndWhichItemDeactivatedTheOtherMatch()
+    {
+        var sharedLostItemId = Guid.NewGuid();
+        var (otherMatchId, _, _) = await InsertMatchAsync(
+            Guid.NewGuid(), Guid.NewGuid(), "LOST_REPORTER_CONFIRMED", lostItemId: sharedLostItemId);
+
+        var lostReporterId = Guid.NewGuid();
+        var (matchId, _, _) = await InsertMatchAsync(
+            lostReporterId, Guid.NewGuid(), "FINDER_CONFIRMED", lostItemId: sharedLostItemId);
+
+        await _repository.DecideAsync(matchId, lostReporterId, confirm: true, CancellationToken.None,
+            "lostreporter@example.com", "+94771234567");
+
+        await using var connection = _fixture.Connections.Create();
+        await connection.OpenAsync();
+        await using var command = new MySqlCommand("""
+            SELECT deactivation_reason, deactivated_item_id, deactivated_item_type
+            FROM matches WHERE id = @id;
+            """, connection);
+        command.Parameters.AddWithValue("@id", otherMatchId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+        await reader.ReadAsync();
+
+        Assert.Equal("MATCH_CONFIRMED_ELSEWHERE", reader.GetString(0));
+        Assert.Equal(sharedLostItemId, reader.GetGuid(1));
+        Assert.Equal("LOST", reader.GetString(2));
+    }
+
+    /* Story 7: a pending/failed reminder for the match that just lost the race is cancelled, not left
+       to retry forever against a match nobody can act on any more. */
+    [Fact]
+    public async Task DecideAsync_Confirm_CancelsPendingNotificationsForTheDeactivatedOtherMatch()
+    {
+        var sharedLostItemId = Guid.NewGuid();
+        var (otherMatchId, _, _) = await InsertMatchAsync(
+            Guid.NewGuid(), Guid.NewGuid(), "LOST_REPORTER_CONFIRMED", lostItemId: sharedLostItemId);
+
+        Guid pendingNotificationId;
+        await using (var connection = _fixture.Connections.Create())
+        {
+            await connection.OpenAsync();
+            pendingNotificationId = Guid.NewGuid();
+
+            await using var command = new MySqlCommand("""
+                INSERT INTO match_notifications (
+                    id, match_id, recipient_user_id, notification_type, status, attempts,
+                    next_attempt_at, created_at, updated_at
+                ) VALUES (
+                    @id, @matchId, @recipientId, 'COUNTERPART_ACTION', 'PENDING', 0,
+                    UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
+                );
+                """, connection);
+            command.Parameters.AddWithValue("@id", pendingNotificationId);
+            command.Parameters.AddWithValue("@matchId", otherMatchId);
+            command.Parameters.AddWithValue("@recipientId", Guid.NewGuid());
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var lostReporterId = Guid.NewGuid();
+        var (matchId, _, _) = await InsertMatchAsync(
+            lostReporterId, Guid.NewGuid(), "FINDER_CONFIRMED", lostItemId: sharedLostItemId);
+
+        await _repository.DecideAsync(matchId, lostReporterId, confirm: true, CancellationToken.None,
+            "lostreporter@example.com", "+94771234567");
+
+        await using var readConnection = _fixture.Connections.Create();
+        await readConnection.OpenAsync();
+        await using var readCommand = new MySqlCommand(
+            "SELECT status FROM match_notifications WHERE id = @id;", readConnection);
+        readCommand.Parameters.AddWithValue("@id", pendingNotificationId);
+
+        Assert.Equal("CANCELLED", (string)(await readCommand.ExecuteScalarAsync())!);
     }
 
     // Scenario 6: once Confirmed, the lost reporter can read back the finder's stored contact details.

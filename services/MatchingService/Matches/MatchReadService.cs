@@ -2,26 +2,22 @@ using MatchingService.Claims;
 
 namespace MatchingService.Matches;
 
-public sealed class MatchReadService
+public sealed class MatchReadService(
+    IMatchReadRepository repository)
 {
-    private static readonly HashSet<string> Sections =
-        new(StringComparer.Ordinal)
-        {
-            "active",
-            "waiting-on-you",
-            "waiting-on-other",
-            "confirmed",
-            "rejected",
-            "closed",
-            "all"
-        };
-
-    private readonly IMatchReadRepository _repository;
-
-    public MatchReadService(IMatchReadRepository repository)
-    {
-        _repository = repository;
-    }
+    private static readonly HashSet<string>
+        Sections =
+            new(StringComparer.Ordinal)
+            {
+                "active",
+                "waiting-on-you",
+                "waiting-on-other",
+                "confirmed",
+                "rejected",
+                "deactivated",
+                "closed",
+                "all"
+            };
 
     public async Task<MatchPage> GetPageAsync(
         Guid userId,
@@ -30,12 +26,14 @@ public sealed class MatchReadService
         int size,
         CancellationToken cancellationToken)
     {
-        var normalizedSection = section.Trim().ToLowerInvariant();
+        var normalized =
+            section.Trim()
+                .ToLowerInvariant();
 
-        if (!Sections.Contains(normalizedSection))
+        if (!Sections.Contains(normalized))
         {
             throw new ClaimException(
-                StatusCodes.Status400BadRequest,
+                400,
                 "Select a valid matches section.");
         }
 
@@ -43,42 +41,45 @@ public sealed class MatchReadService
             size is < 1 or > 100)
         {
             throw new ClaimException(
-                StatusCodes.Status400BadRequest,
-                "Page must be between 1 and 100000, " +
-                "and size must be between 1 and 100.");
+                400,
+                "Page must be between 1 and 100000, and size between 1 and 100.");
         }
 
-        var result = await _repository.GetPageAsync(
-            userId,
-            normalizedSection,
-            page,
-            size,
-            cancellationToken);
-
-        var entries = result.Items
-            .Select(match => ToEntry(match, userId))
-            .ToList();
+        var result =
+            await repository.GetPageAsync(
+                userId,
+                normalized,
+                page,
+                size,
+                cancellationToken);
 
         return new MatchPage(
-            entries,
+            result.Items
+                .Select(match =>
+                    ToEntry(
+                        match,
+                        userId))
+                .ToList(),
             page,
             size,
             result.TotalCount);
     }
 
-    public async Task<MatchListEntry> GetByIdAsync(
-        Guid matchId,
-        Guid userId,
-        CancellationToken cancellationToken)
+    public async Task<MatchListEntry>
+        GetByIdAsync(
+            Guid matchId,
+            Guid userId,
+            CancellationToken cancellationToken)
     {
-        var match = await _repository.GetByIdAsync(
-            matchId,
-            cancellationToken);
+        var match =
+            await repository.GetByIdAsync(
+                matchId,
+                cancellationToken);
 
         if (match is null)
         {
             throw new ClaimException(
-                StatusCodes.Status404NotFound,
+                404,
                 "Match not found.");
         }
 
@@ -86,66 +87,117 @@ public sealed class MatchReadService
             match.FinderId != userId)
         {
             throw new ClaimException(
-                StatusCodes.Status403Forbidden,
+                403,
                 "You do not have permission to view this match.");
         }
 
-        if (!match.IsActive ||
-            !IsVisibleStatus(match.Status))
+        var normallyVisible =
+            match.IsActive &&
+            (match.Status is
+                "LOST_REPORTER_CONFIRMED"
+                or "FINDER_CONFIRMED"
+                or "CONFIRMED"
+                or "REJECTED");
+
+        if (!normallyVisible &&
+            !IsVisibleDeactivatedMatch(
+                match))
         {
             throw new ClaimException(
-                StatusCodes.Status404NotFound,
+                404,
                 "Match not found.");
         }
 
-        return ToEntry(match, userId);
+        return ToEntry(
+            match,
+            userId);
     }
 
-    private static bool IsVisibleStatus(string status)
-    {
-        return status is
-            "LOST_REPORTER_CONFIRMED" or
-            "FINDER_CONFIRMED" or
-            "CONFIRMED" or
-            "REJECTED";
-    }
+    private static bool
+        IsVisibleDeactivatedMatch(
+            StoredMatch match) =>
+        !match.IsActive &&
+        (match.DeactivationReason is
+            "ITEM_DELETED"
+            or "ITEM_RESOLVED"
+            or "MATCH_CONFIRMED_ELSEWHERE"
+            or "ITEM_UPDATED_NO_LONGER_MATCHES") &&
+        (match.Status is
+            "AWAITING_CLAIMANT_CONFIRMATION"
+            or "LOST_REPORTER_CONFIRMED"
+            or "FINDER_CONFIRMED");
 
     private static MatchListEntry ToEntry(
         StoredMatch match,
         Guid userId)
     {
-        var isLostReporter = match.LostReporterId == userId;
-        var isClaimant = match.ClaimantId == userId;
+        var lostReporter =
+            match.LostReporterId == userId;
 
-        var isYourTurn =
-            (isLostReporter &&
-             match.Status == "FINDER_CONFIRMED") ||
-            (!isLostReporter &&
-             match.Status == "LOST_REPORTER_CONFIRMED");
+        var claimant =
+            match.ClaimantId == userId;
 
-        var section = match.Status switch
-        {
-            "CONFIRMED" => "confirmed",
-            "REJECTED" => "rejected",
-            _ => isYourTurn
-                ? "waiting-on-you"
-                : "waiting-on-other"
-        };
+        var deactivated =
+            IsVisibleDeactivatedMatch(
+                match);
+
+        var yourTurn =
+            match.IsActive &&
+            ((lostReporter &&
+              match.Status ==
+                  "FINDER_CONFIRMED") ||
+             (!lostReporter &&
+              match.Status ==
+                  "LOST_REPORTER_CONFIRMED"));
+
+        var section = deactivated
+            ? "deactivated"
+            : match.Status switch
+            {
+                "CONFIRMED" =>
+                    "confirmed",
+
+                "REJECTED" =>
+                    "rejected",
+
+                _ => yourTurn
+                    ? "waiting-on-you"
+                    : "waiting-on-other"
+            };
 
         return new MatchListEntry(
             match.Id,
-            match.Status,
+            deactivated
+                ? "DEACTIVATED"
+                : match.Status,
             match.Score,
             match.CreatedAt,
-            isLostReporter ? "LOST" : "FOUND",
-            isClaimant,
-            isClaimant
+            lostReporter
+                ? "LOST"
+                : "FOUND",
+            claimant,
+            claimant
                 ? "You claimed this item"
                 : "Someone claimed your item",
             section,
-            isYourTurn,
-            isLostReporter ? match.Found : match.Lost,
+            yourTurn,
+            lostReporter
+                ? match.Found
+                : match.Lost,
             match.Lost,
-            match.Found);
+            match.Found)
+        {
+            DeactivatedAt =
+                match.DeactivatedAt,
+
+            DeactivationReason =
+                match.DeactivationReason,
+
+            DeactivatedItemId =
+                match.DeactivatedItemId,
+
+            DeactivatedItemType =
+                match.DeactivatedItemType
+        };
     }
 }

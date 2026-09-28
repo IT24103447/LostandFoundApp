@@ -26,10 +26,10 @@ export function MatchedItemsPage() {
       <main className="mx-auto max-w-5xl px-6 py-10">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-slate-900">
               Matched Items
             </h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-slate-600">
               Review claims linked to your lost and found reports.
             </p>
           </div>
@@ -45,10 +45,10 @@ export function MatchedItemsPage() {
         </div>
 
         {state.status === "loading" ? (
-          <p role="status">Loading matches…</p>
+          <p role="status">Loading matches...</p>
         ) : state.status === "error" ? (
-          <div role="alert" className="rounded-xl bg-red-50 p-5">
-            <p className="text-red-700">{state.error}</p>
+          <div role="alert" className="rounded-xl bg-rose-50 p-5">
+            <p className="text-rose-700">{state.error}</p>
             <button
               type="button"
               onClick={refresh}
@@ -58,7 +58,7 @@ export function MatchedItemsPage() {
             </button>
           </div>
         ) : state.data.totalCount === 0 ? (
-          <p className="rounded-xl border bg-white p-6 text-gray-600">
+          <p className="rounded-xl border bg-white p-6 text-slate-600">
             No potential matches yet
           </p>
         ) : (
@@ -82,6 +82,11 @@ export function MatchedItemsPage() {
               section="rejected"
               title="Rejected"
               initiallyOpen={false}
+            />
+            <MatchSectionPanel
+              section="deactivated"
+              title="Deactivated"
+              initiallyOpen
             />
           </div>
         )}

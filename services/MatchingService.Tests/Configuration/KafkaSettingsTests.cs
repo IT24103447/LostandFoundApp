@@ -2,12 +2,7 @@ using MatchingService.Configuration;
 
 namespace MatchingService.Tests.Configuration;
 
-/// <summary>
-/// Story 1, Scenarios 2 and 10 contract tests for the Kafka topic names Matching Service subscribes to.
-/// Item Service publishes to "{TopicPrefix}.lost_item.created", ".found_item.created", ".lost_item.updated"
-/// and ".found_item.updated". A mismatch here would silently stop events arriving, so the exact names
-/// are pinned.
-/// </summary>
+/// <summary>Story 1 contract tests pinning the Kafka topic names Matching Service subscribes to, matching what Item Service publishes.</summary>
 public sealed class KafkaSettingsTests
 {
     // The four topic names, built from the default prefix, match what Item Service publishes to.

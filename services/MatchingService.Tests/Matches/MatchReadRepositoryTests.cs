@@ -4,18 +4,8 @@ using MySqlConnector;
 
 namespace MatchingService.Tests.Matches;
 
-/// <summary>
-/// Story 3 (view potential matches) contract tests for MatchReadRepository's own SQL, against a real,
-/// disposable MySQL database (Testcontainers, via ClaimServiceDbFixture, reused from Story 2). This is
-/// the Matches page's read side: MatchReadServiceTests mocks IMatchReadRepository entirely, which
-/// proves MatchReadService's own section/ownership logic but never runs a real query; this class is
-/// the counterpart that proves the section filters (GetSectionFilter) and the count-plus-page
-/// transaction actually behave correctly against real SQL, matching Story 1's pairing of a
-/// mocked-repository test class with a separate real-database one. Rows are inserted directly with
-/// arbitrary status/is_active combinations (ClaimRepository.CreateAsync, Story 2's write side, only
-/// ever writes the two half-confirmed statuses, so it cannot produce the CONFIRMED/REJECTED/
-/// AUTO_REJECTED_LOW_CONFIDENCE/inactive rows these tests need).
-/// </summary>
+/// <summary>Story 3 contract tests for MatchReadRepository's own SQL against real MySQL — the real-database counterpart to MatchReadServiceTests' mocked-repository tests. Rows are inserted directly since ClaimRepository.CreateAsync can't produce every status these tests need.</summary>
+[Collection("Docker Integration Tests 6")]
 public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixture>
 {
     private readonly ClaimServiceDbFixture _fixture;
@@ -33,7 +23,10 @@ public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixtu
         string status,
         bool isActive = true,
         Guid? claimantId = null,
-        DateTime? createdAt = null)
+        DateTime? createdAt = null,
+        string? deactivationReason = null,
+        Guid? deactivatedItemId = null,
+        string? deactivatedItemType = null)
     {
         var id = Guid.NewGuid();
         var snapshot = """{"id":"11111111-1111-1111-1111-111111111111","type":"LOST","title":"t","category":"c","description":"d","date":"2026-09-01","location":"l"}""";
@@ -42,11 +35,13 @@ public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixtu
             INSERT INTO matches (
                 id, lost_item_id, found_item_id, lost_reporter_id, finder_id, claimant_id,
                 claimant_role, status, is_active, confidence_score, scoring_version,
-                lost_snapshot, found_snapshot, created_at, updated_at
+                lost_snapshot, found_snapshot, created_at, updated_at,
+                deactivated_at, deactivation_reason, deactivated_item_id, deactivated_item_type
             ) VALUES (
                 @id, @lostItemId, @foundItemId, @lostReporterId, @finderId, @claimantId,
                 'LOST', @status, @isActive, 75.00, 'text-v1',
-                @snapshot, @snapshot, @createdAt, @createdAt
+                @snapshot, @snapshot, @createdAt, @createdAt,
+                @deactivatedAt, @deactivationReason, @deactivatedItemId, @deactivatedItemType
             );
             """;
 
@@ -64,6 +59,11 @@ public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixtu
         command.Parameters.AddWithValue("@isActive", isActive);
         command.Parameters.AddWithValue("@snapshot", snapshot);
         command.Parameters.AddWithValue("@createdAt", createdAt ?? DateTime.UtcNow);
+        command.Parameters.AddWithValue(
+            "@deactivatedAt", deactivationReason is null ? DBNull.Value : (object)DateTime.UtcNow);
+        command.Parameters.AddWithValue("@deactivationReason", (object?)deactivationReason ?? DBNull.Value);
+        command.Parameters.AddWithValue("@deactivatedItemId", (object?)deactivatedItemId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@deactivatedItemType", (object?)deactivatedItemType ?? DBNull.Value);
 
         await command.ExecuteNonQueryAsync();
         return id;
@@ -254,5 +254,109 @@ public sealed class MatchReadRepositoryTests : IClassFixture<ClaimServiceDbFixtu
 
         Assert.Equal(0, page.TotalCount);
         Assert.Empty(page.Items);
+    }
+
+    // ---- Story 7: the "deactivated" section, and deactivated matches folding into "closed"/"all" ----
+
+    [Fact]
+    public async Task GetPageAsync_DeactivatedSection_ReturnsOnlyDeactivatedHalfConfirmedMatches()
+    {
+        var userId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var deactivated = await InsertMatchAsync(
+            userId, Guid.NewGuid(), "LOST_REPORTER_CONFIRMED", isActive: false,
+            deactivationReason: "ITEM_RESOLVED", deactivatedItemId: itemId, deactivatedItemType: "LOST");
+        await InsertMatchAsync(userId, Guid.NewGuid(), "CONFIRMED");
+        await InsertMatchAsync(userId, Guid.NewGuid(), "LOST_REPORTER_CONFIRMED");
+
+        var page = await _repository.GetPageAsync(userId, "deactivated", 1, 20, CancellationToken.None);
+
+        var match = Assert.Single(page.Items);
+        Assert.Equal(deactivated, match.Id);
+        Assert.Equal("ITEM_RESOLVED", match.DeactivationReason);
+        Assert.Equal(itemId, match.DeactivatedItemId);
+        Assert.Equal("LOST", match.DeactivatedItemType);
+    }
+
+    [Theory]
+    [InlineData("ITEM_RESOLVED")]
+    [InlineData("ITEM_DELETED")]
+    [InlineData("MATCH_CONFIRMED_ELSEWHERE")]
+    public async Task GetPageAsync_DeactivatedSection_IncludesEveryDeactivationReason(string reason)
+    {
+        var userId = Guid.NewGuid();
+        var deactivated = await InsertMatchAsync(
+            userId, Guid.NewGuid(), "FINDER_CONFIRMED", isActive: false, deactivationReason: reason);
+
+        var page = await _repository.GetPageAsync(userId, "deactivated", 1, 20, CancellationToken.None);
+
+        Assert.Equal(deactivated, Assert.Single(page.Items).Id);
+    }
+
+    [Fact]
+    public async Task GetPageAsync_DeactivatedRejectedMatch_IsNotShownAsDeactivated()
+    {
+        /* A match already REJECTED before its item was later resolved/deleted is a terminal outcome
+           in its own right, not a "history" case this section is for - ItemLifecycleRepository itself
+           never deactivates a REJECTED match, but this proves the read-side filter agrees. */
+        var userId = Guid.NewGuid();
+        await InsertMatchAsync(
+            userId, Guid.NewGuid(), "REJECTED", isActive: false, deactivationReason: "ITEM_RESOLVED");
+
+        var page = await _repository.GetPageAsync(userId, "deactivated", 1, 20, CancellationToken.None);
+
+        Assert.Empty(page.Items);
+    }
+
+    [Fact]
+    public async Task GetPageAsync_ClosedSection_IncludesDeactivatedMatchesAlongsideConfirmedAndRejected()
+    {
+        var userId = Guid.NewGuid();
+        var confirmed = await InsertMatchAsync(userId, Guid.NewGuid(), "CONFIRMED");
+        var rejected = await InsertMatchAsync(userId, Guid.NewGuid(), "REJECTED");
+        var deactivated = await InsertMatchAsync(
+            userId, Guid.NewGuid(), "LOST_REPORTER_CONFIRMED", isActive: false,
+            deactivationReason: "ITEM_DELETED");
+
+        var page = await _repository.GetPageAsync(userId, "closed", 1, 20, CancellationToken.None);
+
+        Assert.Equal(
+            new[] { confirmed, rejected, deactivated }.OrderBy(id => id),
+            page.Items.Select(m => m.Id).OrderBy(id => id));
+    }
+
+    [Fact]
+    public async Task GetPageAsync_AllSection_IncludesDeactivatedMatches()
+    {
+        var userId = Guid.NewGuid();
+        var active = await InsertMatchAsync(userId, Guid.NewGuid(), "LOST_REPORTER_CONFIRMED");
+        var deactivated = await InsertMatchAsync(
+            userId, Guid.NewGuid(), "FINDER_CONFIRMED", isActive: false,
+            deactivationReason: "MATCH_CONFIRMED_ELSEWHERE");
+
+        var page = await _repository.GetPageAsync(userId, "all", 1, 20, CancellationToken.None);
+
+        Assert.Equal(
+            new[] { active, deactivated }.OrderBy(id => id),
+            page.Items.Select(m => m.Id).OrderBy(id => id));
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_DeactivatedMatch_ReturnsTheAuditFields()
+    {
+        var lostReporterId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var matchId = await InsertMatchAsync(
+            lostReporterId, Guid.NewGuid(), "FINDER_CONFIRMED", isActive: false,
+            deactivationReason: "ITEM_RESOLVED", deactivatedItemId: itemId, deactivatedItemType: "LOST");
+
+        var match = await _repository.GetByIdAsync(matchId, CancellationToken.None);
+
+        Assert.NotNull(match);
+        Assert.False(match!.IsActive);
+        Assert.Equal("ITEM_RESOLVED", match.DeactivationReason);
+        Assert.Equal(itemId, match.DeactivatedItemId);
+        Assert.Equal("LOST", match.DeactivatedItemType);
+        Assert.NotNull(match.DeactivatedAt);
     }
 }

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
+using MatchingService.Databases;
 using MatchingService.Repositories;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -9,34 +10,67 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Moq;
+using MySqlConnector;
 using Testcontainers.Kafka;
+using Testcontainers.MySql;
 using MatchingService.Tests.Support;
 using Xunit;
 
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Real, disposable Kafka broker (Testcontainers) wired to the real ItemCreatedEventConsumer and
-/// ImageDescriptionEventHandler. IImageDescriptionRepository is mocked here on purpose. This factory
-/// proves the Kafka wiring itself (subscribe, consume, deserialize, dispatch, commit) works against a
-/// real broker, not the SQL layer. See MatchingServiceDbApiFactory for that, kept as a separate real
-/// dependency rather than combining two real containers in one test, matching ItemServiceApiFactory's
-/// own pattern of real MySQL, faked Kafka, never both real at once.
-/// ImageProcessing:Enabled stays false (the default), so the Gemini client and ImageDescriptionWorker
-/// are never registered and no Gemini/Blob config is needed for this test.
+/// Real Kafka broker AND real MySQL (both Testcontainers), wired to the real ItemCreatedEventConsumer.
+/// IImageDescriptionRepository is mocked; MatchReevaluationEventHandler's own repository is real, since
+/// it opens a real MySQL connection on every message regardless of topic.
 /// </summary>
 public sealed class MatchingServiceKafkaApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly KafkaContainer _kafka = new KafkaBuilder().Build();
+    private readonly MySqlContainer _mysql = new MySqlBuilder()
+        .WithImage("mysql:8")
+        .WithDatabase("matching_service")
+        .WithUsername("matching_service_test")
+        .WithPassword("test_password")
+        .Build();
 
     public Mock<IImageDescriptionRepository> Repository { get; } = new();
 
     public string GetBootstrapAddress() => _kafka.GetBootstrapAddress();
 
+    public MySqlConnection OpenDbConnection()
+    {
+        var connection = new MySqlConnection(_connectionString);
+        connection.Open();
+        return connection;
+    }
+
+    private string _connectionString = string.Empty;
+
     public async Task InitializeAsync()
     {
         SetPreBuildEnvironmentVariables();
-        await _kafka.StartAsync();
+        await Task.WhenAll(_kafka.StartAsync(), _mysql.StartAsync());
+
+        _connectionString = new MySqlConnectionStringBuilder(_mysql.GetConnectionString())
+        {
+            SslMode = MySqlSslMode.None
+        }.ConnectionString;
+
+        /* Migrations run directly (ClaimServiceDbFixture's pattern), not via "Development" - that would
+           also flip on every other hosted consumer's own dev-only topic auto-creation. */
+        var migrationConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:MySql"] = _connectionString
+            })
+            .Build();
+
+        var migrationServices = new ServiceCollection()
+            .AddSingleton<IConfiguration>(migrationConfiguration)
+            .AddSingleton<IDbConnectionFactory, DbConnectionFactory>()
+            .BuildServiceProvider();
+
+        DbInitializer.RunPendingMigrations(migrationServices, migrationConfiguration);
 
         /* Create all four topics explicitly before the consumer ever subscribes (the created and updated
            topics for both lost and found items). Relying on lazy
@@ -57,8 +91,6 @@ public sealed class MatchingServiceKafkaApiFactory : WebApplicationFactory<Progr
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        /* Not "Development": DbInitializer must not try to run migrations against a real database.
-           This test only needs the Kafka pipeline, not MySQL. */
         builder.UseEnvironment("IntegrationTestingKafka");
 
         builder.ConfigureAppConfiguration((_, config) =>
@@ -68,10 +100,7 @@ public sealed class MatchingServiceKafkaApiFactory : WebApplicationFactory<Progr
                 ["Kafka:BootstrapServers"] = _kafka.GetBootstrapAddress(),
                 ["Kafka:GroupId"] = $"matching-service-tests-{Guid.NewGuid():N}",
                 ["Kafka:TopicPrefix"] = "items",
-
-                /* Never dereferenced: the repository is fully replaced below, and
-                   ImageProcessing:Enabled stays false so nothing else touches this connection string. */
-                ["ConnectionStrings:MySql"] = "Server=unused;Database=unused;Uid=unused;Pwd=unused;"
+                ["ConnectionStrings:MySql"] = _connectionString
             };
 
             config.AddInMemoryCollection(dict);
@@ -100,5 +129,9 @@ public sealed class MatchingServiceKafkaApiFactory : WebApplicationFactory<Progr
         Environment.SetEnvironmentVariable("ItemService__BaseUrl", "https://item-service.invalid");
     }
 
-    async Task IAsyncLifetime.DisposeAsync() => await _kafka.DisposeAsync();
+    async Task IAsyncLifetime.DisposeAsync()
+    {
+        await _kafka.DisposeAsync();
+        await _mysql.DisposeAsync();
+    }
 }

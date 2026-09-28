@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-MS-11 - Story 7 Deactivated Matches Read Load" enabled="true">
+      <stringProp name="TestPlan.comments">Story 7 (item lifecycle -&gt; match deactivation), read-side load against the new "deactivated" section and the two sections it now folds into ("closed", "all") - MatchQueriesController/MatchReadRepository's own new filters, not exercised by plan 08 (which predates Story 7). THREADS concurrent users, each authenticated as the same real user (AUTH_TOKEN), each mirroring the real Matched Items page's own request shape for these three sections plus one single-match read for a deactivated match. None of these mutate anything, so the same account and the same deactivated match id are reused (recycled) across every thread and iteration.
+
+Variables: HOST, PORT, THREADS and RAMP_SECONDS follow the same convention as every other plan in this repo (defaults: localhost, 5179, 20, 10). AUTH_TOKEN is the JWT from POST /api/auth/login for a user with at least one deactivated match (one whose item was resolved/deleted, or lost a confirmed-elsewhere race, while it was still Awaiting Claimant Confirmation/Lost Reporter Confirmed/Finder Confirmed). DEACTIVATED_MATCH_ID is that match's own id, for the details sampler.</stringProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument"><stringProp name="Argument.name">HOST</stringProp><stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp></elementProp>
+          <elementProp name="PORT" elementType="Argument"><stringProp name="Argument.name">PORT</stringProp><stringProp name="Argument.value">${__P(PORT,5179)}</stringProp></elementProp>
+          <elementProp name="AUTH_TOKEN" elementType="Argument"><stringProp name="Argument.name">AUTH_TOKEN</stringProp><stringProp name="Argument.value">${__P(AUTH_TOKEN,SET_ME)}</stringProp></elementProp>
+          <elementProp name="DEACTIVATED_MATCH_ID" elementType="Argument"><stringProp name="Argument.name">DEACTIVATED_MATCH_ID</stringProp><stringProp name="Argument.value">${__P(DEACTIVATED_MATCH_ID,SET_ME)}</stringProp></elementProp>
+          <elementProp name="THREADS" elementType="Argument"><stringProp name="Argument.name">THREADS</stringProp><stringProp name="Argument.value">${__P(THREADS,20)}</stringProp></elementProp>
+          <elementProp name="RAMP_SECONDS" elementType="Argument"><stringProp name="Argument.name">RAMP_SECONDS</stringProp><stringProp name="Argument.value">${__P(RAMP_SECONDS,10)}</stringProp></elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Owner authentication" enabled="true">
+        <stringProp name="TestPlan.comments">Sends the JWT as the auth_token cookie, the same way the browser does (MatchQueriesController sits behind the same JWT bearer handler as every other matches endpoint - ClaimRegistration.cs).</stringProp>
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="auth-cookie" elementType="Header"><stringProp name="Header.name">Cookie</stringProp><stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp></elementProp>
+        </collectionProp>
+      </HeaderManager>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Concurrent deactivated-matches viewers" enabled="true">
+        <stringProp name="TestPlan.comments">THREADS users, one loop each, ramped up over RAMP_SECONDS. A failed sample stops that user only.</stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">STOPTHREAD</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><stringProp name="LoopController.loops">1</stringProp><boolProp name="LoopController.continue_forever">false</boolProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">${THREADS}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${RAMP_SECONDS}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Scenario 5 - Deactivated section" enabled="true">
+          <stringProp name="TestPlan.comments">GET /api/matches?section=deactivated&amp;page=1&amp;size=10. The new section this story adds - only matches deactivated while still half-confirmed, with a qualifying reason.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="section" elementType="HTTPArgument"><stringProp name="Argument.name">section</stringProp><stringProp name="Argument.value">deactivated</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+              <elementProp name="page" elementType="HTTPArgument"><stringProp name="Argument.name">page</stringProp><stringProp name="Argument.value">1</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+              <elementProp name="size" elementType="HTTPArgument"><stringProp name="Argument.name">size</stringProp><stringProp name="Argument.value">10</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Deactivated returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Scenario 5 - Closed section (now includes deactivated)" enabled="true">
+          <stringProp name="TestPlan.comments">GET /api/matches?section=closed&amp;page=1&amp;size=10. Widened by this story to fold deactivated matches in alongside Confirmed/Rejected.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="section" elementType="HTTPArgument"><stringProp name="Argument.name">section</stringProp><stringProp name="Argument.value">closed</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+              <elementProp name="page" elementType="HTTPArgument"><stringProp name="Argument.name">page</stringProp><stringProp name="Argument.value">1</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+              <elementProp name="size" elementType="HTTPArgument"><stringProp name="Argument.name">size</stringProp><stringProp name="Argument.value">10</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Closed returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Scenario 5 - All section (now includes deactivated)" enabled="true">
+          <stringProp name="TestPlan.comments">GET /api/matches?section=all&amp;page=1&amp;size=10. Widened the same way as "closed".</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="section" elementType="HTTPArgument"><stringProp name="Argument.name">section</stringProp><stringProp name="Argument.value">all</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+              <elementProp name="page" elementType="HTTPArgument"><stringProp name="Argument.name">page</stringProp><stringProp name="Argument.value">1</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+              <elementProp name="size" elementType="HTTPArgument"><stringProp name="Argument.name">size</stringProp><stringProp name="Argument.value">10</stringProp><boolProp name="HTTPArgument.always_encode">false</boolProp></elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="All returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Scenario 6 - Get deactivated match details" enabled="true">
+          <stringProp name="TestPlan.comments">GET /api/matches/{DEACTIVATED_MATCH_ID}. MatchReadService.IsVisibleDeactivatedMatch's gate under load - the shared review screen's own read for a deactivated match, showing its audit fields (deactivated_at/deactivation_reason/deactivated_item_id/deactivated_item_type) read-only.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/${DEACTIVATED_MATCH_ID}</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Deactivated match details returns 200" enabled="true">
+            <stringProp name="TestPlan.comments">A non-200 here usually means DEACTIVATED_MATCH_ID is still SET_ME, belongs to a different user than AUTH_TOKEN, or isn't actually deactivated with a qualifying reason/status.</stringProp>
+            <collectionProp name="Asserion.test_strings"><stringProp name="1">200</stringProp></collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

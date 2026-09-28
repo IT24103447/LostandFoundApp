@@ -15,14 +15,9 @@ using Xunit;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Real, disposable MySQL (Testcontainers) plus a real ASP.NET Core host with the actual JWT bearer
-/// authentication pipeline (ClaimRegistration.AddManualClaims) switched on: this is the one place the
-/// Story 2 tests exercise real JWT creation and validation end to end, rather than calling
-/// ClaimsController/MatchQueriesController's C# methods directly. Item Service is faked
-/// (ItemServiceHandler) by overriding ClaimItemClient's primary HttpMessageHandler in
-/// ConfigureTestServices, the standard way to fake a typed HttpClient's transport under
-/// WebApplicationFactory; no real network call ever leaves the process. Kafka's hosted consumer is
-/// removed, matching MatchingServiceDbApiFactory, since these tests never touch the image pipeline.
+/// Real MySQL plus a real ASP.NET Core host with the real JWT bearer pipeline switched on. Item
+/// Service is faked via ClaimItemClient's HttpMessageHandler; Kafka's hosted consumer is removed
+/// since these tests never touch the image pipeline.
 /// </summary>
 public sealed class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -72,10 +67,10 @@ public sealed class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLif
             // No real broker in this test.
             services.RemoveAll<IHostedService>();
 
-            // Redirects ClaimItemClient's real HttpClient onto the fake Item Service, the standard way
-            // to fake a typed client's transport under WebApplicationFactory. The client's BaseAddress
-            // stays whatever ItemService:BaseUrl resolved to (never actually dialled): this handler
-            // intercepts every request regardless of target host.
+            /* Redirects ClaimItemClient's real HttpClient onto the fake Item Service, the standard way
+               to fake a typed client's transport under WebApplicationFactory. The client's BaseAddress
+               stays whatever ItemService:BaseUrl resolved to (never actually dialled): this handler
+               intercepts every request regardless of target host. */
             services.AddHttpClient<ClaimItemClient>()
                 .ConfigurePrimaryHttpMessageHandler(() => ItemServiceHandler);
         });

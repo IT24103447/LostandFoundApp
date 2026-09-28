@@ -14,15 +14,10 @@ using Xunit;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Story 4/5 shared (the outbox-to-Kafka publish half of the confirmation pipeline, used by both
-/// LostReporterDecisionRepository and FinderDecisionRepository on confirm). Real, disposable MySQL
-/// (Testcontainers, via ClaimServiceDbFixture) AND a real, disposable Kafka broker (Testcontainers) at
-/// once, deliberately - the rest of this project avoids combining two real containers in one test (see
-/// MatchingServiceKafkaApiFactory's own note), but MatchConfirmationPublisher's entire job is relaying
-/// a row written to real MySQL onto a real broker, so there's no way to prove that relay genuinely
-/// works without both being real. Classes are constructed directly, the same way ClaimServiceDbFixture-
-/// based tests already do, rather than through a full WebApplicationFactory host.
+/// Story 4/5 shared confirmation-pipeline tests. Real MySQL and a real Kafka broker at once,
+/// deliberately, since MatchConfirmationPublisher's job is relaying a real row onto a real broker.
 /// </summary>
+[Collection("Docker Integration Tests 3")]
 public sealed class MatchConfirmationKafkaIntegrationTests : IClassFixture<ClaimServiceDbFixture>, IAsyncLifetime
 {
     private readonly ClaimServiceDbFixture _dbFixture;
@@ -51,8 +46,7 @@ public sealed class MatchConfirmationKafkaIntegrationTests : IClassFixture<Claim
 
     public async Task DisposeAsync() => await _kafka.DisposeAsync();
 
-    // A fixed, non-Development environment name: skips EnsureDevelopmentTopicAsync's own polling entirely,
-    // since the topic is already pre-created above, matching MatchingServiceKafkaApiFactory's convention.
+    // A fixed, non-Development environment skips EnsureDevelopmentTopicAsync's polling since the topic is already pre-created above.
     private sealed class FixedHostEnvironment : IHostEnvironment
     {
         public string EnvironmentName { get; set; } = "IntegrationTestingKafka";
@@ -94,10 +88,7 @@ public sealed class MatchConfirmationKafkaIntegrationTests : IClassFixture<Claim
         return id;
     }
 
-    // Story 4/5 shared: a match confirmed through either decision repository writes a real outbox row,
-    // and the real MatchConfirmationPublisher (a genuine BackgroundService, not a mock) picks it up and
-    // delivers it to a real Kafka broker - the one piece neither repository's own tests (real MySQL,
-    // no Kafka) nor a mocked-producer test could prove on their own.
+    // A match confirmed through either decision repository writes a real outbox row that the real MatchConfirmationPublisher relays to a real broker.
     [Fact]
     public async Task RealConfirmedMatch_IsRelayedByThePublisherToARealKafkaBroker()
     {

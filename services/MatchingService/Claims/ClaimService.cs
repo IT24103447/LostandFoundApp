@@ -70,7 +70,8 @@ public sealed class ClaimService
         string? claimantEmail = null,
         string? claimantPhone = null)
     {
-        if (string.IsNullOrWhiteSpace(request.PreviewVersion))
+        if (string.IsNullOrWhiteSpace(
+            request.PreviewVersion))
         {
             throw new ClaimException(
                 StatusCodes.Status400BadRequest,
@@ -105,8 +106,10 @@ public sealed class ClaimService
                 "These reports do not meet the 60% threshold.");
         }
 
-        if (string.IsNullOrWhiteSpace(claimantEmail) ||
-            string.IsNullOrWhiteSpace(claimantPhone))
+        if (string.IsNullOrWhiteSpace(
+                claimantEmail) ||
+            string.IsNullOrWhiteSpace(
+                claimantPhone))
         {
             throw new ClaimException(
                 StatusCodes.Status409Conflict,
@@ -118,10 +121,38 @@ public sealed class ClaimService
             preview,
             userId,
             cancellationToken,
-            pair.ClaimantRole == "FOUND" ? claimantEmail : null,
-            pair.ClaimantRole == "FOUND" ? claimantPhone : null,
-            pair.ClaimantRole == "LOST" ? claimantEmail : null,
-            pair.ClaimantRole == "LOST" ? claimantPhone : null);
+            pair.ClaimantRole == "FOUND"
+                ? claimantEmail
+                : null,
+            pair.ClaimantRole == "FOUND"
+                ? claimantPhone
+                : null,
+            pair.ClaimantRole == "LOST"
+                ? claimantEmail
+                : null,
+            pair.ClaimantRole == "LOST"
+                ? claimantPhone
+                : null);
+    }
+
+    public Task<ClaimPreview> ScoreExistingAsync(
+        ItemReport lost,
+        ItemReport found,
+        CancellationToken cancellationToken)
+    {
+        if (lost.Id == Guid.Empty ||
+            found.Id == Guid.Empty)
+        {
+            throw new InvalidDataException(
+                "An existing match has an invalid item ID.");
+        }
+
+        return CalculateAsync(
+            new VerifiedPair(
+                lost,
+                found,
+                "LOST"),
+            cancellationToken);
     }
 
     private async Task<VerifiedPair> VerifyPairAsync(
@@ -235,26 +266,33 @@ public sealed class ClaimService
 
         if (bothReportsHavePhotos)
         {
-            lostImage = await _repository.GetImageEvidenceAsync(
-                pair.Lost,
-                "LOST",
-                cancellationToken);
+            lostImage =
+                await _repository.GetImageEvidenceAsync(
+                    pair.Lost,
+                    "LOST",
+                    cancellationToken);
 
-            foundImage = await _repository.GetImageEvidenceAsync(
-                pair.Found,
-                "FOUND",
-                cancellationToken);
+            foundImage =
+                await _repository.GetImageEvidenceAsync(
+                    pair.Found,
+                    "FOUND",
+                    cancellationToken);
 
             imageDescription = Similarity(
                 lostImage.Description,
                 foundImage.Description);
 
             attributes = Similarity(
-                ReadAttributes(lostImage.AttributesJson),
-                ReadAttributes(foundImage.AttributesJson));
+                ReadAttributes(
+                    lostImage.AttributesJson),
+                ReadAttributes(
+                    foundImage.AttributesJson));
 
-            weightedScores.Add((imageDescription, 30m));
-            weightedScores.Add((attributes, 15m));
+            weightedScores.Add(
+                (imageDescription, 30m));
+
+            weightedScores.Add(
+                (attributes, 15m));
         }
 
         var totalWeight = weightedScores.Sum(
@@ -262,30 +300,41 @@ public sealed class ClaimService
 
         var score = Math.Round(
             weightedScores.Sum(
-                component => component.Score *
+                component =>
+                    component.Score *
                     component.Weight) / totalWeight,
             2,
             MidpointRounding.AwayFromZero);
 
-        var lostView = pair.Lost.ToView("LOST");
-        var foundView = pair.Found.ToView("FOUND");
+        var lostView =
+            pair.Lost.ToView("LOST");
 
-        var fingerprint = JsonSerializer.Serialize(new
-        {
-            ScoringVersion,
-            Lost = lostView,
-            Found = foundView,
-            LostOwner = pair.Lost.UserId,
-            FoundOwner = pair.Found.UserId,
-            LostPhotos = pair.Lost.PhotoUrls,
-            FoundPhotos = pair.Found.PhotoUrls,
-            LostEvidence = lostImage,
-            FoundEvidence = foundImage
-        });
+        var foundView =
+            pair.Found.ToView("FOUND");
 
-        var previewVersion = Convert.ToHexString(
-            SHA256.HashData(
-                Encoding.UTF8.GetBytes(fingerprint)));
+        var fingerprint = JsonSerializer.Serialize(
+            new
+            {
+                ScoringVersion,
+                Lost = lostView,
+                Found = foundView,
+                LostOwner =
+                    pair.Lost.UserId,
+                FoundOwner =
+                    pair.Found.UserId,
+                LostPhotos =
+                    pair.Lost.PhotoUrls,
+                FoundPhotos =
+                    pair.Found.PhotoUrls,
+                LostEvidence = lostImage,
+                FoundEvidence = foundImage
+            });
+
+        var previewVersion =
+            Convert.ToHexString(
+                SHA256.HashData(
+                    Encoding.UTF8.GetBytes(
+                        fingerprint)));
 
         return new ClaimPreview(
             lostView,
@@ -303,10 +352,13 @@ public sealed class ClaimService
                 attributes));
     }
 
-    private static bool HasCurrentPhoto(ItemReport report)
+    private static bool HasCurrentPhoto(
+        ItemReport report)
     {
         return report.PhotoUrls?.Any(
-            url => !string.IsNullOrWhiteSpace(url)) == true;
+            url =>
+                !string.IsNullOrWhiteSpace(url)) ==
+            true;
     }
 
     private static decimal Similarity(
@@ -323,30 +375,38 @@ public sealed class ClaimService
         }
 
         var common =
-            leftWords.Count(rightWords.Contains);
+            leftWords.Count(
+                rightWords.Contains);
 
         return Math.Round(
             200m * common /
-            (leftWords.Count + rightWords.Count),
+            (leftWords.Count +
+             rightWords.Count),
             2,
             MidpointRounding.AwayFromZero);
     }
 
-    private static HashSet<string> Tokenize(string text)
+    private static HashSet<string> Tokenize(
+        string text)
     {
         return WordPattern
-            .Matches(text.ToLowerInvariant())
+            .Matches(
+                text.ToLowerInvariant())
             .Cast<Match>()
             .Select(match => match.Value)
-            .Where(word => !StopWords.Contains(word))
-            .ToHashSet(StringComparer.Ordinal);
+            .Where(word =>
+                !StopWords.Contains(word))
+            .ToHashSet(
+                StringComparer.Ordinal);
     }
 
-    private static string ReadAttributes(string json)
+    private static string ReadAttributes(
+        string json)
     {
         try
         {
-            using var document = JsonDocument.Parse(json);
+            using var document =
+                JsonDocument.Parse(json);
 
             if (document.RootElement.ValueKind !=
                 JsonValueKind.Object)
@@ -354,11 +414,13 @@ public sealed class ClaimService
                 throw new JsonException();
             }
 
-            var values = new List<string>();
+            var values =
+                new List<string>();
 
             foreach (var name in AttributeNames)
             {
-                if (!document.RootElement.TryGetProperty(
+                if (!document.RootElement
+                    .TryGetProperty(
                         name,
                         out var value))
                 {
@@ -368,24 +430,29 @@ public sealed class ClaimService
                 if (value.ValueKind ==
                     JsonValueKind.String)
                 {
-                    values.Add(value.GetString() ?? "");
+                    values.Add(
+                        value.GetString() ?? "");
                 }
                 else if (value.ValueKind ==
                          JsonValueKind.Array)
                 {
-                    foreach (var entry in value.EnumerateArray())
+                    foreach (var entry in
+                        value.EnumerateArray())
                     {
                         if (entry.ValueKind ==
                             JsonValueKind.String)
                         {
                             values.Add(
-                                entry.GetString() ?? "");
+                                entry.GetString() ??
+                                "");
                         }
                     }
                 }
             }
 
-            return string.Join(" ", values);
+            return string.Join(
+                " ",
+                values);
         }
         catch (JsonException)
         {

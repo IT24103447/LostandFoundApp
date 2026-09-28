@@ -13,16 +13,7 @@ using Xunit;
 
 namespace MatchingService.Tests.Integration;
 
-/// <summary>
-/// Real, disposable MySQL (Testcontainers) running the app's own real migrations. This proves
-/// ImageDescriptionRepository's actual SQL, the unique-constraint idempotency, and the
-/// claim/lease/complete/fail lifecycle work against a real database, not just that the repository
-/// interface is called correctly (see the Kafka factory for that, kept separate on purpose. One real
-/// dependency per test matches ItemServiceApiFactory's own pattern).
-///
-/// DbInitializer requires the database to be named exactly "matching_service", so the container is
-/// configured to match. Kafka's hosted consumer is removed here since this test has no real broker.
-/// </summary>
+/// <summary>Real, disposable MySQL running the app's real migrations; Kafka's hosted consumer is removed since this factory has no real broker. DbInitializer requires the database named exactly "matching_service".</summary>
 public sealed class MatchingServiceDbApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly MySqlContainer _mysql = new MySqlBuilder()

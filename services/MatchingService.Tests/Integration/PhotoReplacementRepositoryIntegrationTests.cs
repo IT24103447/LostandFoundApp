@@ -6,16 +6,8 @@ using Xunit;
 
 namespace MatchingService.Tests.Integration;
 
-/// <summary>
-/// Story 1, Scenario 10 (photo replacement -> superseded description) integration tests. Proves the
-/// repository's real SQL against a real, disposable MySQL database (Testcontainers) running the app's
-/// own real migrations, including migration 003 that adds the superseded tracking columns.
-/// When a replacement photo's description reaches COMPLETED, the prior description(s) of the same item
-/// must be marked superseded, and GetLatestCurrentCompletedAsync must return only the latest
-/// non-superseded completed description. Until the replacement completes, the original stays current.
-/// This class has its own database fixture and every test completes or fails every row it creates,
-/// so tests here never leave pending rows behind for each other to claim.
-/// </summary>
+/// <summary>Story 1 photo-replacement integration tests. When a replacement photo's description reaches COMPLETED, prior descriptions of the same item are marked superseded, and GetLatestCurrentCompletedAsync returns only the latest non-superseded one.</summary>
+[Collection("Docker Integration Tests 4")]
 public sealed class PhotoReplacementRepositoryIntegrationTests : IClassFixture<MatchingServiceDbApiFactory>
 {
     private readonly MatchingServiceDbApiFactory _factory;

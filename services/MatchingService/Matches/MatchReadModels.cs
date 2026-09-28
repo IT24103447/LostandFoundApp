@@ -14,7 +14,13 @@ public sealed record MatchListEntry(
     bool IsYourTurn,
     ClaimItemView OtherItem,
     ClaimItemView Lost,
-    ClaimItemView Found);
+    ClaimItemView Found)
+{
+    public DateTime? DeactivatedAt { get; init; }
+    public string? DeactivationReason { get; init; }
+    public Guid? DeactivatedItemId { get; init; }
+    public string? DeactivatedItemType { get; init; }
+}
 
 public sealed record MatchPage(
     IReadOnlyList<MatchListEntry> Items,
@@ -32,7 +38,13 @@ public sealed record StoredMatch(
     decimal Score,
     DateTime CreatedAt,
     ClaimItemView Lost,
-    ClaimItemView Found);
+    ClaimItemView Found)
+{
+    public DateTime? DeactivatedAt { get; init; }
+    public string? DeactivationReason { get; init; }
+    public Guid? DeactivatedItemId { get; init; }
+    public string? DeactivatedItemType { get; init; }
+}
 
 public sealed record StoredMatchPage(
     IReadOnlyList<StoredMatch> Items,

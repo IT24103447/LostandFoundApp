@@ -4,24 +4,9 @@ using Xunit;
 
 namespace ClaimAndMatch.SeleniumTests;
 
-/// <summary>
-/// Story 2 (LF-173) browser coverage: the report picker popup, the preview/comparison, submitting a
-/// claim, and the resulting Matched Items page. Report creation itself (the wizard, photo dropzone) is
-/// Story 1's already-covered flow, driven here only as real setup for these scenarios, not re-tested.
-///
-/// Two real, already-seeded accounts play the two sides of every pair - see ClaimAndMatchFixture for
-/// why no registration/email-verification is needed. By convention throughout this file, User B
-/// (user2@example.com) only ever creates FOUND reports and User A (user1@example.com) only ever
-/// creates LOST reports for the cross-user pairs, which keeps "User B has zero lost reports" (used by
-/// the Scenario 1 empty-state test) true regardless of test execution order. Where a test needs a
-/// same-owner pair (Scenario 6) or a target report to click through from, User A creates both sides
-/// itself, deliberately, inside that one test.
-///
-/// Every report used here is created fresh, live, per test - never reusing the pre-existing item
-/// records already sitting in the dev database from earlier manual QA - because a lost/found pair can
-/// only be successfully claimed once (unique constraint), so a reused pair would only pass on the
-/// suite's first run.
-/// </summary>
+// Story 2: the report picker popup, preview/comparison, submitting a claim, and Matched Items.
+// User B only ever creates FOUND reports, User A only ever creates LOST reports for cross-user pairs,
+// keeping "User B has zero lost reports" true for the Scenario 1 empty-state test.
 [Trait("Story", "2")]
 public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
 {
@@ -34,9 +19,7 @@ public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
         _fixture = fixture;
     }
 
-    // Scenario 1 (empty state): "if none exist, the popup explains this and offers a link to create
-    // a report." User B never creates a lost report anywhere in this suite, so its candidates are
-    // always empty here regardless of what other tests already ran.
+    // Scenario 1: empty candidates show the empty-state message and a create-report link.
     [Fact]
     public void Candidates_NoOwnReportsOfOppositeType_ShowsEmptyStateWithCreateLink()
     {
@@ -56,10 +39,8 @@ public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
         Assert.Contains("/report-lost-item", createLink.GetAttribute("href"), StringComparison.Ordinal);
     }
 
-    // Scenarios 1 + 2: the picker lists my own active opposite-type reports by name, and selecting
-    // one shows both reports side by side with a similarity score before any match is created.
-    // Also covers Scenario 3's "either report has no image" branch: neither side has a photo here,
-    // and the preview still completes with a plain text/category score, no wait state.
+    // Scenarios 1 + 2: the picker lists my own candidates, selecting one previews both reports with
+    // a score. Also covers Scenario 3's no-image branch.
     [Fact]
     public void Selecting_ShowsOwnCandidates_AndPreviewShowsBothReportsWithScore()
     {
@@ -87,11 +68,8 @@ public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
         Assert.InRange(score, 0, 100);
     }
 
-    // Scenario 3, "wait" half: both sides have a photo and one is still (parked as) analysing -
-    // the preview must show the "still being analysed" message rather than a score. Real photo
-    // upload, real Kafka event, real worker-created row; only the row's processing state is forced,
-    // since natural Gemini analysis is currently blocked (Bugs_Sprint3.md, Known External Dependency
-    // Issue #1) and cannot be waited on deterministically.
+    // Scenario 3, wait half: one side's image analysis is still pending, so the preview shows a
+    // wait message instead of a score.
     [Fact]
     public void Preview_ImageAnalysisPending_ShowsWaitMessage()
     {
@@ -125,9 +103,8 @@ public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
             .Text.Contains("Similarity score", StringComparison.Ordinal));
     }
 
-    // Scenario 3, "both completed" half: both sides have a photo with a COMPLETED description -
-    // the preview must succeed (no wait message, no error) and include a score, proving the image
-    // branch is actually exercised rather than skipped.
+    // Scenario 3, completed half: both sides have a completed image description, so the preview
+    // succeeds with a score.
     [Fact]
     public void Preview_BothReportsHaveCompletedImageDescriptions_SucceedsWithoutWaiting()
     {
@@ -163,9 +140,8 @@ public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
         Assert.InRange(score, 0, 100);
     }
 
-    // Scenario 4: at or above the threshold, "Confirm and claim" creates the match and it shows up
-    // under Matched Items with the lost-reporter-confirmed status (User A, the lost-side owner, is
-    // the one submitting here).
+    // Scenario 4: an eligible score enables Confirm and claim, and the match then shows up in
+    // Matched Items.
     [Fact]
     public void Submit_EligibleScore_CreatesConfirmedMatch_VisibleInMatchedItems()
     {
@@ -198,13 +174,10 @@ public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
         Wait.Until(d => d.Url.Contains("/matched-items", StringComparison.Ordinal));
         Wait.Until(d => d.PageSource.Contains(title, StringComparison.Ordinal));
 
-        // Status is shown as the finder-facing label for LOST_REPORTER_CONFIRMED (MatchBanner),
-        // not the raw enum name.
         Assert.Contains("Awaiting finder", Driver.PageSource, StringComparison.Ordinal);
     }
 
-    // Scenario 5: below the threshold, Confirm and claim stays disabled and nothing is persisted;
-    // cancelling closes the popup with no match created, and reopening runs a fresh comparison.
+    // Scenario 5: a low score disables Confirm and claim; cancel and reopen runs a fresh comparison.
     [Fact]
     public void Preview_LowSimilarityScore_DisablesClaim_CancelAndReopenRecalculates()
     {
@@ -234,7 +207,6 @@ public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
         Driver.FindElement(By.XPath("//button[contains(.,'Cancel')]")).Click();
         Wait.Until(d => d.FindElements(By.CssSelector("dialog[aria-labelledby='claim-dialog-title']")).Count == 0);
 
-        // Reopen: a fresh comparison is run, not a cached result.
         OpenClaimDialog(foundId, "This Is My Lost Item");
         SelectCandidateByTitle(lostTitle);
         WaitForPreview();
@@ -242,10 +214,8 @@ public sealed class ClaimAndMatchFlowTests : IClassFixture<ClaimAndMatchFixture>
             Driver.FindElement(By.XPath("//button[contains(.,'Confirm and claim')]")).Enabled);
     }
 
-    // Scenario 6 (both-mine half): a user cannot claim between two reports they own themselves.
-    // The other Scenario 6 cases (owning neither report, an inactive report, an already-matched
-    // pair) are unreachable through this picker by construction or are concurrency-shaped - they
-    // stay xUnit/JMeter's job (ClaimServiceTests, the planned duplicate-claim JMeter race test).
+    // Scenario 6, both-mine half: a user cannot claim between two reports they own themselves. The
+    // other cases are unreachable through this picker or concurrency-shaped - stay xUnit/JMeter's job.
     [Fact]
     public void Preview_BothReportsBelongToCaller_IsRejectedWithoutCreatingAPreview()
     {

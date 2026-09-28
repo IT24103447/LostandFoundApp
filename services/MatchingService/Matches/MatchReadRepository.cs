@@ -6,30 +6,39 @@ using MySqlConnector;
 
 namespace MatchingService.Matches;
 
-public sealed class MatchReadRepository : IMatchReadRepository
+public sealed class MatchReadRepository(
+    IDbConnectionFactory connections)
+    : IMatchReadRepository
 {
-    private static readonly JsonSerializerOptions JsonOptions =
-        new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions
+        JsonOptions =
+            new(JsonSerializerDefaults.Web);
 
     private const string Columns = """
-        id,
-        lost_reporter_id,
-        finder_id,
-        claimant_id,
-        status,
-        is_active,
-        confidence_score,
-        created_at,
-        lost_snapshot,
-        found_snapshot
+        id, lost_reporter_id, finder_id, claimant_id,
+        status, is_active, confidence_score, created_at,
+        lost_snapshot, found_snapshot,
+        deactivated_at, deactivation_reason,
+        deactivated_item_id, deactivated_item_type
         """;
 
-    private const string VisibleFilter = """
-        is_active = 1
-        AND (
-            lost_reporter_id = @userId
-            OR finder_id = @userId
+    private const string DeactivatedFilter = """
+        is_active = 0
+        AND deactivation_reason IN (
+            'ITEM_DELETED',
+            'ITEM_RESOLVED',
+            'MATCH_CONFIRMED_ELSEWHERE',
+            'ITEM_UPDATED_NO_LONGER_MATCHES'
         )
+        AND status IN (
+            'AWAITING_CLAIMANT_CONFIRMATION',
+            'LOST_REPORTER_CONFIRMED',
+            'FINDER_CONFIRMED'
+        )
+        """;
+
+    private const string ActiveVisibleFilter = """
+        is_active = 1
         AND status IN (
             'LOST_REPORTER_CONFIRMED',
             'FINDER_CONFIRMED',
@@ -38,46 +47,47 @@ public sealed class MatchReadRepository : IMatchReadRepository
         )
         """;
 
-    private readonly IDbConnectionFactory _connections;
-
-    public MatchReadRepository(IDbConnectionFactory connections)
+    public async Task<StoredMatchPage>
+        GetPageAsync(
+            Guid userId,
+            string section,
+            int page,
+            int size,
+            CancellationToken cancellationToken)
     {
-        _connections = connections;
-    }
+        var filter = $"""
+            (lost_reporter_id = @userId
+             OR finder_id = @userId)
+            AND ({GetSectionFilter(section)})
+            """;
 
-    public async Task<StoredMatchPage> GetPageAsync(
-        Guid userId,
-        string section,
-        int page,
-        int size,
-        CancellationToken cancellationToken)
-    {
-        // Only fixed SQL fragments are selected here. Request text is
-        // never inserted into SQL.
-        var sectionFilter = GetSectionFilter(section);
-        var filter = $"{VisibleFilter} AND ({sectionFilter})";
+        await using var connection =
+            connections.Create();
 
-        await using var connection = _connections.Create();
-        await connection.OpenAsync(cancellationToken);
+        await connection.OpenAsync(
+            cancellationToken);
 
-        // Keep the count and page consistent if another request changes
-        // a match while this page is being read.
         await using var transaction =
-            await connection.BeginTransactionAsync(
-                IsolationLevel.RepeatableRead,
-                cancellationToken);
+            await connection
+                .BeginTransactionAsync(
+                    IsolationLevel.RepeatableRead,
+                    cancellationToken);
 
-        long totalCount;
+        long total;
 
-        await using (var count = new MySqlCommand(
-            $"SELECT COUNT(*) FROM matches WHERE {filter};",
-            connection,
-            transaction))
+        await using (var count =
+            new MySqlCommand(
+                $"SELECT COUNT(*) FROM matches WHERE {filter};",
+                connection,
+                transaction))
         {
-            count.Parameters.AddWithValue("@userId", userId);
+            count.Parameters.AddWithValue(
+                "@userId",
+                userId);
 
-            totalCount = Convert.ToInt64(
-                await count.ExecuteScalarAsync(cancellationToken));
+            total = Convert.ToInt64(
+                await count.ExecuteScalarAsync(
+                    cancellationToken));
         }
 
         var sql = $"""
@@ -88,110 +98,134 @@ public sealed class MatchReadRepository : IMatchReadRepository
             LIMIT @size OFFSET @offset;
             """;
 
-        var records = new List<StoredMatch>();
+        var items =
+            new List<StoredMatch>();
 
-        await using (var command = new MySqlCommand(
-            sql,
-            connection,
-            transaction))
+        await using (var command =
+            new MySqlCommand(
+                sql,
+                connection,
+                transaction))
         {
-            command.Parameters.AddWithValue("@userId", userId);
-            command.Parameters.AddWithValue("@size", size);
+            command.Parameters.AddWithValue(
+                "@userId",
+                userId);
+
+            command.Parameters.AddWithValue(
+                "@size",
+                size);
+
             command.Parameters.AddWithValue(
                 "@offset",
                 ((long)page - 1) * size);
 
             await using var reader =
-                await command.ExecuteReaderAsync(cancellationToken);
+                await command.ExecuteReaderAsync(
+                    cancellationToken);
 
-            while (await reader.ReadAsync(cancellationToken))
+            while (await reader.ReadAsync(
+                cancellationToken))
             {
-                records.Add(ReadMatch(reader));
+                items.Add(ReadMatch(reader));
             }
         }
 
-        await transaction.CommitAsync(cancellationToken);
+        await transaction.CommitAsync(
+            cancellationToken);
 
-        return new StoredMatchPage(records, totalCount);
+        return new StoredMatchPage(
+            items,
+            total);
     }
 
-    public async Task<StoredMatch?> GetByIdAsync(
-        Guid matchId,
-        CancellationToken cancellationToken)
+    public async Task<StoredMatch?>
+        GetByIdAsync(
+            Guid matchId,
+            CancellationToken cancellationToken)
     {
-        var sql = $"""
-            SELECT {Columns}
-            FROM matches
-            WHERE id = @matchId
-            LIMIT 1;
-            """;
+        await using var connection =
+            connections.Create();
 
-        await using var connection = _connections.Create();
-        await connection.OpenAsync(cancellationToken);
+        await connection.OpenAsync(
+            cancellationToken);
 
         await using var command =
-            new MySqlCommand(sql, connection);
+            new MySqlCommand(
+                $"SELECT {Columns} FROM matches WHERE id = @id LIMIT 1;",
+                connection);
 
-        command.Parameters.AddWithValue("@matchId", matchId);
+        command.Parameters.AddWithValue(
+            "@id",
+            matchId);
 
         await using var reader =
-            await command.ExecuteReaderAsync(cancellationToken);
+            await command.ExecuteReaderAsync(
+                cancellationToken);
 
-        return await reader.ReadAsync(cancellationToken)
-            ? ReadMatch(reader)
-            : null;
+        return await reader.ReadAsync(
+            cancellationToken)
+                ? ReadMatch(reader)
+                : null;
     }
 
-    private static string GetSectionFilter(string section)
-    {
-        return section switch
+    private static string GetSectionFilter(
+        string section) =>
+        section switch
         {
             "active" => """
-                status IN (
+                is_active = 1
+                AND status IN (
                     'LOST_REPORTER_CONFIRMED',
                     'FINDER_CONFIRMED'
                 )
                 """,
 
             "waiting-on-you" => """
-                (
-                    status = 'FINDER_CONFIRMED'
-                    AND lost_reporter_id = @userId
-                )
-                OR (
-                    status = 'LOST_REPORTER_CONFIRMED'
-                    AND finder_id = @userId
+                is_active = 1 AND (
+                    (status = 'FINDER_CONFIRMED'
+                     AND lost_reporter_id = @userId)
+                    OR
+                    (status = 'LOST_REPORTER_CONFIRMED'
+                     AND finder_id = @userId)
                 )
                 """,
 
             "waiting-on-other" => """
-                (
-                    status = 'LOST_REPORTER_CONFIRMED'
-                    AND lost_reporter_id = @userId
-                )
-                OR (
-                    status = 'FINDER_CONFIRMED'
-                    AND finder_id = @userId
+                is_active = 1 AND (
+                    (status = 'LOST_REPORTER_CONFIRMED'
+                     AND lost_reporter_id = @userId)
+                    OR
+                    (status = 'FINDER_CONFIRMED'
+                     AND finder_id = @userId)
                 )
                 """,
 
-            "confirmed" => "status = 'CONFIRMED'",
-            "rejected" => "status = 'REJECTED'",
-            "closed" => "status IN ('CONFIRMED', 'REJECTED')",
-            "all" => "1 = 1",
+            "confirmed" =>
+                "is_active = 1 AND status = 'CONFIRMED'",
 
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(section))
+            "rejected" =>
+                "is_active = 1 AND status = 'REJECTED'",
+
+            "deactivated" =>
+                DeactivatedFilter,
+
+            "closed" => $"""
+                (is_active = 1
+                 AND status IN ('CONFIRMED', 'REJECTED'))
+                OR ({DeactivatedFilter})
+                """,
+
+            "all" =>
+                $"({ActiveVisibleFilter}) OR ({DeactivatedFilter})",
+
+            _ =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(section))
         };
-    }
 
     private static StoredMatch ReadMatch(
-        MySqlDataReader reader)
-    {
-        var lost = ReadSnapshot(reader.GetString(8));
-        var found = ReadSnapshot(reader.GetString(9));
-
-        return new StoredMatch(
+        MySqlDataReader reader) =>
+        new(
             reader.GetGuid(0),
             reader.GetGuid(1),
             reader.GetGuid(2),
@@ -199,19 +233,44 @@ public sealed class MatchReadRepository : IMatchReadRepository
             reader.GetString(4),
             reader.GetBoolean(5),
             reader.GetDecimal(6),
-            DateTime.SpecifyKind(
-                reader.GetDateTime(7),
-                DateTimeKind.Utc),
-            lost,
-            found);
-    }
+            Utc(reader.GetDateTime(7)),
+            ReadSnapshot(reader.GetString(8)),
+            ReadSnapshot(reader.GetString(9)))
+        {
+            DeactivatedAt =
+                reader.IsDBNull(10)
+                    ? null
+                    : Utc(
+                        reader.GetDateTime(10)),
 
-    private static ClaimItemView ReadSnapshot(string json)
-    {
-        return JsonSerializer.Deserialize<ClaimItemView>(
-                   json,
-                   JsonOptions)
-               ?? throw new InvalidDataException(
-                   "A match contains an invalid item snapshot.");
-    }
+            DeactivationReason =
+                reader.IsDBNull(11)
+                    ? null
+                    : reader.GetString(11),
+
+            DeactivatedItemId =
+                reader.IsDBNull(12)
+                    ? null
+                    : reader.GetGuid(12),
+
+            DeactivatedItemType =
+                reader.IsDBNull(13)
+                    ? null
+                    : reader.GetString(13)
+        };
+
+    private static DateTime Utc(
+        DateTime value) =>
+        DateTime.SpecifyKind(
+            value,
+            DateTimeKind.Utc);
+
+    private static ClaimItemView ReadSnapshot(
+        string json) =>
+        JsonSerializer
+            .Deserialize<ClaimItemView>(
+                json,
+                JsonOptions)
+        ?? throw new InvalidDataException(
+            "A match contains an invalid item snapshot.");
 }

@@ -8,14 +8,10 @@ using Xunit;
 namespace MatchingService.Tests.Integration;
 
 /// <summary>
-/// Integration tests proving the real JWT bearer flow Story 2 adds (ClaimRegistration.AddManualClaims,
-/// [Authorize(Policy = "VerifiedClaimUser")]) actually protects every claims/matches endpoint end to
-/// end: a real token, signed and validated with a real key, not a stand-in for authentication. Covers
-/// both ClaimsController (Story 2's write side) and MatchQueriesController (Story 3's Matches page read
-/// side) over real HTTP, since both sit behind the same policy on the same real Program.cs pipeline.
-/// JwtTestTokenFactory mints the tokens; ClaimsApiFactory hosts that real pipeline (real MySQL, faked
-/// Item Service) that validates them.
+/// Integration tests proving the real JWT bearer pipeline protects every claims/matches endpoint
+/// end to end, over real HTTP against ClaimsApiFactory.
 /// </summary>
+[Collection("Docker Integration Tests 2")]
 public sealed class ClaimsAuthorizationIntegrationTests : IClassFixture<ClaimsApiFactory>
 {
     private readonly ClaimsApiFactory _factory;

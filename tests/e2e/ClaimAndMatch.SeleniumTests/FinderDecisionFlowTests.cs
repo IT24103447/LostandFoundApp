@@ -4,25 +4,8 @@ using Xunit;
 
 namespace ClaimAndMatch.SeleniumTests;
 
-/// <summary>
-/// Story 5 (finder confirms or rejects a match) browser coverage: the shared review screen's
-/// FinderDecisionPanel - the mirror image of Story 4's LostReporterDecisionPanel, same two-step
-/// "Confirm match"/"Reject match" -> "Yes, confirm/reject match" flow, same resulting banners, same
-/// Arrange The Return contact reveal once both parties have confirmed. Reuses ClaimAndMatchFixture
-/// (real login, real report creation, the same seeded accounts).
-///
-/// A LOST_REPORTER_CONFIRMED match - the state this panel needs - is reached exactly the way Story 2's
-/// own tests already reach it: claiming through a FOUND item's "This Is My Lost Item" button makes the
-/// caller the LOST REPORTER, leaving the match awaiting the FINDER's decision.
-///
-/// Kept in its own file rather than folded into ClaimAndMatchFlowTests.cs, MatchedItemsPageFlowTests.cs,
-/// or LostReporterDecisionFlowTests.cs, since this is its own story with its own real backend/UI, not a
-/// duplicate of Story 4's. Scenario 4 (unauthorized access) and Scenario 5 (acting out of turn) are not
-/// retested here for the same reason as Story 4: already proven at the xUnit level
-/// (FinderDecisionRepositoryTests) and effectively unreachable through the real UI, since MatchReviewPage
-/// only ever renders this panel when the viewer's own role and the match's own status already agree
-/// it's their turn.
-/// </summary>
+// Story 5: FinderDecisionPanel, the mirror image of Story 4's. Scenario 4/5 (unauthorized, out of
+// turn) are already proven at the xUnit level and unreachable through the real UI.
 [Trait("Story", "5")]
 public sealed class FinderDecisionFlowTests : IClassFixture<ClaimAndMatchFixture>
 {
@@ -35,11 +18,8 @@ public sealed class FinderDecisionFlowTests : IClassFixture<ClaimAndMatchFixture
         _fixture = fixture;
     }
 
-    // Scenario 2 + Scenario 6: confirming moves the match to Confirmed, shows the confirmed banner,
-    // and reveals the lost reporter's real stored contact details through the Arrange The Return panel
-    // - with a working Copy button. As in the Story 4 equivalent, the assertion accepts either the
-    // "Copied" success message or the component's own manual-copy fallback, since a real Chrome
-    // session's clipboard-write permission can legitimately go either way under Selenium.
+    // Scenarios 2 + 6: confirming shows the Confirmed banner and reveals the lost reporter's contact
+    // via Arrange The Return, with a working Copy button.
     [Fact]
     public void FinderConfirmsMatch_MovesToConfirmedAndRevealsLostReporterContact()
     {
@@ -79,8 +59,7 @@ public sealed class FinderDecisionFlowTests : IClassFixture<ClaimAndMatchFixture
         Assert.False(string.IsNullOrWhiteSpace(feedback.Text));
     }
 
-    // Scenario 3: rejecting closes the match, with the shared "Match closed: Rejected" banner shown
-    // instead of any contact reveal - no further action is possible from here.
+    // Scenario 3: rejecting shows the shared "Match closed: Rejected" banner, no contact reveal.
     [Fact]
     public void FinderRejectsMatch_ShowsClosedBanner()
     {
@@ -112,9 +91,7 @@ public sealed class FinderDecisionFlowTests : IClassFixture<ClaimAndMatchFixture
         Wait.Until(d => d.PageSource.Contains("Match closed: Rejected", StringComparison.Ordinal));
     }
 
-    // The two-step confirmation is a real, distinct UI step, not a formality: choosing "Confirm match"
-    // and then "Go back" must return to the original choice with nothing submitted, so a misclick
-    // never silently decides the match.
+    // Confirm then Go back returns to the initial choice without submitting anything.
     [Fact]
     public void FinderSelectsConfirm_ThenGoesBack_ReturnsToInitialChoiceWithoutSubmitting()
     {
@@ -146,17 +123,12 @@ public sealed class FinderDecisionFlowTests : IClassFixture<ClaimAndMatchFixture
         Wait.Until(d => d.FindElements(By.XPath("//button[contains(.,'Confirm match')]")).Count > 0);
         Assert.True(Driver.FindElement(By.XPath("//button[contains(.,'Reject match')]")).Displayed);
 
-        // Still LOST_REPORTER_CONFIRMED, not decided: reloading shows the same decision panel again,
-        // not a banner or the waiting text.
         Driver.Navigate().Refresh();
         Wait.Until(d => d.PageSource.Contains("Does this match the item you found?", StringComparison.Ordinal));
     }
 
     // ---- Helpers -----------------------------------------------------------
 
-    // Same straight-through claim path MatchedItemsPageFlowTests.SubmitClaim already uses (a FOUND
-    // item's "This Is My Lost Item" button, making the caller the LOST REPORTER), duplicated here
-    // rather than shared, matching this suite's existing convention.
     private void SubmitClaimAsLostReporter(Guid targetFoundItemId, string candidateTitle)
     {
         Driver.Navigate().GoToUrl($"{ClaimAndMatchFixture.BaseUrl}/items/{targetFoundItemId}");

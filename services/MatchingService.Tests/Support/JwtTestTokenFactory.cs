@@ -5,22 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace MatchingService.Tests.Support;
 
-/// <summary>
-/// Mints real, signed HS256 JWTs for the Story 2 claims/matches endpoints, which now require
-/// [Authorize(Policy = "VerifiedClaimUser")] (ClaimRegistration.cs). The claim shape mirrors what
-/// AuthService's own JwtTokenService actually issues (JwtRegisteredClaimNames.Sub, "email_verified",
-/// "email", and "phone_no"), not an artificial test-only shape, so these tokens exercise the real
-/// validation and claims-reading path the same way a production token would - including the "email"/
-/// "phone_no" claims ClaimsController.Claim reads to populate a claimant's contact details.
-/// The Secret/Issuer/Audience constants here are the single source of truth: every WebApplicationFactory
-/// that hosts Program.cs (ClaimsApiFactory, and also MatchingServiceDbApiFactory/
-/// MatchingServiceKafkaApiFactory from Story 1, since AddManualClaims now runs unconditionally for
-/// them too) sets Jwt:Secret/Issuer/Audience to these exact values as environment variables. They must
-/// all agree: Environment.SetEnvironmentVariable is process-wide, and xUnit runs different test
-/// classes' fixtures concurrently by default, so if any of them used a different value, whichever
-/// fixture's write won that race could make ClaimsApiFactory validate a real token's signature against
-/// the wrong secret.
-/// </summary>
+/// <summary>Mints real, signed HS256 JWTs for the Story 2 claims/matches endpoints, matching AuthService's own claim shape. Secret/Issuer/Audience here are the single source of truth every WebApplicationFactory-based fixture must agree on — Environment.SetEnvironmentVariable is process-wide, and xUnit runs fixtures concurrently, so a mismatched value would race.</summary>
 public static class JwtTestTokenFactory
 {
     public const string Secret = "matching-service-claims-tests-secret-key-32-bytes-minimum";
