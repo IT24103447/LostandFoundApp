@@ -1,0 +1,95 @@
+Summary
+  Generated on: 9/28/2026 - 8:23:53 PM
+  Coverage date: 9/28/2026 - 8:23:51 PM
+  Parser: Cobertura
+  Assemblies: 1
+  Classes: 73
+  Files: 50
+  Line coverage: 85.9%
+  Covered lines: 4490
+  Uncovered lines: 734
+  Coverable lines: 5224
+  Total lines: 8340
+  Branch coverage: 79% (1105 of 1398)
+  Covered branches: 1105
+  Total branches: 1398
+  Method coverage: 96.4% (412 of 427)
+  Full method coverage: 85.4% (365 of 427)
+  Covered methods: 412
+  Fully covered methods: 365
+  Total methods: 427
+
+MatchingService                                                 85.9%
+  MatchingService.Claims.ClaimException                          100%
+  MatchingService.Claims.ClaimItemClient                         100%
+  MatchingService.Claims.ClaimItemView                           100%
+  MatchingService.Claims.ClaimPreview                            100%
+  MatchingService.Claims.ClaimRegistration                      83.4%
+  MatchingService.Claims.ClaimRepository                        85.7%
+  MatchingService.Claims.ClaimService                           95.4%
+  MatchingService.Claims.ImageEvidence                           100%
+  MatchingService.Claims.ItemReport                              100%
+  MatchingService.Claims.MatchView                               100%
+  MatchingService.Claims.PairRequest                             100%
+  MatchingService.Claims.ScoreBreakdown                          100%
+  MatchingService.Claims.SubmitClaimRequest                      100%
+  MatchingService.Claims.VerifiedPair                            100%
+  MatchingService.Configuration.BlobStorageSettings              100%
+  MatchingService.Configuration.GeminiSettings                   100%
+  MatchingService.Configuration.ImageProcessingSettings          100%
+  MatchingService.Configuration.KafkaSettings                    100%
+  MatchingService.Controllers.ClaimsController                  88.8%
+  MatchingService.Controllers.FinderDecisionsController         87.5%
+  MatchingService.Controllers.LostReporterDecisionsController     87%
+  MatchingService.Controllers.MatchQueriesController            87.8%
+  MatchingService.Databases.DbConnectionFactory                   75%
+  MatchingService.Databases.DbInitializer                         87%
+  MatchingService.Lifecycle.ItemLifecycleConsumer                 61%
+  MatchingService.Lifecycle.ItemLifecycleEvent                   100%
+  MatchingService.Lifecycle.ItemLifecycleRepository              100%
+  MatchingService.Matches.ConfirmationDelivery                   100%
+  MatchingService.Matches.FinderDecisionRepository              98.4%
+  MatchingService.Matches.FinderDecisionResult                   100%
+  MatchingService.Matches.FinderReturnContact                    100%
+  MatchingService.Matches.LostReporterDecisionRepository        98.8%
+  MatchingService.Matches.LostReporterDecisionResult             100%
+  MatchingService.Matches.LostReporterReturnContact              100%
+  MatchingService.Matches.MatchConfirmationDeliveryStore        74.1%
+  MatchingService.Matches.MatchConfirmationOutbox               93.4%
+  MatchingService.Matches.MatchListEntry                         100%
+  MatchingService.Matches.MatchPage                              100%
+  MatchingService.Matches.MatchReadRepository                   98.9%
+  MatchingService.Matches.MatchReadService                       100%
+  MatchingService.Matches.StoredMatch                            100%
+  MatchingService.Matches.StoredMatchPage                        100%
+  MatchingService.Models.ClaimedImageDescription                 100%
+  MatchingService.Models.CurrentImageDescription                  50%
+  MatchingService.Models.GeneratedImageDescription               100%
+  MatchingService.Models.ImageDescriptionRecord                 85.7%
+  MatchingService.Models.ItemCreatedEvent                        100%
+  MatchingService.Notifications.MatchEmailSender                94.6%
+  MatchingService.Notifications.MatchNotificationWorker         90.9%
+  MatchingService.Notifications.NotificationContactConsumer     55.9%
+  MatchingService.Notifications.NotificationDeliveryException    100%
+  MatchingService.Notifications.NotificationDeliveryService     86.4%
+  MatchingService.Notifications.NotificationDiscoveryService     100%
+  MatchingService.Notifications.NotificationJob                  100%
+  MatchingService.Notifications.NotificationRecipient            100%
+  MatchingService.Notifications.NotificationRepository          97.2%
+  MatchingService.Reevaluation.MatchItemSnapshotEvent            100%
+  MatchingService.Reevaluation.MatchReevaluationEventHandler     100%
+  MatchingService.Reevaluation.MatchReevaluationJob              100%
+  MatchingService.Reevaluation.MatchReevaluationPair             100%
+  MatchingService.Reevaluation.MatchReevaluationRepository      97.6%
+  MatchingService.Reevaluation.MatchReevaluationWorker          60.5%
+  MatchingService.Repositories.ImageDescriptionRepository       95.6%
+  MatchingService.Services.BlobUrlPhotoKeyGenerator              100%
+  MatchingService.Services.BlobUrlValidator                      100%
+  MatchingService.Services.GeminiImageDescriptionGenerator         0%
+  MatchingService.Services.ImageDescriptionEventHandler          100%
+  MatchingService.Services.ImageDescriptionValidator            93.3%
+  MatchingService.Services.ImageDescriptionWorker               76.7%
+  MatchingService.Services.ImageProcessingException              100%
+  MatchingService.Services.ItemCreatedEventConsumer             58.2%
+  MatchingService.Services.MatchConfirmationPublisher           52.8%
+  Program                                                       87.1%
