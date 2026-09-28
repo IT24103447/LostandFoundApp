@@ -1,0 +1,45 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1790601032360,16,Preview the shared pair,200,OK,Two simultaneous claimants 1-1,text,true,,1107,740,2,2,http://localhost:5179/api/matches/preview,16,0,2
+1790601032360,17,Preview the shared pair,200,OK,Two simultaneous claimants 1-2,text,true,,1107,740,2,2,http://localhost:5179/api/matches/preview,16,0,1
+1790601032377,28,Claim the shared pair,201,Created,Two simultaneous claimants 1-1,text,true,,1019,822,2,2,http://localhost:5179/api/matches/claim,28,0,1
+1790601032377,37,Claim the shared pair,409,Conflict,Two simultaneous claimants 1-2,text,false,,248,822,1,1,http://localhost:5179/api/matches/claim,36,0,1
+1790601036309,11,Preview the shared pair,409,Conflict,Two simultaneous claimants 1-2,text,false,"Test failed: code expected to equal /
+
+****** received  : [[[409]]]
+
+****** comparison: [[[200]]]
+
+/",281,740,2,2,http://localhost:5179/api/matches/preview,10,0,1
+1790601036309,13,Preview the shared pair,409,Conflict,Two simultaneous claimants 1-1,text,false,"Test failed: code expected to equal /
+
+****** received  : [[[409]]]
+
+****** comparison: [[[200]]]
+
+/",281,740,2,2,http://localhost:5179/api/matches/preview,13,0,1
+1790601036322,2,Claim the shared pair,400,Bad Request,Two simultaneous claimants 1-1,text,false,"Test failed: code expected something using /
+
+****** received  : [[[400]]]
+
+****** comparison: [[[201]]]
+
+/	Test failed: code expected something using /
+
+****** received  : 40[[[0]]]
+
+****** comparison: 40[[[9]]]
+
+/	",245,758,2,2,http://localhost:5179/api/matches/claim,2,0,1
+1790601036322,3,Claim the shared pair,400,Bad Request,Two simultaneous claimants 1-2,text,false,"Test failed: code expected something using /
+
+****** received  : [[[400]]]
+
+****** comparison: [[[201]]]
+
+/	Test failed: code expected something using /
+
+****** received  : 40[[[0]]]
+
+****** comparison: 40[[[9]]]
+
+/	",245,758,1,1,http://localhost:5179/api/matches/claim,3,0,1
