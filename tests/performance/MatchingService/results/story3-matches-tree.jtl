@@ -1,0 +1,121 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1790602277431,8,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-1,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,8,0,2
+1790602277439,7,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-1,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,7,0,1
+1790602277446,6,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-1,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,6,0,1
+1790602277452,5,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-1,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,5,0,0
+1790602277457,5,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-1,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,5,0,1
+1790602277463,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-1,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602277931,8,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-2,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,8,0,2
+1790602277939,5,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-2,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,1
+1790602277944,4,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-2,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,4,0,1
+1790602277948,3,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-2,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,3,0,0
+1790602277951,4,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-2,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,4,0,0
+1790602277955,1,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-2,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,1,0,0
+1790602278430,7,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-3,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,7,0,1
+1790602278437,4,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-3,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,3,0,0
+1790602278441,3,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-3,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,3,0,0
+1790602278444,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-3,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,1
+1790602278448,4,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-3,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,4,0,1
+1790602278452,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-3,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602278928,5,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-4,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,5,0,1
+1790602278933,5,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-4,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,1
+1790602278939,4,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-4,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,3,0,0
+1790602278943,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-4,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,1
+1790602278947,5,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-4,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,5,0,0
+1790602278952,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-4,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602279428,8,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-5,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,8,0,1
+1790602279437,5,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-5,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,0
+1790602279442,6,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-5,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,6,0,1
+1790602279448,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-5,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,1
+1790602279452,4,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-5,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,4,0,0
+1790602279456,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-5,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602279930,9,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-6,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,9,0,1
+1790602279939,6,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-6,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,6,0,1
+1790602279945,6,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-6,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,6,0,1
+1790602279951,7,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-6,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,7,0,1
+1790602279958,6,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-6,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,5,0,0
+1790602279964,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-6,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602280430,6,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-7,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,6,0,1
+1790602280436,6,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-7,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,1
+1790602280442,4,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-7,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,4,0,1
+1790602280446,5,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-7,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,5,0,1
+1790602280451,5,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-7,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,5,0,0
+1790602280456,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-7,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,1
+1790602280932,4,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-8,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,4,0,0
+1790602280937,5,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-8,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,0
+1790602280942,3,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-8,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,3,0,1
+1790602280946,3,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-8,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,3,0,0
+1790602280949,3,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-8,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,3,0,0
+1790602280952,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-8,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602281431,6,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-9,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,6,0,1
+1790602281437,4,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-9,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,4,0,0
+1790602281441,4,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-9,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,4,0,0
+1790602281445,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-9,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,1
+1790602281449,5,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-9,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,4,0,1
+1790602281454,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-9,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602281930,6,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-10,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,6,0,1
+1790602281936,5,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-10,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,1
+1790602281941,4,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-10,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,4,0,1
+1790602281946,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-10,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,0
+1790602281950,4,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-10,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,4,0,1
+1790602281954,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-10,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602282429,6,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-11,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,6,0,1
+1790602282435,6,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-11,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,1
+1790602282441,4,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-11,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,4,0,0
+1790602282445,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-11,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,0
+1790602282449,4,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-11,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,4,0,1
+1790602282453,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-11,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602282928,6,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-12,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,6,0,1
+1790602282934,5,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-12,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,1
+1790602282939,5,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-12,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,4,0,1
+1790602282944,5,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-12,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,5,0,0
+1790602282950,4,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-12,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,4,0,0
+1790602282955,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-12,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602283430,6,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-13,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,6,0,1
+1790602283436,4,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-13,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,4,0,1
+1790602283440,3,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-13,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,3,0,1
+1790602283444,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-13,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,0
+1790602283448,4,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-13,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,4,0,1
+1790602283452,3,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-13,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,3,0,1
+1790602283929,7,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-14,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,7,0,1
+1790602283936,5,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-14,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,1
+1790602283941,5,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-14,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,5,0,0
+1790602283946,3,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-14,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,3,0,0
+1790602283949,3,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-14,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,3,0,0
+1790602283952,1,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-14,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,1,0,0
+1790602284429,6,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-15,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,6,0,1
+1790602284435,4,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-15,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,4,0,0
+1790602284439,5,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-15,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,5,0,1
+1790602284444,3,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-15,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,3,0,0
+1790602284448,2,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-15,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,2,0,0
+1790602284451,1,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-15,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,1,0,0
+1790602284930,4,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-16,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,4,0,0
+1790602284934,5,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-16,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,5,0,1
+1790602284939,3,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-16,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,3,0,0
+1790602284942,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-16,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,1
+1790602284947,3,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-16,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,3,0,0
+1790602284950,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-16,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,1
+1790602285429,8,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-17,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,8,0,1
+1790602285437,8,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-17,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,8,0,0
+1790602285445,5,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-17,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,5,0,1
+1790602285451,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-17,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,0
+1790602285455,7,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-17,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,6,0,1
+1790602285462,3,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-17,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602285930,6,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-18,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,6,0,0
+1790602285936,6,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-18,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,6,0,0
+1790602285942,6,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-18,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,5,0,0
+1790602285948,5,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-18,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,0
+1790602285953,4,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-18,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,4,0,0
+1790602285958,2,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-18,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,0
+1790602286432,8,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-19,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,8,0,1
+1790602286440,4,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-19,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,4,0,0
+1790602286444,4,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-19,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,4,0,1
+1790602286448,4,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-19,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,4,0,1
+1790602286453,3,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-19,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,3,0,0
+1790602286456,3,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-19,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,2,0,1
+1790602286930,9,Scenario 3 - Waiting On You section,200,OK,Concurrent Matches page viewers 1-20,text,true,,26066,607,1,1,http://localhost:5179/api/matches?sectionwaiting-on-you&page1&size10,9,0,1
+1790602286939,9,Scenario 3 - Waiting On The Other Party section,200,OK,Concurrent Matches page viewers 1-20,text,true,,26066,609,1,1,http://localhost:5179/api/matches?sectionwaiting-on-other&page1&size10,9,0,1
+1790602286948,9,Scenario 3 - Confirmed section,200,OK,Concurrent Matches page viewers 1-20,text,true,,26066,602,1,1,http://localhost:5179/api/matches?sectionconfirmed&page1&size10,9,0,1
+1790602286957,6,Scenario 3 - Rejected section,200,OK,Concurrent Matches page viewers 1-20,text,true,,26066,601,1,1,http://localhost:5179/api/matches?sectionrejected&page1&size10,6,0,0
+1790602286963,6,Profile tile - active count,200,OK,Concurrent Matches page viewers 1-20,text,true,,26066,598,1,1,http://localhost:5179/api/matches?sectionactive&page1&size1,6,0,1
+1790602286969,3,Scenario 4 - Get match details,200,OK,Concurrent Matches page viewers 1-20,text,true,,1554,609,1,1,http://localhost:5179/api/matches/2e7bf606-c1cc-4ef0-a39e-dc61b4331d58,3,0,0

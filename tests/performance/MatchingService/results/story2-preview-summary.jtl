@@ -1,0 +1,61 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1790596485891,59,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-1,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,59,0,1
+1790596485951,9,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-1,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,9,0,0
+1790596485960,8,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-1,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,8,0,1
+1790596486389,50,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-2,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,49,0,1
+1790596486439,6,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-2,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,6,0,1
+1790596486445,6,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-2,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,6,0,0
+1790596486891,54,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-3,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,53,0,1
+1790596486945,6,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-3,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,6,0,1
+1790596486951,6,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-3,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,6,0,0
+1790596487390,56,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-4,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,55,0,1
+1790596487446,6,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-4,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,6,0,1
+1790596487452,8,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-4,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,8,0,1
+1790596487890,51,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-5,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,51,0,1
+1790596487942,5,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-5,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,5,0,0
+1790596487948,5,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-5,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,5,0,0
+1790596488389,51,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-6,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,51,0,1
+1790596488441,5,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-6,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,4,0,0
+1790596488446,5,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-6,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,5,0,0
+1790596488889,51,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-7,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,50,0,0
+1790596488940,4,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-7,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,4,0,0
+1790596488944,7,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-7,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,7,0,1
+1790596489390,55,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-8,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,54,0,1
+1790596489445,7,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-8,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,6,0,1
+1790596489452,6,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-8,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,6,0,0
+1790596489890,53,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-9,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,52,0,1
+1790596489943,5,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-9,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,4,0,0
+1790596489948,6,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-9,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,6,0,0
+1790596490389,54,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-10,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,54,0,1
+1790596490444,5,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-10,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,4,0,0
+1790596490449,6,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-10,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,6,0,0
+1790596490890,52,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-11,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,52,0,1
+1790596490943,5,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-11,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,4,0,0
+1790596490948,5,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-11,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,5,0,0
+1790596491391,53,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-12,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,53,0,0
+1790596491444,5,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-12,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,5,0,1
+1790596491449,7,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-12,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,6,0,1
+1790596491890,54,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-13,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,54,0,1
+1790596491944,5,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-13,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,5,0,1
+1790596491949,6,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-13,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,6,0,1
+1790596492389,52,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-14,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,51,0,1
+1790596492441,5,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-14,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,5,0,1
+1790596492446,6,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-14,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,6,0,1
+1790596492889,52,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-15,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,52,0,1
+1790596492942,6,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-15,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,6,0,0
+1790596492948,7,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-15,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,7,0,1
+1790596493390,57,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-16,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,56,0,1
+1790596493447,7,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-16,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,7,0,1
+1790596493454,6,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-16,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,6,0,1
+1790596493890,53,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-17,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,52,0,1
+1790596493943,8,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-17,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,7,0,1
+1790596493951,5,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-17,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,5,0,0
+1790596494390,56,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-18,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,55,0,1
+1790596494446,6,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-18,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,6,0,1
+1790596494452,7,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-18,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,7,0,1
+1790596494889,54,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-19,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,54,0,1
+1790596494943,7,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-19,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,6,0,1
+1790596494950,7,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-19,text,true,,1109,740,1,1,http://localhost:5179/api/matches/preview,6,0,0
+1790596495390,51,Scenario 1 - Get LOST candidates,200,OK,Concurrent candidate browsers and previewers 1-20,text,true,,152330,625,1,1,http://localhost:5179/api/matches/candidates?type=LOST,51,0,0
+1790596495442,6,Scenario 1 - Get FOUND candidates,200,OK,Concurrent candidate browsers and previewers 1-20,text,true,,67408,626,1,1,http://localhost:5179/api/matches/candidates?type=FOUND,5,0,0
+1790596495448,5,Scenario 2/3 - Preview a lost/found pair,200,OK,Concurrent candidate browsers and previewers 1-20,text,true,,1139,740,1,1,http://localhost:5179/api/matches/preview,5,0,0

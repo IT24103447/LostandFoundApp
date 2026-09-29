@@ -1,0 +1,5 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1790604882425,30,Confirm the shared match,200,OK,Two simultaneous confirms 1-1,text,true,,317,715,2,2,http://localhost:5179/api/matches/fcbaf11d-980d-4bb5-a6b8-2a61d1326a59/lost-reporter/confirm,30,0,1
+1790604882425,31,Confirm the shared match,409,Conflict,Two simultaneous confirms 1-2,text,false,,286,715,1,1,http://localhost:5179/api/matches/fcbaf11d-980d-4bb5-a6b8-2a61d1326a59/lost-reporter/confirm,30,0,1
+1790604889347,6,Confirm the shared match,409,Conflict,Two simultaneous confirms 1-1,text,false,,286,715,2,2,http://localhost:5179/api/matches/fcbaf11d-980d-4bb5-a6b8-2a61d1326a59/lost-reporter/confirm,6,0,1
+1790604889347,6,Confirm the shared match,409,Conflict,Two simultaneous confirms 1-2,text,false,,286,715,2,2,http://localhost:5179/api/matches/fcbaf11d-980d-4bb5-a6b8-2a61d1326a59/lost-reporter/confirm,6,0,1
