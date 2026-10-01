@@ -1,6 +1,6 @@
 namespace ItemService.Models.Events;
 
-// Tells the Matching Service that this item was soft-deleted by its reporter,
+// Tells the Matching Service that this item was soft-deleted by its reporter or an admin,
 // so it can remove or invalidate any related match records.
 public sealed class ItemDeleteRequestedEvent : BaseEvent
 {
