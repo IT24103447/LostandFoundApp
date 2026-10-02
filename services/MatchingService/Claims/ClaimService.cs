@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using MatchingService.HiddenInformation;
 
 namespace MatchingService.Claims;
 
@@ -39,13 +40,16 @@ public sealed class ClaimService
 
     private readonly ClaimItemClient _items;
     private readonly ClaimRepository _repository;
+    private readonly ItemHiddenInformationRepository? _hiddenInformation;
 
     public ClaimService(
         ClaimItemClient items,
-        ClaimRepository repository)
+        ClaimRepository repository,
+        ItemHiddenInformationRepository? hiddenInformation = null)
     {
         _items = items;
         _repository = repository;
+        _hiddenInformation = hiddenInformation;
     }
 
     public async Task<ClaimPreview> PreviewAsync(
@@ -255,14 +259,24 @@ public sealed class ClaimService
         ImageEvidence? lostImage = null;
         ImageEvidence? foundImage = null;
 
+        var hiddenInformation = await HiddenInformationSimilarityAsync(
+            pair,
+            cancellationToken);
+
         var weightedScores = new List<(
             decimal Score,
             decimal Weight)>
         {
-            (title, 20m),
+            (title, hiddenInformation is null ? 20m : 15m),
             (category, 15m),
             (description, 20m)
         };
+
+        if (hiddenInformation is { } hiddenScore)
+        {
+            weightedScores.Add(
+                (hiddenScore, 5m));
+        }
 
         if (bothReportsHavePhotos)
         {
@@ -330,6 +344,11 @@ public sealed class ClaimService
                 FoundEvidence = foundImage
             });
 
+        if (hiddenInformation is { } hiddenFingerprint)
+        {
+            fingerprint += $"|hidden:{hiddenFingerprint}";
+        }
+
         var previewVersion =
             Convert.ToHexString(
                 SHA256.HashData(
@@ -350,6 +369,29 @@ public sealed class ClaimService
                 description,
                 imageDescription,
                 attributes));
+    }
+
+    private async Task<decimal?> HiddenInformationSimilarityAsync(
+        VerifiedPair pair,
+        CancellationToken cancellationToken)
+    {
+        if (_hiddenInformation is null)
+        {
+            return null;
+        }
+
+        var (lost, found) = await _hiddenInformation.GetPairAsync(
+            pair.Lost.Id,
+            pair.Found.Id,
+            cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(lost) ||
+            string.IsNullOrWhiteSpace(found))
+        {
+            return null;
+        }
+
+        return Similarity(lost, found);
     }
 
     private static bool HasCurrentPhoto(

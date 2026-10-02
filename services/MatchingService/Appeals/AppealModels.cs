@@ -26,6 +26,33 @@ public sealed record MyAppealView(
     DateTime CreatedAt,
     DateTime? DecidedAt);
 
+public sealed record AdminAppealView(
+    Guid Id,
+    string Status,
+    Guid AppellantId,
+    string AppellantRole,
+    Guid LostReporterId,
+    Guid FinderId,
+    decimal Score,
+    ScoreBreakdown Breakdown,
+    ClaimItemView Lost,
+    ClaimItemView Found,
+    string? Note,
+    DateTime CreatedAt,
+    Guid? DecidedBy,
+    DateTime? DecidedAt);
+
+public sealed record AppealCurrentScore(
+    decimal Score,
+    ScoreBreakdown Breakdown,
+    ClaimItemView Lost,
+    ClaimItemView Found);
+
+public sealed record AdminAppealDetail(
+    AdminAppealView Appeal,
+    AppealCurrentScore? Current,
+    string? CurrentUnavailableReason);
+
 public sealed record NewAppeal(
     Guid LostItemId,
     Guid FoundItemId,

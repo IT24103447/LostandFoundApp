@@ -283,6 +283,30 @@ public sealed class AppealRepository(
         return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
     }
 
+    public async Task ReopenAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            UPDATE match_appeals
+            SET status = 'PENDING',
+                decided_by = NULL,
+                decided_at = NULL,
+                updated_at = @now
+            WHERE id = @id
+              AND status = 'VERIFIED';
+            """;
+
+        await using var connection = connections.Create();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new MySqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", id);
+        command.Parameters.AddWithValue("@now", time.GetUtcNow().UtcDateTime);
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private static void AddPaging(
         MySqlCommand command,
         int page)

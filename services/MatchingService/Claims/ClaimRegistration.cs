@@ -1,5 +1,6 @@
 using System.Text;
 using MatchingService.Appeals;
+using MatchingService.HiddenInformation;
 using MatchingService.Lifecycle;
 using MatchingService.Matches;
 using MatchingService.Notifications;
@@ -129,6 +130,15 @@ public static class ClaimRegistration
                         .RequireClaim(
                             "email_verified",
                             "1"));
+
+            options.AddPolicy(
+                "AdminOnly",
+                policy =>
+                    policy
+                        .RequireAuthenticatedUser()
+                        .RequireClaim(
+                            "is_admin",
+                            "1"));
         });
 
         services.AddHttpContextAccessor();
@@ -156,6 +166,13 @@ public static class ClaimRegistration
         services.AddScoped<ClaimService>();
         services.AddScoped<AppealRepository>();
         services.AddScoped<AppealService>();
+        services.AddScoped<AdminAppealService>();
+
+        services.AddSingleton<
+            ItemHiddenInformationRepository>();
+
+        services.AddHostedService<
+            ItemHiddenInformationConsumer>();
 
         services.AddScoped<
             IMatchReadRepository,
