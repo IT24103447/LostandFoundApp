@@ -11,7 +11,15 @@ import {
   type ReportType,
   type SavedMatch,
 } from "../api/matches";
+import {
+  APPEAL_NOTE_MAX,
+  getPairAppealStatus,
+  sendAppeal,
+} from "../api/appeals";
 import { MatchItemCard } from "./MatchItemCard";
+
+const APPEAL_UNAVAILABLE_HINT =
+  "This pair has already been submitted for appeal by you or the other user.";
 
 type Props = {
   targetId: string;
@@ -48,6 +56,11 @@ export function ClaimDialog({
     useState<SavedMatch | null>(null);
 
   const [error, setError] = useState("");
+
+  const [appealed, setAppealed] = useState(false);
+  const [appealOpen, setAppealOpen] = useState(false);
+  const [appealNote, setAppealNote] = useState("");
+  const [appealSent, setAppealSent] = useState(false);
 
   const ownType: ReportType =
     targetType === "FOUND"
@@ -129,6 +142,7 @@ export function ClaimDialog({
     setError("");
     setPreview(null);
     setPair(selectedPair);
+    resetAppeal();
     setPreviewLoading(true);
 
     try {
@@ -136,6 +150,13 @@ export function ClaimDialog({
         selectedPair,
         controller.signal,
       );
+
+      if (!result.canClaim) {
+        await refreshAppealStatus(
+          selectedPair,
+          controller.signal,
+        );
+      }
 
       if (!controller.signal.aborted) {
         setPreview(result);
@@ -148,6 +169,62 @@ export function ClaimDialog({
       if (!controller.signal.aborted) {
         setPreviewLoading(false);
       }
+    }
+  };
+
+  function resetAppeal() {
+    setAppealed(false);
+    setAppealOpen(false);
+    setAppealNote("");
+  }
+
+  async function refreshAppealStatus(
+    selectedPair: PairRequest,
+    signal?: AbortSignal,
+  ) {
+    try {
+      const status = await getPairAppealStatus(
+        selectedPair,
+        signal,
+      );
+
+      if (!signal?.aborted) {
+        setAppealed(status.appealed);
+      }
+    } catch {
+      // The status only greys out the Appeal button; the server still refuses a second appeal.
+    }
+  }
+
+  const confirmAppeal = async () => {
+    if (
+      !pair ||
+      !preview ||
+      preview.canClaim ||
+      submittingRef.current
+    ) {
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError("");
+
+    try {
+      await sendAppeal(
+        pair,
+        preview.previewVersion,
+        appealNote,
+      );
+
+      setAppealSent(true);
+    } catch (reason) {
+      setError(matchingError(reason));
+      setAppealOpen(false);
+      await refreshAppealStatus(pair);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -204,7 +281,9 @@ export function ClaimDialog({
           >
             {saved
               ? "Claim submitted"
-              : "Preview your match"}
+              : appealSent
+                ? "Appeal sent"
+                : "Preview your match"}
           </h2>
 
           <button
@@ -251,6 +330,23 @@ export function ClaimDialog({
               View Matched Items
             </Link>
           </div>
+        ) : appealSent ? (
+          <div className="space-y-4">
+            <p>Appeal sent. An admin will review it.</p>
+
+            <p className="text-sm text-gray-600">
+              You can follow its status under My appeals
+              on the Matched Items page.
+            </p>
+
+            <Link
+              to="/matched-items?tab=appeals"
+              onClick={onClose}
+              className="inline-block rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white"
+            >
+              View My appeals
+            </Link>
+          </div>
         ) : preview ? (
           <div className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -281,6 +377,64 @@ export function ClaimDialog({
               </p>
             )}
 
+            {appealOpen ? (
+              <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="font-semibold text-amber-900">
+                  Send this pair to an admin for review?
+                </p>
+
+                <p className="text-sm text-amber-900">
+                  Do not edit your report while this appeal is
+                  being reviewed or waiting for the other user.
+                  Editing it may cancel the match permanently.
+                </p>
+
+                <label
+                  htmlFor="appeal-note"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Note to the admin (optional)
+                </label>
+
+                <textarea
+                  id="appeal-note"
+                  value={appealNote}
+                  maxLength={APPEAL_NOTE_MAX}
+                  rows={3}
+                  onChange={(event) =>
+                    setAppealNote(event.target.value)
+                  }
+                  placeholder="Explain why this pair is a genuine match"
+                  className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm"
+                />
+
+                <p className="text-right text-xs text-gray-500">
+                  {appealNote.length}/{APPEAL_NOTE_MAX}
+                </p>
+
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => setAppealOpen(false)}
+                    className="rounded-xl border bg-white px-4 py-3 disabled:opacity-50"
+                  >
+                    Go back
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={confirmAppeal}
+                    className="rounded-xl bg-amber-600 px-5 py-3 font-semibold text-white disabled:opacity-50"
+                  >
+                    {submitting
+                      ? "Sending…"
+                      : "Send appeal"}
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="flex flex-wrap justify-end gap-3">
               <button
                 type="button"
@@ -289,6 +443,7 @@ export function ClaimDialog({
                   setPreview(null);
                   setPair(null);
                   setError("");
+                  resetAppeal();
                 }}
                 className="rounded-xl border px-4 py-3 disabled:opacity-50"
               >
@@ -304,6 +459,32 @@ export function ClaimDialog({
                 Cancel
               </button>
 
+              {appealed ? (
+                <span
+                  title={APPEAL_UNAVAILABLE_HINT}
+                  className="inline-block cursor-not-allowed"
+                >
+                  <button
+                    type="button"
+                    disabled
+                    className="pointer-events-none rounded-xl border border-amber-600 px-4 py-3 font-semibold text-amber-700 opacity-40"
+                  >
+                    Appeal unavailable
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={
+                    preview.canClaim || submitting
+                  }
+                  onClick={() => setAppealOpen(true)}
+                  className="rounded-xl border border-amber-600 px-4 py-3 font-semibold text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Appeal
+                </button>
+              )}
+
               <button
                 type="button"
                 disabled={
@@ -317,6 +498,7 @@ export function ClaimDialog({
                   : "Confirm and claim"}
               </button>
             </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

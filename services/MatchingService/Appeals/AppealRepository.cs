@@ -25,7 +25,7 @@ public sealed class AppealRepository(
         """;
 
     private const string WaitingMatchCondition = """
-        (a.status = 'PENDING' AND a.appellant_id = @userId)
+        a.status = 'PENDING'
         OR (a.status = 'VERIFIED'
             AND m.is_active = 1
             AND m.status IN (
