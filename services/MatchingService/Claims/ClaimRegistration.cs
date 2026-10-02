@@ -1,4 +1,5 @@
 using System.Text;
+using MatchingService.Appeals;
 using MatchingService.Lifecycle;
 using MatchingService.Matches;
 using MatchingService.Notifications;
@@ -153,6 +154,7 @@ public static class ClaimRegistration
 
         services.AddScoped<ClaimRepository>();
         services.AddScoped<ClaimService>();
+        services.AddScoped<AppealRepository>();
 
         services.AddScoped<
             IMatchReadRepository,
