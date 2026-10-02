@@ -9,6 +9,23 @@ public static class AppealStatus
     public const string Rejected = "REJECTED";
 }
 
+public sealed record SendAppealRequest(
+    Guid LostItemId,
+    Guid FoundItemId,
+    string PreviewVersion,
+    string? Note);
+
+public sealed record MyAppealView(
+    Guid Id,
+    string Status,
+    string Role,
+    decimal Score,
+    ClaimItemView Lost,
+    ClaimItemView Found,
+    string? Note,
+    DateTime CreatedAt,
+    DateTime? DecidedAt);
+
 public sealed record NewAppeal(
     Guid LostItemId,
     Guid FoundItemId,

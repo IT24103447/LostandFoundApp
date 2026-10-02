@@ -145,6 +145,7 @@ public sealed class AppealRepository(
     public async Task<bool> PairHasAppealAsync(
         Guid lostItemId,
         Guid foundItemId,
+        Guid ownerId,
         CancellationToken cancellationToken)
     {
         const string sql = """
@@ -152,6 +153,7 @@ public sealed class AppealRepository(
             FROM match_appeals
             WHERE lost_item_id = @lostItemId
               AND found_item_id = @foundItemId
+              AND (lost_reporter_id = @ownerId OR finder_id = @ownerId)
             LIMIT 1;
             """;
 
@@ -161,6 +163,7 @@ public sealed class AppealRepository(
         await using var command = new MySqlCommand(sql, connection);
         command.Parameters.AddWithValue("@lostItemId", lostItemId);
         command.Parameters.AddWithValue("@foundItemId", foundItemId);
+        command.Parameters.AddWithValue("@ownerId", ownerId);
 
         return await command.ExecuteScalarAsync(cancellationToken) is not null;
     }

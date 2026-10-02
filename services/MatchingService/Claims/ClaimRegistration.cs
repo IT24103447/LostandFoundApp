@@ -155,6 +155,7 @@ public static class ClaimRegistration
         services.AddScoped<ClaimRepository>();
         services.AddScoped<ClaimService>();
         services.AddScoped<AppealRepository>();
+        services.AddScoped<AppealService>();
 
         services.AddScoped<
             IMatchReadRepository,
