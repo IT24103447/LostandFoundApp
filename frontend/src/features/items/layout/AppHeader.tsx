@@ -31,6 +31,17 @@ const NAV_LINKS = [
   },
 ];
 
+const ADMIN_NAV_LINKS = [
+  {
+    label: "Home",
+    to: "/",
+  },
+  {
+    label: "Admin Dashboard",
+    to: "/admin/dashboard",
+  },
+];
+
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   const first = parts[0]?.[0] ?? "";
@@ -101,7 +112,7 @@ export function AppHeader() {
         </div>
 
         <nav className="flex items-center gap-8">
-          {NAV_LINKS.map((link) => (
+          {(user?.isAdmin ? ADMIN_NAV_LINKS : NAV_LINKS).map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
@@ -166,7 +177,7 @@ export function AppHeader() {
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
-                    navigate("/profile");
+                    navigate(user?.isAdmin ? "/admin/profile" : "/profile");
                   }}
                   className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                 >

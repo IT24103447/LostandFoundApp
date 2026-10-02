@@ -21,6 +21,7 @@ import {
   type ItemDetail,
 } from "../api/browseItems";
 import { ClaimDialog } from "../../matches/components/ClaimDialog";
+import { useAuth } from "../../auth/AuthContext";
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Electronics: Smartphone,
@@ -78,6 +79,8 @@ function statusBadgeClass(status: string): string {
 export function ItemDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.isAdmin === true;
 
   const [item, setItem] =
     useState<ItemDetail | null>(null);
@@ -312,15 +315,17 @@ export function ItemDetailsPage() {
             </div>
 
             <div className="mt-6 space-y-3 border-t border-gray-100 pt-5">
-              <button
-                type="button"
-                onClick={() => setClaimOpen(true)}
-                className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-[15px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
-              >
-                {isLost
-                  ? "I Found This Item"
-                  : "This Is My Lost Item"}
-              </button>
+              {!isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setClaimOpen(true)}
+                  className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-[15px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+                >
+                  {isLost
+                    ? "I Found This Item"
+                    : "This Is My Lost Item"}
+                </button>
+              )}
 
               <button
                 type="button"
@@ -331,19 +336,21 @@ export function ItemDetailsPage() {
               </button>
             </div>
 
-            <div className="mt-5 flex items-start gap-3 rounded-xl bg-gray-50 p-4">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100">
-                <ShieldCheck className="h-4 w-4 text-indigo-600" />
-              </span>
+            {!isAdmin && (
+              <div className="mt-5 flex items-start gap-3 rounded-xl bg-gray-50 p-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100">
+                  <ShieldCheck className="h-4 w-4 text-indigo-600" />
+                </span>
 
-              <p className="text-sm text-gray-600">
-                <span className="font-semibold text-gray-900">
-                  Think this is your item?
-                </span>{" "}
-                Preview its similarity with one of your
-                active reports before submitting a claim.
-              </p>
-            </div>
+                <p className="text-sm text-gray-600">
+                  <span className="font-semibold text-gray-900">
+                    Think this is your item?
+                  </span>{" "}
+                  Preview its similarity with one of your
+                  active reports before submitting a claim.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
