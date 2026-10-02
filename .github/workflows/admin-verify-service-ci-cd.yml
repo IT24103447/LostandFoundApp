@@ -1,0 +1,44 @@
+name: admin-verify-service-ci-cd
+
+on:
+  push:
+    branches: [develop, main, 'feature/**']
+    paths:
+      - 'services/AdminVerifyService/**'
+      - 'services/AdminVerifyService.Tests/**'
+      - '.github/workflows/admin-verify-service-ci-cd.yml'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - run: dotnet restore services/AdminVerifyService
+      - run: dotnet restore services/AdminVerifyService.Tests
+      - run: dotnet build services/AdminVerifyService --no-restore
+      - run: dotnet build services/AdminVerifyService.Tests --no-restore
+      - run: dotnet test services/AdminVerifyService.Tests --no-build --collect:"XPlat Code Coverage"
+
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - run: dotnet publish services/AdminVerifyService -c Release -o services/AdminVerifyService/publish
+
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'lostfound-adminverify-service'
+          publish-profile: ${{ secrets.AZURE_ADMIN_VERIFY_SERVICE_PUBLISH_PROFILE }}
+          package: services/AdminVerifyService/publish
