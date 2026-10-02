@@ -21,7 +21,8 @@ public sealed class AppealRepository(
         appellant_email, appellant_phone,
         score, score_breakdown,
         lost_snapshot, found_snapshot,
-        note, status, decided_by, decided_at, created_at
+        note, status, decided_by, decided_at, created_at,
+        rejection_reason
         """;
 
     private const string WaitingMatchCondition = """
@@ -139,7 +140,8 @@ public sealed class AppealRepository(
             AppealStatus.Pending,
             null,
             null,
-            now);
+            now,
+            null);
     }
 
     public async Task<bool> PairHasAppealAsync(
@@ -259,6 +261,7 @@ public sealed class AppealRepository(
         Guid id,
         string status,
         Guid adminId,
+        string? rejectionReason,
         CancellationToken cancellationToken)
     {
         const string sql = """
@@ -266,6 +269,7 @@ public sealed class AppealRepository(
             SET status = @status,
                 decided_by = @adminId,
                 decided_at = @now,
+                rejection_reason = @reason,
                 updated_at = @now
             WHERE id = @id
               AND status = 'PENDING';
@@ -278,6 +282,9 @@ public sealed class AppealRepository(
         command.Parameters.AddWithValue("@id", id);
         command.Parameters.AddWithValue("@status", status);
         command.Parameters.AddWithValue("@adminId", adminId);
+        command.Parameters.AddWithValue(
+            "@reason",
+            string.IsNullOrWhiteSpace(rejectionReason) ? DBNull.Value : rejectionReason.Trim());
         command.Parameters.AddWithValue("@now", time.GetUtcNow().UtcDateTime);
 
         return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
@@ -346,7 +353,8 @@ public sealed class AppealRepository(
                 reader.IsDBNull(16)
                     ? null
                     : DateTime.SpecifyKind(reader.GetDateTime(16), DateTimeKind.Utc),
-                DateTime.SpecifyKind(reader.GetDateTime(17), DateTimeKind.Utc)));
+                DateTime.SpecifyKind(reader.GetDateTime(17), DateTimeKind.Utc),
+                reader.IsDBNull(18) ? null : reader.GetString(18)));
         }
 
         return appeals;

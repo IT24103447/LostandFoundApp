@@ -15,6 +15,9 @@ public sealed record SendAppealRequest(
     string PreviewVersion,
     string? Note);
 
+public sealed record RejectAppealRequest(
+    string? Reason);
+
 public sealed record MyAppealView(
     Guid Id,
     string Status,
@@ -24,7 +27,8 @@ public sealed record MyAppealView(
     ClaimItemView Found,
     string? Note,
     DateTime CreatedAt,
-    DateTime? DecidedAt);
+    DateTime? DecidedAt,
+    string? RejectionReason);
 
 public sealed record AdminAppealView(
     Guid Id,
@@ -40,7 +44,8 @@ public sealed record AdminAppealView(
     string? Note,
     DateTime CreatedAt,
     Guid? DecidedBy,
-    DateTime? DecidedAt);
+    DateTime? DecidedAt,
+    string? RejectionReason);
 
 public sealed record AppealCurrentScore(
     decimal Score,
@@ -86,4 +91,5 @@ public sealed record AppealRecord(
     string Status,
     Guid? DecidedBy,
     DateTime? DecidedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? RejectionReason);

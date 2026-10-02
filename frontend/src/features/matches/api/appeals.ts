@@ -15,6 +15,7 @@ export type MyAppeal = {
   note?: string | null;
   createdAt: string;
   decidedAt?: string | null;
+  rejectionReason?: string | null;
 };
 
 export const sendAppeal = (

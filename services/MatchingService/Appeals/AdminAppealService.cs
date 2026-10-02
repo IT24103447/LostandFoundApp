@@ -130,6 +130,7 @@ public sealed class AdminAppealService
                 id,
                 AppealStatus.Verified,
                 adminId,
+                null,
                 cancellationToken))
         {
             throw AlreadyDecided();
@@ -161,8 +162,16 @@ public sealed class AdminAppealService
     public async Task<AdminAppealView> RejectAsync(
         Guid id,
         Guid adminId,
+        string? reason,
         CancellationToken cancellationToken)
     {
+        if (reason?.Trim().Length > AppealService.MaxNoteLength)
+        {
+            throw new ClaimException(
+                StatusCodes.Status400BadRequest,
+                $"The reason can be at most {AppealService.MaxNoteLength} characters.");
+        }
+
         var appeal = await GetRequiredAsync(id, cancellationToken);
         EnsurePending(appeal);
 
@@ -170,6 +179,7 @@ public sealed class AdminAppealService
                 id,
                 AppealStatus.Rejected,
                 adminId,
+                reason,
                 cancellationToken))
         {
             throw AlreadyDecided();
@@ -254,5 +264,6 @@ public sealed class AdminAppealService
             appeal.Note,
             appeal.CreatedAt,
             appeal.DecidedBy,
-            appeal.DecidedAt);
+            appeal.DecidedAt,
+            appeal.RejectionReason);
 }

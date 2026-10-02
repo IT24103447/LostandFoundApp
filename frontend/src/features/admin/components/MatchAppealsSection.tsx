@@ -29,6 +29,8 @@ const STATUS_STYLES: Record<AppealStatus, string> = {
 
 type ContactState = UserContact | "deleted" | "loading" | "error";
 
+const REJECT_REASON_MAX = 300;
+
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
@@ -93,6 +95,12 @@ export function MatchAppealsSection() {
   const [confirming, setConfirming] = useState<{ id: string; action: "verify" | "reject" } | null>(null);
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState<Record<string, string>>({});
+  const [rejectReason, setRejectReason] = useState("");
+
+  const startConfirm = (id: string, action: "verify" | "reject") => {
+    setRejectReason("");
+    setConfirming({ id, action });
+  };
 
   const requestedContacts = useRef(new Set<string>());
 
@@ -164,7 +172,7 @@ export function MatchAppealsSection() {
       if (action === "verify") {
         await verifyAdminAppeal(id);
       } else {
-        await rejectAdminAppeal(id);
+        await rejectAdminAppeal(id, rejectReason);
       }
       setConfirming(null);
       setAppeals((current) => current.filter((appeal) => appeal.id !== id));
@@ -284,10 +292,40 @@ export function MatchAppealsSection() {
                   </div>
                 )}
 
+                {appeal.status === "REJECTED" && appeal.rejectionReason && (
+                  <div className="mt-4 rounded-lg bg-rose-50 p-4">
+                    <p className="text-xs font-medium uppercase text-rose-500">Reason given to the user</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-rose-900">{appeal.rejectionReason}</p>
+                  </div>
+                )}
+
                 {actionError[appeal.id] && (
                   <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
                     {actionError[appeal.id]}
                   </p>
+                )}
+
+                {isConfirming && confirming.action === "reject" && (
+                  <div className="mt-4">
+                    <label
+                      htmlFor={`reject-reason-${appeal.id}`}
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Reason for the user (optional)
+                    </label>
+                    <textarea
+                      id={`reject-reason-${appeal.id}`}
+                      value={rejectReason}
+                      maxLength={REJECT_REASON_MAX}
+                      rows={3}
+                      onChange={(event) => setRejectReason(event.target.value)}
+                      placeholder="Only the user who sent the appeal will see this"
+                      className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                    />
+                    <p className="text-right text-xs text-gray-500">
+                      {rejectReason.length}/{REJECT_REASON_MAX}
+                    </p>
+                  </div>
                 )}
 
                 {appeal.status === "PENDING" && (
@@ -334,7 +372,7 @@ export function MatchAppealsSection() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setConfirming({ id: appeal.id, action: "reject" })}
+                          onClick={() => startConfirm(appeal.id, "reject")}
                           className="rounded-lg border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-700"
                         >
                           Reject
@@ -346,7 +384,7 @@ export function MatchAppealsSection() {
                           <button
                             type="button"
                             disabled={userDeleted}
-                            onClick={() => setConfirming({ id: appeal.id, action: "verify" })}
+                            onClick={() => startConfirm(appeal.id, "verify")}
                             className={`rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white ${
                               userDeleted ? "pointer-events-none opacity-40" : ""
                             }`}

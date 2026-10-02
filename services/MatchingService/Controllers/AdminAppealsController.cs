@@ -3,6 +3,7 @@ using MatchingService.Appeals;
 using MatchingService.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace MatchingService.Controllers;
 
@@ -76,6 +77,7 @@ public sealed class AdminAppealsController : ControllerBase
     [HttpPost("{id:guid}/reject")]
     public Task<IActionResult> Reject(
         Guid id,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] RejectAppealRequest? request,
         CancellationToken cancellationToken)
     {
         return ExecuteAsync(async adminId =>
@@ -83,6 +85,7 @@ public sealed class AdminAppealsController : ControllerBase
             var appeal = await _appeals.RejectAsync(
                 id,
                 adminId,
+                request?.Reason,
                 cancellationToken);
 
             _logger.LogInformation(

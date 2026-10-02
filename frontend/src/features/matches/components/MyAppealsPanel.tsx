@@ -123,6 +123,17 @@ export function MyAppealsPanel() {
                 </p>
               </div>
             )}
+
+            {appeal.status === "REJECTED" && appeal.rejectionReason && (
+              <div className="mt-4 rounded-xl bg-rose-50 p-4">
+                <p className="text-sm font-medium text-rose-700">
+                  Reason from the admin
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-rose-900">
+                  {appeal.rejectionReason}
+                </p>
+              </div>
+            )}
           </article>
         );
       })}

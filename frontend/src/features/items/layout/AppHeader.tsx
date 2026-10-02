@@ -36,10 +36,6 @@ const ADMIN_NAV_LINKS = [
     label: "Home",
     to: "/",
   },
-  {
-    label: "Admin Dashboard",
-    to: "/admin/dashboard",
-  },
 ];
 
 function initials(name: string): string {
@@ -131,6 +127,16 @@ export function AppHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-5">
+          {user?.isAdmin && (
+            <button
+              type="button"
+              onClick={() => navigate("/admin/dashboard")}
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+            >
+              Go to admin dashboard
+            </button>
+          )}
+
           <button
             type="button"
             aria-label="Notifications"

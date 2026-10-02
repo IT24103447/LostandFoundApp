@@ -172,5 +172,6 @@ public sealed class AppealService
             appeal.Found,
             appeal.Note,
             appeal.CreatedAt,
-            appeal.DecidedAt);
+            appeal.DecidedAt,
+            appeal.RejectionReason);
 }

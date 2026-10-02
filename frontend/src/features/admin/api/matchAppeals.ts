@@ -19,6 +19,7 @@ export type AdminAppeal = {
   createdAt: string;
   decidedBy?: string | null;
   decidedAt?: string | null;
+  rejectionReason?: string | null;
 };
 
 export type AdminAppealDetail = {
@@ -65,11 +66,11 @@ export const verifyAdminAppeal = (id: string) =>
     {},
   );
 
-export const rejectAdminAppeal = (id: string) =>
-  apiPost<Record<string, never>, AdminAppeal>(
+export const rejectAdminAppeal = (id: string, reason: string) =>
+  apiPost<{ reason: string | null }, AdminAppeal>(
     "matching",
     `/api/admin/match-appeals/${id}/reject`,
-    {},
+    { reason: reason.trim() === "" ? null : reason.trim() },
   );
 
 export const getUserContact = (id: string, signal?: AbortSignal) =>
