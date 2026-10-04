@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-MS-13 - Story LF-81 Duplicate Appeal Race Condition">
+      <stringProp name="TestPlan.comments">Story LF-81, the one thing about the duplicate-appeal rule xUnit genuinely cannot prove: two REAL, SIMULTANEOUS HTTP requests racing the database&apos;s unique constraint on (lost_item_id, found_item_id) - exactly what a double-click on &quot;Send appeal&quot;, or a client-side network retry after a slow response, does in production. AppealsApiIntegrationTests.AdminRoute_TwoSimultaneousAppeals_SaveOneAndConflictTheOther proves the SEQUENTIAL case (attempt, then a later second attempt); this plan proves the CONCURRENT case, where the loser must lose in the database rather than after a read.
+
+Exactly 2 threads, both authenticated as the same user (AUTH_TOKEN, the report owner appealing), both given the identical below-threshold pair from RACE_PAIR_CSV. Each thread independently previews the pair so it has its own genuine previewVersion - a fingerprint of the reports&apos; current, unchanged state, so both threads&apos; previews legitimately match - then a Synchronizing Timer holds both at the appeal request until both are ready, so the two POST /api/matches/appeals calls fire together rather than one after the other.
+
+The correct outcome is exactly one 201 (Created) and one 409 (Conflict) across the two samples - never two 201s, which would mean two rows and two admins reviewing the same pair. As in plan 07 the Response Assertion accepts either code individually, because JMeter cannot compare across threads within one assertion; the real pass/fail signal is that 1-and-1 split read off the Summary Report after the run.
+
+Expect a NON-ZERO error count in the Summary Report and do not treat it as a failure. JMeter marks any non-2xx sample as an error regardless of whether the assertion tolerated it, so the losing thread&apos;s 409 is always counted as an error - a run reporting &quot;Err: 1 (50.00%)&quot; across two appeal samples is this plan having worked correctly. What would be wrong is Err: 0 (two 201s) or Err: 2 (two 409s, meaning the pair was already appealed). Confirm it in the database rather than trusting the split alone:
+
+SELECT COUNT(*) FROM matching_service.match_appeals WHERE lost_item_id = &apos;&lt;row&apos;&apos; AND found_item_id = &apos;&lt;row&apos;&apos;;
+-- must be exactly 1
+
+RACE_PAIR_CSV holds exactly one never-appealed pair, consumed by whichever thread wins - single-use per run rather than a recyclable pool like plan 12&apos;s, because a rerun against an already-appealed pair would produce 409 + 409 and look like a pass. HOST/PORT default to localhost/5179.</stringProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument">
+            <stringProp name="Argument.name">HOST</stringProp>
+            <stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PORT" elementType="Argument">
+            <stringProp name="Argument.name">PORT</stringProp>
+            <stringProp name="Argument.value">${__P(PORT,5179)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="AUTH_TOKEN" elementType="Argument">
+            <stringProp name="Argument.name">AUTH_TOKEN</stringProp>
+            <stringProp name="Argument.value">${__P(AUTH_TOKEN,SET_ME)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="RACE_PAIR_CSV" elementType="Argument">
+            <stringProp name="Argument.name">RACE_PAIR_CSV</stringProp>
+            <stringProp name="Argument.value">${__P(RACE_PAIR_CSV,storyLF81-appeal-race-pair.csv)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Owner authentication + JSON content type">
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="auth-cookie" elementType="Header">
+            <stringProp name="Header.name">Cookie</stringProp>
+            <stringProp name="Header.value">auth_token=${AUTH_TOKEN}</stringProp>
+          </elementProp>
+          <elementProp name="content-type" elementType="Header">
+            <stringProp name="Header.name">Content-Type</stringProp>
+            <stringProp name="Header.value">application/json</stringProp>
+          </elementProp>
+        </collectionProp>
+        <stringProp name="TestPlan.comments">Sends the JWT as the auth_token cookie (MatchingService&apos;s JWT bearer handler accepts it as a fallback - ClaimRegistration.cs).</stringProp>
+      </HeaderManager>
+      <hashTree/>
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Story LF-81 single race pair" enabled="true">
+        <stringProp name="TestPlan.comments">Exactly one data row expected. shareMode &quot;All threads&quot; plus recycle=true means both of the two threads below read the SAME row (there is only one), which is what makes them race the same pair rather than two different ones.</stringProp>
+        <stringProp name="filename">${RACE_PAIR_CSV}</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="variableNames">lostItemId,foundItemId</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <stringProp name="delimiter">,</stringProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <boolProp name="stopThread">false</boolProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Two simultaneous appellants" enabled="true">
+        <stringProp name="TestPlan.comments">Exactly 2 threads, 1 loop each, no ramp-up (both start together) - a fixed shape matching the Synchronizing Timer&apos;s hard-set group size of 2 below.</stringProp>
+        <stringProp name="ThreadGroup.num_threads">2</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Preview the shared pair" enabled="true">
+          <stringProp name="TestPlan.comments">Each of the two threads previews the same, still-unappealed pair independently, to get its own genuine previewVersion - a fingerprint of the reports&apos; current state, so both threads&apos; versions match since nothing changes between the two previews.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/preview</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&quot;lostItemId&quot;:&quot;${lostItemId}&quot;,&quot;foundItemId&quot;:&quot;${foundItemId}&quot;}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Preview returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">A failure here means RACE_PAIR_CSV is stale: already appealed or no longer ACTIVE. Both threads fail identically, so nothing reaches the race below.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Preview reports the pair is not directly claimable" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">&quot;canClaim&quot;:false</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">canClaim must be false, otherwise both appeal attempts are refused with 422 and the race never happens - which would otherwise present as a clean run with two 422s nobody reads. Matching the exact &quot;canClaim&quot;:false key rather than a bare &quot;false&quot; keeps the check honest: the preview body&apos;s breakdown contains other booleans and 0s that a loose substring match would latch onto instead.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">16</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract previewVersion" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">previewVersion</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.previewVersion</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">0</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Appeal the shared pair" enabled="true">
+          <stringProp name="TestPlan.comments">POST /api/matches/appeals, fired by both threads at (as close to) the same instant as the Synchronizing Timer below can arrange. Exactly one of the two concurrent samples is expected to land 201 and the other 409; this sampler&apos;s own assertion only confirms each individual response was one of the two acceptable outcomes, not that the pair actually split correctly.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/matches/appeals</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&quot;lostItemId&quot;:&quot;${lostItemId}&quot;,&quot;foundItemId&quot;:&quot;${foundItemId}&quot;,&quot;previewVersion&quot;:&quot;${previewVersion}&quot;,&quot;note&quot;:&quot;JMeter LF-81 duplicate appeal race.&quot;}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="Synchronizing Timer - hold both racers until both are ready" enabled="true">
+            <stringProp name="TestPlan.comments">Blocks each thread here until all 2 threads have reached this point, then releases both together, so the two appeal requests below fire as close to simultaneously as JMeter can manage. groupSize must stay 2 - it matches this plan&apos;s fixed 2-thread shape.</stringProp>
+            <intProp name="groupSize">2</intProp>
+            <longProp name="timeoutInMs">0</longProp>
+          </SyncTimer>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Appeal returns 201 or 409" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49588">201</stringProp>
+              <stringProp name="49589">409</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">Accepts either outcome per-sample. Two 201s here is the real bug this plan hunts, and no single assertion can see it - read the code column of the Summary Report and confirm it is one 201 and one 409.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">40</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">../results/storyLF81-appeal-race-tree.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">../results/storyLF81-appeal-race-summary.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
