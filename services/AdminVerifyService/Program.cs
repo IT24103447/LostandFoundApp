@@ -1,5 +1,6 @@
 using AdminVerifyService.Configuration;
 using AdminVerifyService.Databases;
+using AdminVerifyService.Listings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +42,9 @@ builder.Services.AddOptions<DetectionSettings>()
 
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
+builder.Services.AddSingleton<TrackedListingRepository>();
+builder.Services.AddSingleton<ListingEventHandler>();
+builder.Services.AddHostedService<ListingEventConsumer>();
 
 var app = builder.Build();
 
