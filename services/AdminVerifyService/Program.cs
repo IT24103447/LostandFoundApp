@@ -46,6 +46,7 @@ builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
 builder.Services.AddSingleton<TrackedListingRepository>();
 builder.Services.AddSingleton<SpamRecordRepository>();
 builder.Services.AddSingleton<SpamRule>();
+builder.Services.AddSingleton<SpamReviewRepository>();
 builder.Services.AddSingleton<ListingEventHandler>();
 builder.Services.AddHostedService<ListingEventConsumer>();
 
