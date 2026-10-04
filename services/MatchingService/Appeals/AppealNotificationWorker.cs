@@ -2,7 +2,7 @@ namespace MatchingService.Appeals;
 
 public sealed class AppealNotificationWorker(
     AppealNotificationRepository repository,
-    AppealEmailSender sender,
+    IAppealEmailSender sender,
     ILogger<AppealNotificationWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

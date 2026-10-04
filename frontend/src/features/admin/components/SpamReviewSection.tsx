@@ -214,7 +214,7 @@ export function SpamReviewSection() {
           <button
             key={item.value}
             type="button"
-            role="tab"
+            id={`spam-review-tab-${item.value}`}
             aria-selected={tab === item.value}
             onClick={() => setTab(item.value)}
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold ${
@@ -228,10 +228,11 @@ export function SpamReviewSection() {
         ))}
       </div>
 
-      <form onSubmit={applyFilters} className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4 shadow-sm">
+      <form id="spam-review-filters" onSubmit={applyFilters} className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4 shadow-sm">
         <label className="flex flex-col gap-1 text-xs font-medium text-gray-500">
           Sort by
           <select
+            id="spam-review-sort"
             value={draft.sort}
             onChange={(event) => changeSort(event.target.value as SpamReviewSort)}
             className={INPUT_CLASS}
@@ -243,7 +244,7 @@ export function SpamReviewSection() {
         <label className="flex min-w-56 flex-1 flex-col gap-1 text-xs font-medium text-gray-500">
           Flagged user (name or email)
           <input
-            type="search"
+            id="spam-review-search"
             value={draft.search}
             onChange={(event) => setDraft((current) => ({ ...current, search: event.target.value }))}
             placeholder="Search by name or email"
@@ -254,7 +255,7 @@ export function SpamReviewSection() {
           Flagged from
           <input
             type="date"
-            value={draft.from}
+            id="spam-review-from"
             onChange={(event) => setDraft((current) => ({ ...current, from: event.target.value }))}
             className={INPUT_CLASS}
           />
@@ -263,43 +264,43 @@ export function SpamReviewSection() {
           Flagged to
           <input
             type="date"
-            value={draft.to}
+            id="spam-review-to"
             onChange={(event) => setDraft((current) => ({ ...current, to: event.target.value }))}
             className={INPUT_CLASS}
           />
         </label>
         <button
-          type="submit"
+          id="spam-review-apply"
           className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
         >
           Apply
         </button>
-        <button type="button" onClick={clearFilters} className="rounded-lg border px-4 py-2 text-sm">
+        <button id="spam-review-clear" type="button" onClick={clearFilters} className="rounded-lg border px-4 py-2 text-sm">
           Clear
         </button>
       </form>
 
       {notice && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div id="spam-review-notice" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {notice}
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div id="spam-review-error" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
       {loading && records.length === 0 ? (
-        <p className="text-sm text-gray-500">Loading Spam records…</p>
+        <p id="spam-review-loading" className="text-sm text-gray-500">Loading Spam records…</p>
       ) : records.length === 0 && !error ? (
-        <p className="rounded-lg border bg-white p-6 text-sm text-gray-500">
+        <p id="spam-review-empty" className="rounded-lg border bg-white p-6 text-sm text-gray-500">
           {filtered ? "No Spam records match these filters." : `No ${tabLabel} Spam records.`}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
+          <table id="spam-review-table" className="min-w-full divide-y divide-gray-200 text-left text-sm">
             <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3">Flagged user</th>
@@ -311,7 +312,7 @@ export function SpamReviewSection() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {records.map((record) => (
-                <tr key={record.id}>
+                <tr key={record.id} id={`spam-record-${record.id}`} data-status={record.status}>
                   <td className="px-4 py-3">
                     <UserCell contact={contacts[record.userId]} />
                   </td>
@@ -329,7 +330,7 @@ export function SpamReviewSection() {
               ))}
             </tbody>
           </table>
-          <div ref={sentinel} className="px-4 py-3 text-center text-sm text-gray-500">
+          <div ref={sentinel} id="spam-review-more" className="px-4 py-3 text-center text-sm text-gray-500">
             {loading && records.length > 0 ? "Loading more…" : null}
           </div>
         </div>
