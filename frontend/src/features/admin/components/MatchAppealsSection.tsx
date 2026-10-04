@@ -31,6 +31,9 @@ type ContactState = UserContact | "deleted" | "loading" | "error";
 
 const REJECT_REASON_MAX = 300;
 
+const DELETED_USER_MESSAGE =
+  "A user in this pair has been deleted, so the appeal can only be rejected.";
+
 function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
@@ -161,6 +164,37 @@ export function MatchAppealsSection() {
     }
   };
 
+  const fetchContactState = async (userId: string): Promise<ContactState> => {
+    try {
+      return await getUserContact(userId);
+    } catch (reason) {
+      return (reason as { status?: number })?.status === 404 ? "deleted" : "error";
+    }
+  };
+
+  const recheckUsers = async (appeal: AdminAppeal): Promise<string | null> => {
+    const [lostReporter, finder] = await Promise.all([
+      fetchContactState(appeal.lostReporterId),
+      fetchContactState(appeal.finderId),
+    ]);
+
+    setContacts((current) => ({
+      ...current,
+      [appeal.lostReporterId]: lostReporter,
+      [appeal.finderId]: finder,
+    }));
+
+    if (lostReporter === "deleted" || finder === "deleted") {
+      return DELETED_USER_MESSAGE;
+    }
+
+    if (lostReporter === "error" || finder === "error") {
+      return "Couldn't confirm that both users still exist. Please try again.";
+    }
+
+    return null;
+  };
+
   const decide = async () => {
     if (!confirming) return;
 
@@ -170,6 +204,15 @@ export function MatchAppealsSection() {
 
     try {
       if (action === "verify") {
+        const appeal = appeals.find((item) => item.id === id);
+        const problem = appeal ? await recheckUsers(appeal) : null;
+
+        if (problem) {
+          setConfirming(null);
+          setActionError((current) => ({ ...current, [id]: problem }));
+          return;
+        }
+
         await verifyAdminAppeal(id);
       } else {
         await rejectAdminAppeal(id, rejectReason);
@@ -378,7 +421,7 @@ export function MatchAppealsSection() {
                           Reject
                         </button>
                         <span
-                          title={userDeleted ? "A user in this pair has been deleted, so the appeal can only be rejected." : undefined}
+                          title={userDeleted ? DELETED_USER_MESSAGE : undefined}
                           className={userDeleted ? "inline-block cursor-not-allowed" : "inline-block"}
                         >
                           <button
