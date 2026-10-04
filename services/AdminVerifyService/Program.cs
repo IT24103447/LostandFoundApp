@@ -1,25 +1,86 @@
+using AdminVerifyService.Configuration;
+using AdminVerifyService.Databases;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Services.AddAdminSecurity(builder.Configuration);
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy =
+            System.Text.Json.JsonNamingPolicy.CamelCase;
+
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddApplicationInsightsTelemetry();
+builder.Services.AddHealthChecks();
+
+builder.Services.AddOptions<KafkaSettings>()
+    .Bind(builder.Configuration.GetSection("Kafka"))
+    .Validate(
+        settings => !string.IsNullOrWhiteSpace(settings.BootstrapServers),
+        "Kafka:BootstrapServers is required.")
+    .Validate(
+        settings => !string.IsNullOrWhiteSpace(settings.GroupId),
+        "Kafka:GroupId is required.")
+    .ValidateOnStart();
+
+builder.Services.AddOptions<DetectionSettings>()
+    .Bind(builder.Configuration.GetSection("Detection"))
+    .Validate(
+        settings =>
+            settings.SpamThreshold >= 2 &&
+            settings.SpamWindowMinutes >= 1 &&
+            settings.SpamRecordCap >= 0,
+        "Detection settings are invalid.")
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseExceptionHandler(errorApplication =>
+{
+    errorApplication.Run(async context =>
+    {
+        var logger = context.RequestServices
+            .GetRequiredService<ILogger<Program>>();
+
+        logger.LogError("ADMIN_VERIFY_API_UNHANDLED_ERROR");
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            error = "An internal error occurred."
+        });
+    });
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    DbInitializer.RunPendingMigrations(app.Services, app.Configuration);
+}
+else
+{
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
-
+app.UseCors(SecurityRegistration.CorsPolicy);
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
+
+public partial class Program { }
