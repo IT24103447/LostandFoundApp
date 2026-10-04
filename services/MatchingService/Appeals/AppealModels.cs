@@ -9,6 +9,12 @@ public static class AppealStatus
     public const string Rejected = "REJECTED";
 }
 
+public static class AppealNotificationType
+{
+    public const string Verified = "APPEAL_VERIFIED";
+    public const string Rejected = "APPEAL_REJECTED";
+}
+
 public sealed record SendAppealRequest(
     Guid LostItemId,
     Guid FoundItemId,

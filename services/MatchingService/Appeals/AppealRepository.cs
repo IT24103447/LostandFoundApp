@@ -264,7 +264,7 @@ public sealed class AppealRepository(
         string? rejectionReason,
         CancellationToken cancellationToken)
     {
-        const string sql = """
+        const string decideSql = """
             UPDATE match_appeals
             SET status = @status,
                 decided_by = @adminId,
@@ -275,26 +275,59 @@ public sealed class AppealRepository(
               AND status = 'PENDING';
             """;
 
+        const string queueEmailSql = """
+            INSERT INTO appeal_notifications (
+                id, appeal_id, notification_type, recipient_email,
+                status, attempts, next_attempt_at, created_at, updated_at
+            )
+            SELECT UUID(), id, @notificationType, appellant_email,
+                   'PENDING', 0, @now, @now, @now
+            FROM match_appeals
+            WHERE id = @id;
+            """;
+
+        var now = time.GetUtcNow().UtcDateTime;
+
         await using var connection = connections.Create();
         await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        await using var command = new MySqlCommand(sql, connection);
-        command.Parameters.AddWithValue("@id", id);
-        command.Parameters.AddWithValue("@status", status);
-        command.Parameters.AddWithValue("@adminId", adminId);
-        command.Parameters.AddWithValue(
-            "@reason",
-            string.IsNullOrWhiteSpace(rejectionReason) ? DBNull.Value : rejectionReason.Trim());
-        command.Parameters.AddWithValue("@now", time.GetUtcNow().UtcDateTime);
+        await using (var decide = new MySqlCommand(decideSql, connection, transaction))
+        {
+            decide.Parameters.AddWithValue("@id", id);
+            decide.Parameters.AddWithValue("@status", status);
+            decide.Parameters.AddWithValue("@adminId", adminId);
+            decide.Parameters.AddWithValue(
+                "@reason",
+                string.IsNullOrWhiteSpace(rejectionReason) ? DBNull.Value : rejectionReason.Trim());
+            decide.Parameters.AddWithValue("@now", now);
 
-        return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
+            if (await decide.ExecuteNonQueryAsync(cancellationToken) != 1)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+        }
+
+        await using (var queueEmail = new MySqlCommand(queueEmailSql, connection, transaction))
+        {
+            queueEmail.Parameters.AddWithValue("@id", id);
+            queueEmail.Parameters.AddWithValue(
+                "@notificationType",
+                status == AppealStatus.Verified ? AppealNotificationType.Verified : AppealNotificationType.Rejected);
+            queueEmail.Parameters.AddWithValue("@now", now);
+            await queueEmail.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return true;
     }
 
     public async Task ReopenAsync(
         Guid id,
         CancellationToken cancellationToken)
     {
-        const string sql = """
+        const string reopenSql = """
             UPDATE match_appeals
             SET status = 'PENDING',
                 decided_by = NULL,
@@ -304,14 +337,31 @@ public sealed class AppealRepository(
               AND status = 'VERIFIED';
             """;
 
+        const string dropEmailSql = """
+            DELETE FROM appeal_notifications
+            WHERE appeal_id = @id
+              AND notification_type = 'APPEAL_VERIFIED'
+              AND status = 'PENDING';
+            """;
+
         await using var connection = connections.Create();
         await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        await using var command = new MySqlCommand(sql, connection);
-        command.Parameters.AddWithValue("@id", id);
-        command.Parameters.AddWithValue("@now", time.GetUtcNow().UtcDateTime);
+        await using (var dropEmail = new MySqlCommand(dropEmailSql, connection, transaction))
+        {
+            dropEmail.Parameters.AddWithValue("@id", id);
+            await dropEmail.ExecuteNonQueryAsync(cancellationToken);
+        }
 
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        await using (var reopen = new MySqlCommand(reopenSql, connection, transaction))
+        {
+            reopen.Parameters.AddWithValue("@id", id);
+            reopen.Parameters.AddWithValue("@now", time.GetUtcNow().UtcDateTime);
+            await reopen.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private static void AddPaging(
