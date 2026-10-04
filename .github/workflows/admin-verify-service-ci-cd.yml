@@ -29,7 +29,14 @@ jobs:
       - name: Install SonarScanner for .NET
         run: dotnet tool install dotnet-sonarscanner --tool-path "$RUNNER_TEMP/sonar-scanner" --version 11.3.0
 
-      - run: dotnet restore services/AdminVerifyService
+      - name: Audit Admin Verify NuGet dependencies
+        env:
+          NuGetAudit: 'true'
+          NuGetAuditMode: all
+          NuGetAuditLevel: high
+          WarningsAsErrors: 'NU1900;NU1903;NU1904'
+        run: dotnet restore services/AdminVerifyService/AdminVerifyService.csproj
+
       - run: dotnet restore services/AdminVerifyService.Tests
 
       - name: Begin Admin Verify analysis
