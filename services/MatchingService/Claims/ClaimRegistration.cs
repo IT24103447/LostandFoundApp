@@ -221,6 +221,15 @@ public static class ClaimRegistration
 
             services.AddHostedService<
                 MatchNotificationWorker>();
+
+            services.AddSingleton<
+                AppealNotificationRepository>();
+
+            services.AddSingleton<
+                AppealEmailSender>();
+
+            services.AddHostedService<
+                AppealNotificationWorker>();
         }
 
         return services;
