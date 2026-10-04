@@ -1,6 +1,7 @@
 using AdminVerifyService.Configuration;
 using AdminVerifyService.Databases;
 using AdminVerifyService.Listings;
+using AdminVerifyService.Spam;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,8 +44,17 @@ builder.Services.AddOptions<DetectionSettings>()
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
 builder.Services.AddSingleton<TrackedListingRepository>();
+builder.Services.AddSingleton<SpamRecordRepository>();
+builder.Services.AddSingleton<SpamRule>();
 builder.Services.AddSingleton<ListingEventHandler>();
 builder.Services.AddHostedService<ListingEventConsumer>();
+
+if (builder.Configuration.GetValue<bool>("Notifications:Enabled"))
+{
+    builder.Services.AddSingleton<SpamAlertRepository>();
+    builder.Services.AddSingleton<SpamAlertEmailSender>();
+    builder.Services.AddHostedService<SpamAlertWorker>();
+}
 
 var app = builder.Build();
 

@@ -1,4 +1,5 @@
 using AdminVerifyService.Databases;
+using AdminVerifyService.Spam;
 
 namespace AdminVerifyService.Listings;
 
@@ -12,6 +13,7 @@ public enum ListingEventOutcome
 public sealed class ListingEventHandler(
     IDbConnectionFactory connections,
     TrackedListingRepository listings,
+    SpamRule spamRule,
     TimeProvider time)
 {
     public async Task<ListingEventOutcome> HandleAsync(
@@ -30,11 +32,15 @@ public sealed class ListingEventHandler(
             return ListingEventOutcome.Duplicate;
         }
 
-        var outcome = await listings.TrackAsync(listingEvent, now, connection, transaction, cancellationToken)
-            ? ListingEventOutcome.NewPost
-            : ListingEventOutcome.AlreadyTracked;
+        if (!await listings.TrackAsync(listingEvent, now, connection, transaction, cancellationToken))
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return ListingEventOutcome.AlreadyTracked;
+        }
+
+        await spamRule.ApplyAsync(listingEvent, now, connection, transaction, cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
-        return outcome;
+        return ListingEventOutcome.NewPost;
     }
 }
