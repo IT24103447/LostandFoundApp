@@ -2,7 +2,7 @@ namespace AdminVerifyService.Spam;
 
 public sealed class SpamAlertWorker(
     SpamAlertRepository repository,
-    SpamAlertEmailSender sender,
+    ISpamAlertEmailSender sender,
     ILogger<SpamAlertWorker> logger) : BackgroundService
 {
     private static readonly TimeSpan IdleDelay = TimeSpan.FromSeconds(5);

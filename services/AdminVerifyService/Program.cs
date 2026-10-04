@@ -53,7 +53,7 @@ builder.Services.AddHostedService<ListingEventConsumer>();
 if (builder.Configuration.GetValue<bool>("Notifications:Enabled"))
 {
     builder.Services.AddSingleton<SpamAlertRepository>();
-    builder.Services.AddSingleton<SpamAlertEmailSender>();
+    builder.Services.AddSingleton<ISpamAlertEmailSender, SpamAlertEmailSender>();
     builder.Services.AddHostedService<SpamAlertWorker>();
 }
 

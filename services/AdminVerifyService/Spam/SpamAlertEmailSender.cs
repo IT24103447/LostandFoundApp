@@ -5,7 +5,12 @@ using System.Text;
 
 namespace AdminVerifyService.Spam;
 
-public sealed class SpamAlertEmailSender
+public interface ISpamAlertEmailSender
+{
+    Task SendAsync(SpamAlertJob job, CancellationToken cancellationToken);
+}
+
+public sealed class SpamAlertEmailSender : ISpamAlertEmailSender
 {
     private const string Subject = "New Spam record needs review";
     private const string Sentence = "A new Spam record has been created and needs review.";
