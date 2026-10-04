@@ -12,6 +12,7 @@ import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
 import { ProfilePage } from "./features/auth/pages/ProfilePage";
 import { ProtectedRoute } from "./features/auth/components/ProtectedRoute";
 import { MatchAppealsSection } from "./features/admin/components/MatchAppealsSection";
+import { SpamReviewSection } from "./features/admin/components/SpamReviewSection";
 
 import { HomePage } from "./features/home/pages/HomePage";
 
@@ -171,6 +172,11 @@ export default function App() {
           <Route
             path="match-appeals"
             element={<MatchAppealsSection />}
+          />
+
+          <Route
+            path="spam-review"
+            element={<SpamReviewSection />}
           />
 
           <Route
