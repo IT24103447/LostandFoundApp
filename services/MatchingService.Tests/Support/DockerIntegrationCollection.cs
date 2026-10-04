@@ -68,3 +68,8 @@ public sealed class DockerIntegrationCollection11
 public sealed class DockerIntegrationCollection12
 {
 }
+
+[CollectionDefinition("Docker Integration Tests 13")]
+public sealed class DockerIntegrationCollection13
+{
+}
