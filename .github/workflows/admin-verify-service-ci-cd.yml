@@ -13,16 +13,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
+      - name: Set up Java for SonarQube
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install SonarScanner for .NET
+        run: dotnet tool install dotnet-sonarscanner --tool-path "$RUNNER_TEMP/sonar-scanner" --version 11.3.0
+
       - run: dotnet restore services/AdminVerifyService
       - run: dotnet restore services/AdminVerifyService.Tests
-      - run: dotnet build services/AdminVerifyService --no-restore
-      - run: dotnet build services/AdminVerifyService.Tests --no-restore
-      - run: dotnet test services/AdminVerifyService.Tests --no-build --collect:"XPlat Code Coverage"
+
+      - name: Begin Admin Verify analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          "$RUNNER_TEMP/sonar-scanner/dotnet-sonarscanner" begin \
+            /o:"it24103447" \
+            /k:"it24103447_lostandfoundapp" \
+            /d:sonar.token="$SONAR_TOKEN" \
+            /d:sonar.cs.opencover.reportsPaths="services/AdminVerifyService.Tests/TestResults/**/coverage.opencover.xml" \
+            /d:sonar.scanner.scanAll=false \
+            /d:sonar.dotnet.excludeTestProjects=true \
+            /d:sonar.qualitygate.wait=true
+
+      - run: dotnet build services/AdminVerifyService --no-restore --no-incremental
+      - run: dotnet build services/AdminVerifyService.Tests --no-restore --no-incremental
+
+      - name: Test Admin Verify with OpenCover coverage
+        run: dotnet test services/AdminVerifyService.Tests --no-build --collect:"XPlat Code Coverage;Format=opencover"
+
+      - name: Finish analysis and check Quality Gate
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          "$RUNNER_TEMP/sonar-scanner/dotnet-sonarscanner" end \
+            /d:sonar.token="$SONAR_TOKEN"
 
   deploy:
     needs: build-and-test
