@@ -122,17 +122,17 @@ export function UserManagementSection() {
       )}
 
       {/* User Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="bg-white shadow rounded-lg overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+              <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+              <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+              <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified</th>
+              <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+              <th className="px-3 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -147,17 +147,17 @@ export function UserManagementSection() {
             ) : (
               users.map((u) => (
                 <tr key={u.id} className={u.deletedAt ? "bg-gray-50 opacity-60" : u.isKicked ? "bg-red-50" : ""}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.phoneNo}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td className="px-3 lg:px-6 py-4 break-words text-sm font-medium text-gray-900">{u.name}</td>
+                  <td className="px-3 lg:px-6 py-4 break-all text-sm text-gray-500">{u.email}</td>
+                  <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{u.phoneNo}</td>
+                  <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-sm">
                     {u.isEmailVerified ? (
                       <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Verified</span>
                     ) : (
                       <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Unverified</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-sm">
                     {u.deletedAt ? (
                       <span className="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-600">Deleted</span>
                     ) : u.isKicked ? (
@@ -166,10 +166,10 @@ export function UserManagementSection() {
                       <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Active</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {u.isAdmin ? "Admin" : "User"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                  <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-right text-sm">
                     {!u.isAdmin && !u.deletedAt && (
                       u.isKicked ? (
                         <button

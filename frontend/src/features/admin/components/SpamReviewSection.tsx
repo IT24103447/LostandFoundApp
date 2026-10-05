@@ -59,7 +59,7 @@ function UserCell({ contact }: { contact: ContactState | undefined }) {
     body = (
       <>
         <span className="font-semibold text-gray-900">{contact.name}</span>
-        <span>{contact.email}</span>
+        <span className="break-all">{contact.email}</span>
         <span>{contact.phoneNo}</span>
       </>
     );
@@ -300,14 +300,14 @@ export function SpamReviewSection() {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-          <table id="spam-review-table" className="min-w-full divide-y divide-gray-200 text-left text-sm">
+          <table id="spam-review-table" className="w-full table-fixed divide-y divide-gray-200 text-left text-sm">
             <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
               <tr>
-                <th className="px-4 py-3">Flagged user</th>
-                <th className="px-4 py-3">Score A</th>
-                <th className="px-4 py-3">Listings</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Date flagged</th>
+                <th className="w-1/5 px-4 py-3">Flagged user</th>
+                <th className="w-1/5 px-4 py-3 text-center">Score / No. of listings</th>
+                <th className="w-1/5 px-4 py-3 text-center">Status</th>
+                <th className="w-1/5 px-4 py-3">Date flagged</th>
+                <th className="w-1/5 px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -316,16 +316,27 @@ export function SpamReviewSection() {
                   <td className="px-4 py-3">
                     <UserCell contact={contacts[record.userId]} />
                   </td>
-                  <td className="px-4 py-3 font-semibold text-gray-900">{record.scoreA}</td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {record.listingCount} {record.listingCount === 1 ? "listing" : "listings"}
+                  <td className="px-4 py-3 text-center">
+                    <span className="inline-block min-w-10 rounded-lg bg-purple-50 px-3 py-1 text-center text-lg font-bold text-purple-800 ring-1 ring-purple-200">
+                      {record.scoreA}
+                    </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_LABELS[record.status].style}`}>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`inline-block rounded-2xl px-3 py-1 text-xs font-bold ${STATUS_LABELS[record.status].style}`}>
                       {STATUS_LABELS[record.status].label}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-700">{new Date(record.flaggedAt).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      id={`spam-record-view-${record.id}`}
+                      type="button"
+                      disabled
+                      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+                    >
+                      View record
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

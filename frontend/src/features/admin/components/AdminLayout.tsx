@@ -7,50 +7,67 @@ const navItems = [
   { label: "Spam Review", to: "/admin/spam-review", icon: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" },
 ];
 
+
+const LINK_BASE =
+  "flex shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-colors";
+
+function linkClass({ isActive }: { isActive: boolean }) {
+  return `${LINK_BASE} ${
+    isActive ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+  }`;
+}
+
+function NavLinks() {
+  return navItems.map((item) => (
+    <NavLink key={item.to} to={item.to} className={linkClass}>
+      <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+      </svg>
+      {item.label}
+    </NavLink>
+  ));
+}
+
+function Brand() {
+  return (
+    <div className="flex items-center">
+      <h1 className="text-lg font-bold text-indigo-600">back2u</h1>
+      <span className="ml-2 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 uppercase">Admin</span>
+    </div>
+  );
+}
+
 export function AdminLayout() {
   const navigate = useNavigate();
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className="flex w-64 flex-col bg-white border-r border-gray-200">
+      {/* Sidebar (large screens) */}
+      <aside className="hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex">
         <div className="flex h-16 items-center px-6">
-          <h1 className="text-lg font-bold text-indigo-600">back2u</h1>
-          <span className="ml-2 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 uppercase">Admin</span>
+          <Brand />
         </div>
 
         <nav className="mt-4 flex-1 space-y-1 px-3">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`
-              }
-            >
-              <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
-              </svg>
-              {item.label}
-            </NavLink>
-          ))}
+          <NavLinks />
         </nav>
       </aside>
 
       {/* Main area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex h-16 items-center justify-between bg-white px-6 shadow-sm">
-          <h2 className="text-sm font-medium text-gray-500">Admin Dashboard</h2>
+        <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 bg-white px-4 py-3 shadow-sm sm:px-6">
           <div className="flex items-center gap-4">
+            <div className="lg:hidden">
+              <Brand />
+            </div>
+            <h2 className="text-sm font-medium text-gray-500">Admin Dashboard</h2>
+          </div>
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+              className="whitespace-nowrap rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 sm:px-4"
             >
               Browse items on homepage
             </button>
@@ -58,8 +75,13 @@ export function AdminLayout() {
           </div>
         </header>
 
+        {/* Nav bar (small screens) */}
+        <nav className="flex gap-1 overflow-x-auto border-b border-gray-200 bg-white px-3 py-2 lg:hidden">
+          <NavLinks />
+        </nav>
+
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <Outlet />
         </main>
       </div>

@@ -48,7 +48,7 @@ function Breakdown({ breakdown }: { breakdown: ScoreBreakdown }) {
   ];
 
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600">
+    <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs text-gray-600 sm:grid-cols-2">
       {rows.map(([label, value]) => (
         <div key={label} className="flex justify-between gap-2">
           <dt>{label}</dt>
