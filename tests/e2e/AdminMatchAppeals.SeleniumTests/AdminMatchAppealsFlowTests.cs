@@ -146,7 +146,7 @@ public sealed class AdminMatchAppealsFlowTests : IClassFixture<AdminAppealsFixtu
         GoToAppeals();
         ClickInCard(lostTitle, "Open");
 
-        var card = CardFor(lostTitle);
+        var card = CardAfterOpen(lostTitle);
         Assert.Contains("Current score:", card.Text, StringComparison.Ordinal);
 
         // Both scores stay on screen together - comparing what the pair scored now against what it
@@ -323,6 +323,83 @@ public sealed class AdminMatchAppealsFlowTests : IClassFixture<AdminAppealsFixtu
     }
 
     [Fact]
+    public void VerifyAppeal_RechecksUsers_WhenAReporterIsDeletedAfterThePageLoaded()
+    {
+        var tag = NewTag();
+        var lostTitle = $"Selenium LF-352 {tag} deleted mid-session hoodie";
+        var reporterName = $"Selenium LF-352 {tag} Reporter";
+
+        // The account exists when the queue is read, so the card loads with the reporter's real
+        // contact and Verify enabled; only afterwards is the account deleted. That is the TOCTOU
+        // window the LF-352 fix closes - the click-time re-check has to catch it, because nothing
+        // on screen says the reporter is gone until the admin acts.
+        var victimId = _fixture.CreateThrowawayUser(reporterName);
+
+        // Explicit item ids, so the end of the test can prove no match was created for this pair.
+        var lostItemId = Guid.NewGuid();
+        var foundItemId = Guid.NewGuid();
+
+        var appealId = _fixture.SeedAppeal(
+            victimId,
+            _fixture.GetUserId(AdminAppealsFixture.UserBEmail),
+            "PENDING",
+            lostTitle,
+            $"Selenium LF-352 {tag} deleted mid-session scarf",
+            lostItemId: lostItemId,
+            foundItemId: foundItemId);
+
+        try
+        {
+            _fixture.EnsureAdminSession();
+            GoToAppeals();
+
+            // Precondition that separates this from the load-time test above: the victim's real
+            // contact is on the card (the account existed when the queue was read) and Verify is
+            // enabled. The name only renders once the contact fetch answered 200.
+            Wait.Until(d =>
+                FindCard(lostTitle)?.Text.Contains(reporterName, StringComparison.Ordinal) == true);
+            Assert.True(
+                CardFor(lostTitle)
+                    .FindElement(By.XPath(".//button[normalize-space()='Verify']"))
+                    .Enabled,
+                "Expected Verify to be enabled while both reporters' accounts exist.");
+
+            // The reporter's account is deleted while the queue page sits open. React keeps the
+            // contact it already loaded, so Verify still looks clickable - the exact window the
+            // click-time re-check exists for.
+            _fixture.SoftDeleteUser(victimId);
+
+            ClickInCard(lostTitle, "Verify");
+            ClickInCard(lostTitle, "Yes, verify");
+
+            // The re-check must abort the verify and tell the admin why.
+            const string deletedUserMessage =
+                "A user in this pair has been deleted, so the appeal can only be rejected.";
+            Wait.Until(d =>
+                FindCard(lostTitle)?.Text.Contains(deletedUserMessage, StringComparison.Ordinal) == true);
+
+            var card = CardFor(lostTitle);
+            Assert.Contains("Deleted user", card.Text, StringComparison.Ordinal);
+            Assert.False(
+                card.FindElement(By.XPath(".//button[normalize-space()='Verify']")).Enabled,
+                "Expected Verify to be disabled once the re-check found the deleted reporter.");
+            Assert.True(
+                card.FindElement(By.XPath(".//button[normalize-space()='Reject']")).Enabled,
+                "Expected Reject to stay available for an appeal with a deleted reporter.");
+
+            // The confirmation closed, and the appeal was never decided against the pair - in
+            // particular, no match row exists for it.
+            Assert.Null(ButtonInCard(lostTitle, "Yes, verify"));
+            Assert.Equal("PENDING", _fixture.GetAppealStatus(appealId));
+            Assert.Null(_fixture.GetMatchIdForPair(lostItemId, foundItemId));
+        }
+        finally
+        {
+            _fixture.DeleteUser(victimId);
+        }
+    }
+
+    [Fact]
     public void OpeningAnAppealWhoseReportsAreNoLongerActive_SaysSoInsteadOfAScore()
     {
         var tag = NewTag();
@@ -341,7 +418,7 @@ public sealed class AdminMatchAppealsFlowTests : IClassFixture<AdminAppealsFixtu
         GoToAppeals();
         ClickInCard(lostTitle, "Open");
 
-        var card = CardFor(lostTitle);
+        var card = CardAfterOpen(lostTitle);
         Assert.Contains("Report no longer active", card.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Current score:", card.Text, StringComparison.Ordinal);
 
@@ -392,6 +469,26 @@ public sealed class AdminMatchAppealsFlowTests : IClassFixture<AdminAppealsFixtu
         }
 
         return card;
+    }
+
+    // "Open" re-fetches both reports and the current score over HTTP, and the detail area renders
+    // only once that response lands; until then it shows "Checking the current score…". Reading
+    // the card immediately after the click races the fetch (the assert could catch the loading
+    // state), so the Open-based tests wait for the loading text to disappear first.
+    private IWebElement CardAfterOpen(string lostTitle)
+    {
+        var card = Wait.Until(d =>
+        {
+            var current = FindCard(lostTitle);
+            return current != null &&
+                   !current.Text.Contains("Checking the current score", StringComparison.Ordinal)
+                ? current
+                : null;
+        });
+
+        return card ?? throw new InvalidOperationException(
+            $"Open never finished loading the current score for '{lostTitle}'. " +
+            $"Queue text: {Driver.FindElement(By.TagName("body")).Text}");
     }
 
     // FindElements, not FindElement: a button that is absent is a real assertion target here (a

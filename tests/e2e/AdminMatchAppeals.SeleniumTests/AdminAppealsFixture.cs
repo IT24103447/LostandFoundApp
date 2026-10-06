@@ -207,6 +207,80 @@ public sealed class AdminAppealsFixture : IDisposable
         command.ExecuteNonQuery();
     }
 
+    // ---- Throwaway users for the deleted-mid-session test --------------------------------------
+    //
+    // The account must genuinely exist when the queue page loads (Verify enabled), and only be
+    // deleted afterwards, so it is the click-time re-check that catches it rather than a disabled
+    // state the page could have computed at load. No FK constraint anywhere references
+    // auth_service.users, so these rows can be written and removed with plain SQL.
+
+    // Registers the account by inserting the row directly (id, name, unique email/phone). The
+    // password hash is never used - nobody logs in as this user; it only has to exist for the
+    // admin contact endpoint to answer 200.
+    public Guid CreateThrowawayUser(string name)
+    {
+        var id = Guid.NewGuid();
+        var email = $"selenium.lf352.{Guid.NewGuid():N}@example.com";
+        var phone = $"+94{Random.Shared.Next(100000000, 999999999)}";
+
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            """
+            INSERT INTO auth_service.users (
+                id, email, password_hash, name, phone_no, is_email_verified, created_at, updated_at
+            ) VALUES (
+                @id, @email, 'throwaway', @name, @phone, 1, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
+            );
+            """,
+            connection);
+
+        command.Parameters.AddWithValue("@id", id);
+        command.Parameters.AddWithValue("@email", email);
+        command.Parameters.AddWithValue("@name", name);
+        command.Parameters.AddWithValue("@phone", phone);
+
+        command.ExecuteNonQuery();
+        return id;
+    }
+
+    // Mirrors Auth Service's SoftDeleteAsync (the self-delete path behind DELETE /api/auth/me):
+    // sets deleted_at and frees the unique email/phone. From the frontend's point of view the
+    // account is gone - GET /api/admin/users/{id} answers 404 - which is the LF-352 scenario.
+    public void SoftDeleteUser(Guid userId)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            """
+            UPDATE auth_service.users
+            SET deleted_at = UTC_TIMESTAMP(3),
+                email = CONCAT('del-', LEFT(@id, 8), '@deleted.local'),
+                phone_no = CONCAT('DEL-', LEFT(@id, 8))
+            WHERE id = @id;
+            """,
+            connection);
+
+        command.Parameters.AddWithValue("@id", userId);
+        command.ExecuteNonQuery();
+    }
+
+    // Hard-removes a throwaway user (including one already soft-deleted), so a rerun does not
+    // accumulate dead accounts.
+    public void DeleteUser(Guid userId)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            "DELETE FROM auth_service.users WHERE id = @id;", connection);
+
+        command.Parameters.AddWithValue("@id", userId);
+        command.ExecuteNonQuery();
+    }
+
     // ---- Real reports, for the tests that cannot fake them -------------------------------------
 
     // Creates one genuine LOST and one FOUND report via the Item Service API. Used only where the
