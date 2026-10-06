@@ -357,6 +357,7 @@ public sealed class AppealEmailSenderTests
     [Theory]
     [InlineData("not a url")]
     [InlineData("/relative/path")]
+    [InlineData("ftp://example.com")]
     public void Constructor_MalformedFrontendBaseUrl_Throws(string frontendBaseUrl)
     {
         var exception = Assert.Throws<InvalidOperationException>(
