@@ -154,6 +154,54 @@ public sealed class AdminAppealsApiIntegrationTests : IClassFixture<ClaimsApiFac
         return Convert.ToInt64(await command.ExecuteScalarAsync());
     }
 
+    /// <summary>
+    /// The LF-338 DoD requires a decision to queue exactly one email row. The unique key on
+    /// (appeal_id, notification_type) plus the single-transaction write make that a fact of
+    /// state, so every race test asserts it directly.
+    /// </summary>
+    private async Task<long> CountNotificationRowsAsync(Guid appealId)
+    {
+        await using var connection = new MySqlConnection(_factory.GetConnectionString());
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(
+            "SELECT COUNT(*) FROM appeal_notifications WHERE appeal_id = @appealId;", connection);
+        command.Parameters.AddWithValue("@appealId", appealId);
+
+        return Convert.ToInt64(await command.ExecuteScalarAsync());
+    }
+
+    private async Task<(string Type, string RecipientEmail, string Status)> ReadNotificationAsync(Guid appealId)
+    {
+        await using var connection = new MySqlConnection(_factory.GetConnectionString());
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(
+            """
+            SELECT n.notification_type, n.recipient_email, n.status
+            FROM appeal_notifications AS n
+            WHERE n.appeal_id = @appealId;
+            """, connection);
+        command.Parameters.AddWithValue("@appealId", appealId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+        await reader.ReadAsync();
+
+        return (reader.GetString(0), reader.GetString(1), reader.GetString(2));
+    }
+
+    private async Task<string> ReadAppellantEmailAsync(Guid appealId)
+    {
+        await using var connection = new MySqlConnection(_factory.GetConnectionString());
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(
+            "SELECT appellant_email FROM match_appeals WHERE id = @appealId;", connection);
+        command.Parameters.AddWithValue("@appealId", appealId);
+
+        return (string)await command.ExecuteScalarAsync();
+    }
+
     // ---- AdminOnly is enforced on every route --------------------------------------------------
 
     public static IEnumerable<object[]> AdminRoutes()
@@ -437,6 +485,13 @@ public sealed class AdminAppealsApiIntegrationTests : IClassFixture<ClaimsApiFac
         Assert.NotEqual(Guid.Empty, appeal.GetProperty("decidedBy").GetGuid());
         Assert.NotEqual(JsonValueKind.Null, appeal.GetProperty("decidedAt").ValueKind);
         Assert.Equal(1, await CountMatchesAsync(lostId, foundId));
+
+        // LF-338: the decision queues exactly one email notification to the appellant's address.
+        Assert.Equal(1, await CountNotificationRowsAsync(appealId));
+        var notification = await ReadNotificationAsync(appealId);
+        Assert.Equal("APPEAL_VERIFIED", notification.Type);
+        Assert.Equal("PENDING", notification.Status);
+        Assert.Equal(await ReadAppellantEmailAsync(appealId), notification.RecipientEmail);
     }
 
     /* Scenario 4: the appeal is already decided, so the second attempt is refused and adds no second match. */
@@ -490,6 +545,13 @@ public sealed class AdminAppealsApiIntegrationTests : IClassFixture<ClaimsApiFac
             "The reports describe different items.",
             appeal.GetProperty("rejectionReason").GetString());
         Assert.NotEqual(Guid.Empty, appeal.GetProperty("decidedBy").GetGuid());
+
+        // LF-338: the decision queues exactly one email notification to the appellant's address.
+        Assert.Equal(1, await CountNotificationRowsAsync(appealId));
+        var notification = await ReadNotificationAsync(appealId);
+        Assert.Equal("APPEAL_REJECTED", notification.Type);
+        Assert.Equal("PENDING", notification.Status);
+        Assert.Equal(await ReadAppellantEmailAsync(appealId), notification.RecipientEmail);
     }
 
     /* The action is declared with EmptyBodyBehavior.Allow, so an admin can reject without typing a reason. */
@@ -581,6 +643,9 @@ public sealed class AdminAppealsApiIntegrationTests : IClassFixture<ClaimsApiFac
 
         Assert.Equal(1, await CountAppealsInStatusAsync("VERIFIED"));
         Assert.Equal(1, await CountMatchesAsync(lostId, foundId));
+
+        // LF-338 DoD: the one winning decision leaves exactly one queued email row behind.
+        Assert.Equal(1, await CountNotificationRowsAsync(appealId));
     }
 
     [Fact]
@@ -599,6 +664,9 @@ public sealed class AdminAppealsApiIntegrationTests : IClassFixture<ClaimsApiFac
             responses.Select(response => response.StatusCode).Order().ToArray());
 
         Assert.Equal(1, await CountAppealsInStatusAsync("REJECTED"));
+
+        // LF-338 DoD: the one winning decision leaves exactly one queued email row behind.
+        Assert.Equal(1, await CountNotificationRowsAsync(appealId));
     }
 
     /* A verify and a reject racing each other must still leave exactly one decision behind. */
@@ -620,6 +688,9 @@ public sealed class AdminAppealsApiIntegrationTests : IClassFixture<ClaimsApiFac
             1,
             await CountAppealsInStatusAsync("VERIFIED") +
             await CountAppealsInStatusAsync("REJECTED"));
+
+        // LF-338 DoD: whichever decision won, it is the only one, so exactly one email row exists.
+        Assert.Equal(1, await CountNotificationRowsAsync(appealId));
     }
 
     // Creates an appeal for an already-seeded pair, so the test keeps hold of the ids it needs afterwards.
