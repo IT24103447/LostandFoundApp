@@ -34,7 +34,7 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur-sm">
-      <div className="mx-auto flex h-[72px] max-w-[1600px] items-center gap-8 px-6 lg:px-10">
+      <div className="mx-auto flex h-[72px] max-w-[1600px] items-center gap-8 px-6 lg:px-10 max-[520px]:gap-4 max-[520px]:px-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-sm">
             <MapPin
@@ -72,7 +72,7 @@ export function AppHeader() {
             <button
               type="button"
               onClick={() => navigate("/admin/dashboard")}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+              className="whitespace-nowrap rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 max-[520px]:whitespace-normal max-[520px]:px-3 max-[520px]:py-1.5 max-[520px]:text-xs max-[520px]:leading-tight"
             >
               Go to admin dashboard
             </button>

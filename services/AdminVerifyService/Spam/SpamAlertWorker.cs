@@ -1,10 +1,12 @@
-namespace MatchingService.Appeals;
+namespace AdminVerifyService.Spam;
 
-public sealed class AppealNotificationWorker(
-    AppealNotificationRepository repository,
-    IAppealEmailSender sender,
-    ILogger<AppealNotificationWorker> logger) : BackgroundService
+public sealed class SpamAlertWorker(
+    SpamAlertRepository repository,
+    ISpamAlertEmailSender sender,
+    ILogger<SpamAlertWorker> logger) : BackgroundService
 {
+    private static readonly TimeSpan IdleDelay = TimeSpan.FromSeconds(5);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await Task.Yield();
@@ -19,7 +21,7 @@ public sealed class AppealNotificationWorker(
 
                     if (job is null)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                        await Task.Delay(IdleDelay, stoppingToken);
                         continue;
                     }
 
@@ -33,10 +35,10 @@ public sealed class AppealNotificationWorker(
                 catch (Exception exception)
                 {
                     logger.LogError(
-                        "Appeal email processing failed. Code: APPEAL_EMAIL_CYCLE_FAILED. Type: {Type}.",
+                        "Spam alert processing failed. Code: SPAM_ALERT_CYCLE_FAILED. Type: {Type}.",
                         exception.GetType().Name);
 
-                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                    await Task.Delay(IdleDelay, stoppingToken);
                 }
             }
         }
@@ -46,7 +48,7 @@ public sealed class AppealNotificationWorker(
         }
     }
 
-    private async Task DeliverAsync(AppealEmailJob job, CancellationToken stoppingToken)
+    private async Task DeliverAsync(SpamAlertJob job, CancellationToken stoppingToken)
     {
         try
         {
@@ -58,15 +60,13 @@ public sealed class AppealNotificationWorker(
             await repository.MarkFailedAttemptAsync(job, stoppingToken);
 
             logger.LogWarning(
-                "Appeal email {NotificationId} failed on attempt {Attempt}. Type: {Type}.",
+                "Spam alert {NotificationId} failed on attempt {Attempt}. Type: {Type}.",
                 job.Id, job.Attempts, exception.GetType().Name);
             return;
         }
 
         await repository.MarkSentAsync(job, stoppingToken);
 
-        logger.LogInformation(
-            "Sent {Type} appeal email {NotificationId}.",
-            job.Type, job.Id);
+        logger.LogInformation("Sent spam alert {NotificationId}.", job.Id);
     }
 }
