@@ -31,16 +31,26 @@ public static class JwtTestTokenFactory
     public static string CreateExpiredToken(Guid userId) =>
         CreateToken(userId, emailVerified: true, expiresIn: TimeSpan.FromMinutes(-5));
 
+    /// <summary>
+    /// A real admin's token: carries "is_admin" = "1", which is exactly what the AdminOnly policy requires
+    /// (RequireClaim("is_admin", "1")) for the Story LF-338 admin endpoints. Without it every admin route can
+    /// only ever be observed returning 403, so the admin happy paths are unreachable over HTTP.
+    /// </summary>
+    public static string CreateAdminToken(Guid adminId) =>
+        CreateToken(adminId, emailVerified: true, isAdmin: true);
+
     private static string CreateToken(
         Guid userId,
         bool emailVerified,
         TimeSpan? expiresIn = null,
-        string? secret = null)
+        string? secret = null,
+        bool isAdmin = false)
     {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new("email_verified", emailVerified ? "1" : "0"),
+            new("is_admin", isAdmin ? "1" : "0"),
             new("email", $"{userId}@example.com"),
             new("phone_no", "+94771234567")
         };

@@ -11,6 +11,7 @@ import { ForgotPasswordPage } from "./features/auth/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
 import { ProfilePage } from "./features/auth/pages/ProfilePage";
 import { ProtectedRoute } from "./features/auth/components/ProtectedRoute";
+import { MatchAppealsSection } from "./features/admin/components/MatchAppealsSection";
 
 import { HomePage } from "./features/home/pages/HomePage";
 
@@ -76,69 +77,71 @@ export default function App() {
         />
 
         <Route
-          path="/profile"
-          element={<ProfilePage />}
-        />
-
-        <Route
-          path="/report-lost-item"
-          element={<ReportLostItemPage />}
-        />
-
-        <Route
-          path="/report-lost-item/success"
-          element={<ReportLostItemSuccessPage />}
-        />
-
-        <Route
-          path="/report-found-item"
-          element={<ReportFoundItemPage />}
-        />
-
-        <Route
-          path="/report-found-item/success"
-          element={<ReportFoundItemSuccessPage />}
-        />
-
-        <Route
-          path="/my-reports"
-          element={<MyReportsPage />}
-        />
-
-        <Route
-          path="/edit-lost-item/:id"
-          element={<EditLostItemPage />}
-        />
-
-        <Route
-          path="/edit-found-item/:id"
-          element={<EditFoundItemPage />}
-        />
-
-        <Route
           path="/items/:id"
           element={<ItemDetailsPage />}
         />
 
-        <Route
-          path="/matched-items"
-          element={<MatchedItemsPage />}
-        />
+        <Route element={<ProtectedRoute usersOnly />}>
+          <Route
+            path="/profile"
+            element={<ProfilePage />}
+          />
 
-        <Route
-          path="/matched-items/:matchId"
-          element={<MatchReviewPage />}
-        />
+          <Route
+            path="/report-lost-item"
+            element={<ReportLostItemPage />}
+          />
 
-        <Route
-          path="/found-items"
-          element={
-            <Navigate
-              to="/matched-items"
-              replace
-            />
-          }
-        />
+          <Route
+            path="/report-lost-item/success"
+            element={<ReportLostItemSuccessPage />}
+          />
+
+          <Route
+            path="/report-found-item"
+            element={<ReportFoundItemPage />}
+          />
+
+          <Route
+            path="/report-found-item/success"
+            element={<ReportFoundItemSuccessPage />}
+          />
+
+          <Route
+            path="/my-reports"
+            element={<MyReportsPage />}
+          />
+
+          <Route
+            path="/edit-lost-item/:id"
+            element={<EditLostItemPage />}
+          />
+
+          <Route
+            path="/edit-found-item/:id"
+            element={<EditFoundItemPage />}
+          />
+
+          <Route
+            path="/matched-items"
+            element={<MatchedItemsPage />}
+          />
+
+          <Route
+            path="/matched-items/:matchId"
+            element={<MatchReviewPage />}
+          />
+
+          <Route
+            path="/found-items"
+            element={
+              <Navigate
+                to="/matched-items"
+                replace
+              />
+            }
+          />
+        </Route>
       </Route>
 
       <Route
@@ -163,6 +166,11 @@ export default function App() {
           <Route
             path="users"
             element={<UserManagementSection />}
+          />
+
+          <Route
+            path="match-appeals"
+            element={<MatchAppealsSection />}
           />
 
           <Route

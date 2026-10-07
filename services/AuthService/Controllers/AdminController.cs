@@ -14,6 +14,8 @@ namespace AuthService.Controllers;
 [Authorize(Policy = "AdminOnly")]
 public class AdminController : ControllerBase
 {
+    private const string UserNotFoundMessage = "User not found.";
+
     private readonly IUsersRepository _users;
     private readonly IEventPublisher _publisher;
     private readonly KafkaSettings _kafka;
@@ -74,6 +76,23 @@ public class AdminController : ControllerBase
         });
     }
 
+    [HttpGet("users/{id:guid}")]
+    public async Task<ActionResult<AdminUserContactDto>> GetUserContact(Guid id, CancellationToken ct)
+    {
+        var user = await _users.GetByIdAsync(id, ct);
+        if (user is null)
+        {
+            return NotFound(new { error = UserNotFoundMessage });
+        }
+
+        return Ok(new AdminUserContactDto
+        {
+            Name = user.Name,
+            Email = user.Email,
+            PhoneNo = user.PhoneNo
+        });
+    }
+
     /// <summary>
     /// Kick (soft-ban) a user. Requires explicit confirmation.
     /// Admins cannot kick other admins or themselves.
@@ -98,7 +117,7 @@ public class AdminController : ControllerBase
         var user = await _users.GetByIdAsync(id, ct);
         if (user is null)
         {
-            return NotFound(new { error = "User not found." });
+            return NotFound(new { error = UserNotFoundMessage });
         }
 
         if (user.IsAdmin)
@@ -144,7 +163,7 @@ public class AdminController : ControllerBase
         var user = await _users.GetByIdAsync(id, ct);
         if (user is null)
         {
-            return NotFound(new { error = "User not found." });
+            return NotFound(new { error = UserNotFoundMessage });
         }
 
         if (!user.IsKicked)

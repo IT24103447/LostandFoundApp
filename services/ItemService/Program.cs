@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using Confluent.Kafka;
+using ItemService.Authorization;
 using ItemService.Configuration;
 using ItemService.Databases;
 using ItemService.Filters;
@@ -43,6 +44,7 @@ builder.Services.Configure<BlobStorageSettings>(builder.Configuration.GetSection
 builder.Services.AddScoped<ILostItemsRepository, LostItemsRepository>();
 builder.Services.AddScoped<IFoundItemsRepository, FoundItemsRepository>();
 builder.Services.AddScoped<IItemsSearchRepository, ItemsSearchRepository>();
+builder.Services.AddScoped<IAdminItemsRepository, AdminItemsRepository>();
 
 var blobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
 
@@ -142,7 +144,9 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(o => o.AddPolicy(AuthorizationPolicies.AdminOnly, p => p
+    .RequireAuthenticatedUser()
+    .RequireClaim(AuthorizationPolicies.IsAdminClaim, AuthorizationPolicies.IsAdminValue)));
 
 var app = builder.Build();
 

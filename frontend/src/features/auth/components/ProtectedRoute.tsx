@@ -3,8 +3,10 @@ import { useAuth } from "../AuthContext";
 
 export function ProtectedRoute({
   roles,
+  usersOnly,
 }: {
   roles?: string[];
+  usersOnly?: boolean;
 }) {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -22,6 +24,10 @@ export function ProtectedRoute({
 
   if (roles?.length && !roles.some((r) => r === "Admin" && user?.isAdmin)) {
     return <Navigate to="/" replace />;
+  }
+
+  if (usersOnly && user?.isAdmin) {
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   return <Outlet />;

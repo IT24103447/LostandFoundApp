@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-MS-14 - Story LF-338 Admin Appeal Queue Load">
+      <stringProp name="TestPlan.comments">Story LF-338, the admin queue read path: GET /api/admin/match-appeals?status=&amp;page= under concurrency. This is the request every admin screen load makes, and the one whose cost grows with the size of the queue - AdminAppealService.ListAsync pages and orders by created_at, so the interesting question is what happens when the table behind it is big, not when it is nearly empty.
+
+Deliberately a LOAD plan on the LIST endpoint rather than on the detail endpoint, even though GET /api/admin/match-appeals/{id} is the more obvious target. That verb has a side effect: it calls OpenAsync, which stamps opened_at on the row. Hammering it would mutate the queue under test - burning appeals, reshuffling which ones an admin sees as &quot;not yet opened&quot;, and finally answering SCORE_UNAVAILABLE for everything it just invalidated. Plan 15 covers the decision side instead, where the contention is actually interesting.
+
+StatusPages_CSV is recycled (recycle=true) on purpose, which is the opposite of plan 12: this endpoint is read-only, so asking 20 threads for page 1 twenty times is a legitimate repeat of identical work. Recycling is what lets the plan spread threads across pages and statuses without needing a queue larger than the thread count.
+
+Rows should read status,page. Seeding matters more here than in plan 12: with an empty PENDING table this plan measures almost nothing, so seed well over one page of appeals in the status being requested before running.
+
+Two shape facts about this endpoint, both established by calling it rather than by reading the name: the response is a BARE JSON ARRAY of appeals (not an object with a page/total/hasMore envelope - AdminAppealService.ListAsync simply pages and returns the rows), and the page size is 20. So pages past the end of a status legitimately return an empty array [] rather than an error, which is why this plan&apos;s assertions deliberately tolerate an empty page instead of demanding rows: PENDING page 3, and VERIFIED/REJECTED pages 2 and 3, are all empty on a typical seed and are kept in the CSV precisely so that the beyond-the-end path gets exercised rather than quietly avoided.
+
+HOST/PORT default to localhost/5179. ADMIN_TOKEN is the JWT of a seeded admin (admin1@lostandfound.com).</stringProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument">
+            <stringProp name="Argument.name">HOST</stringProp>
+            <stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PORT" elementType="Argument">
+            <stringProp name="Argument.name">PORT</stringProp>
+            <stringProp name="Argument.value">${__P(PORT,5179)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="ADMIN_TOKEN" elementType="Argument">
+            <stringProp name="Argument.name">ADMIN_TOKEN</stringProp>
+            <stringProp name="Argument.value">${__P(ADMIN_TOKEN,SET_ME)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="THREADS" elementType="Argument">
+            <stringProp name="Argument.name">THREADS</stringProp>
+            <stringProp name="Argument.value">${__P(THREADS,20)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="RAMP_SECONDS" elementType="Argument">
+            <stringProp name="Argument.name">RAMP_SECONDS</stringProp>
+            <stringProp name="Argument.value">${__P(RAMP_SECONDS,10)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="STATUS_PAGES_CSV" elementType="Argument">
+            <stringProp name="Argument.name">STATUS_PAGES_CSV</stringProp>
+            <stringProp name="Argument.value">${__P(STATUS_PAGES_CSV,storyLF338-admin-queue-pages.csv)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Admin authentication + JSON content type">
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="auth-cookie" elementType="Header">
+            <stringProp name="Header.name">Cookie</stringProp>
+            <stringProp name="Header.value">auth_token=${ADMIN_TOKEN}</stringProp>
+          </elementProp>
+          <elementProp name="content-type" elementType="Header">
+            <stringProp name="Header.name">Content-Type</stringProp>
+            <stringProp name="Header.value">application/json</stringProp>
+          </elementProp>
+        </collectionProp>
+        <stringProp name="TestPlan.comments">Sends the admin JWT as the auth_token cookie (MatchingService&apos;s JWT bearer handler accepts it as a fallback - ClaimRegistration.cs).</stringProp>
+      </HeaderManager>
+      <hashTree/>
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Story LF-338 queue statuses and pages" enabled="true">
+        <stringProp name="TestPlan.comments">Recycled deliberately: unlike plan 12&apos;s appeals, re-reading the same page of the queue is not a state change, so repeat reads are exactly the load being measured. Rows are status,page.</stringProp>
+        <stringProp name="filename">${STATUS_PAGES_CSV}</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="variableNames">status,page</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <stringProp name="delimiter">,</stringProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <boolProp name="stopThread">false</boolProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Concurrent admin queue browsers" enabled="true">
+        <stringProp name="TestPlan.comments">Ramp-up rather than a Synchronizing Timer: arrivals are spread the way an actual review session would produce them, and the measurement is queue latency under sustained reads rather than a single stampede.</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${THREADS}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${RAMP_SECONDS}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="List one page of the admin appeal queue" enabled="true">
+          <stringProp name="TestPlan.comments">The sampler under load. status and page both come from the CSV so a single run exercises PENDING, VERIFIED and REJECTED and more than one page of each.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/admin/match-appeals?status=${status}&amp;page=${page}</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Queue returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">A 401/403 here means ADMIN_TOKEN is not an admin (or expired); a 400 means the CSV&apos;s status value is not one of PENDING/VERIFIED/REJECTED.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Queue response is a JSON array" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">[</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">Checks the response SHAPE, not just the 200. A bare &quot;[&quot; is the right assertion here precisely because it is true even for a legitimately empty page: this endpoint returns a bare array, and an assertion demanding appeal rows would fail on PENDING page 3 and on every VERIFIED/REJECTED page past the end. The pairing with the negative assertion below is what actually catches a malformed or error-body response.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">16</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Queue response carries no error object" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49588">&quot;error&quot;</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">The assertion that earns its keep: it catches a 200 whose BODY is an error, which a status-code-only check reports as a healthy run. test_type 20 is SUBSTRING(16) + NOT(4) - the same scheme plan 07&apos;s &quot;201 or 409&quot; uses as EQUALS(8) + OR(32) - so this matches against the body and passes when &quot;error&quot; is absent. An empty array [] still passes, so it costs nothing on the beyond-the-end pages.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">20</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">../results/storyLF338-admin-queue-tree.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">../results/storyLF338-admin-queue-summary.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

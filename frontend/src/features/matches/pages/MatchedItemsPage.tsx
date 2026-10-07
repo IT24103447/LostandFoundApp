@@ -1,11 +1,15 @@
 import { useCallback, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppHeader } from "../../items/layout/AppHeader";
 import { getMatchPage } from "../api/matchQueries";
 import MatchSectionPanel from "../components/MatchSectionPanel";
+import { MyAppealsPanel } from "../components/MyAppealsPanel";
 import { useMatchRequest } from "../hooks/useMatchRequest";
 
 export function MatchedItemsPage() {
   const [revision, setRevision] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showAppeals = searchParams.get("tab") === "appeals";
 
   const load = useCallback(
     (signal: AbortSignal) => getMatchPage("all", 1, 1, signal),
@@ -34,17 +38,50 @@ export function MatchedItemsPage() {
             </p>
           </div>
 
+          {!showAppeals && (
+            <button
+              type="button"
+              disabled={state.status === "loading"}
+              onClick={refresh}
+              className="rounded-xl border bg-white px-4 py-2 disabled:opacity-40"
+            >
+              Refresh
+            </button>
+          )}
+        </div>
+
+        <div role="tablist" className="mb-6 flex gap-2 border-b border-slate-200">
           <button
             type="button"
-            disabled={state.status === "loading"}
-            onClick={refresh}
-            className="rounded-xl border bg-white px-4 py-2 disabled:opacity-40"
+            role="tab"
+            aria-selected={!showAppeals}
+            onClick={() => setSearchParams({})}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold ${
+              showAppeals
+                ? "border-transparent text-slate-500 hover:text-slate-800"
+                : "border-indigo-600 text-indigo-700"
+            }`}
           >
-            Refresh
+            Matches
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={showAppeals}
+            onClick={() => setSearchParams({ tab: "appeals" })}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold ${
+              showAppeals
+                ? "border-indigo-600 text-indigo-700"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            My appeals
           </button>
         </div>
 
-        {state.status === "loading" ? (
+        {showAppeals ? (
+          <MyAppealsPanel />
+        ) : state.status === "loading" ? (
           <p role="status">Loading matches...</p>
         ) : state.status === "error" ? (
           <div role="alert" className="rounded-xl bg-rose-50 p-5">
