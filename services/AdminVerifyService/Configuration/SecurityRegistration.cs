@@ -71,10 +71,10 @@ public static class SecurityRegistration
                 };
             });
 
-        services.AddAuthorization(options =>
-            options.AddPolicy(AdminOnlyPolicy, policy =>
+        services.AddAuthorizationBuilder()
+            .AddPolicy(AdminOnlyPolicy, policy =>
                 policy.RequireAuthenticatedUser()
-                    .RequireClaim("is_admin", "1")));
+                    .RequireClaim("is_admin", "1"));
 
         return services;
     }

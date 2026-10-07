@@ -45,6 +45,7 @@ public sealed class SpamAlertWorker(
         catch (OperationCanceledException)
             when (stoppingToken.IsCancellationRequested)
         {
+            // Shutdown requested.
         }
     }
 

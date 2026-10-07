@@ -51,6 +51,7 @@ public sealed class ListingEventConsumer(
         catch (OperationCanceledException)
             when (stoppingToken.IsCancellationRequested)
         {
+            // Shutdown requested.
         }
     }
 
