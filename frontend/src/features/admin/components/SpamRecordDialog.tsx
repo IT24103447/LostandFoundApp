@@ -478,7 +478,7 @@ export function SpamRecordDialog({ record, contact, onClose }: Props) {
             )}
 
             {!confirmingSolve && confirmingDismiss && (
-              <div id="spam-dismiss-confirm-dialog" className="flex flex-wrap items-center justify-end gap-3">
+              <div id="spam-dismiss-confirm-dialog" className="flex flex-wrap items-center justify-end gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <span className="text-sm text-gray-700">
                   Dismiss this record as a false positive? Its listings won't be changed.
                 </span>

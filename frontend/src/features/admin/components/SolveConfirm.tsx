@@ -33,7 +33,7 @@ export function SolveConfirm({ detail, items, labels, resume, userDeleted, onCon
   const toSkip = remaining.filter((listing) => !willDelete(items[listing.listingId]));
 
   return (
-    <div id="spam-solve-confirm-dialog" className="space-y-3 text-sm text-gray-700">
+    <div id="spam-solve-confirm-dialog" className="space-y-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-gray-700">
       <p className="font-semibold text-gray-900">
         {resume ? "Resume Solve for this record?" : "Solve this record?"}
       </p>
