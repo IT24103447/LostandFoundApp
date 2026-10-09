@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { runSolve } from "./runSolve";
 import { SolveRunnerContext, type SolveRun, type StartSolveInput } from "./solveRunnerContext";
 
 export function SolveRunnerProvider({ children }: { children: ReactNode }) {
   const [runs, setRuns] = useState<Record<string, SolveRun>>({});
+  const running = Object.values(runs).some((run) => run.phase === "running");
 
   const startSolve = useCallback((input: StartSolveInput) => {
     setRuns((current) => {
@@ -31,16 +32,19 @@ export function SolveRunnerProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const clearRun = useCallback((recordId: string) => {
-    setRuns((current) => {
-      if (current[recordId]?.phase === "running") return current;
-      const next = { ...current };
-      delete next[recordId];
-      return next;
-    });
-  }, []);
+  useEffect(() => {
+    if (!running) return;
 
-  const value = useMemo(() => ({ runs, startSolve, clearRun }), [runs, startSolve, clearRun]);
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [running]);
+
+  const value = useMemo(() => ({ runs, startSolve }), [runs, startSolve]);
 
   return <SolveRunnerContext.Provider value={value}>{children}</SolveRunnerContext.Provider>;
 }

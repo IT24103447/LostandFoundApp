@@ -10,6 +10,10 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useAuth } from "../AuthContext";
+import { useOptionalSolveRunner } from "../../admin/solve/solveRunnerContext";
+
+const SOLVE_SIGN_OUT_WARNING =
+  "A Solve is running. If you sign out, it stops, and the record stays Pending solve so it can be resumed. Sign out anyway?";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -25,6 +29,7 @@ function initials(name: string): string {
 export function AccountMenu() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const solveRunner = useOptionalSolveRunner();
 
   const [menuOpen, setMenuOpen] =
     useState(false);
@@ -58,6 +63,14 @@ export function AccountMenu() {
   }, []);
 
   const handleLogout = async () => {
+    const solving = Object.values(solveRunner?.runs ?? {}).some(
+      (run) => run.phase === "running",
+    );
+
+    if (solving && !window.confirm(SOLVE_SIGN_OUT_WARNING)) {
+      return;
+    }
+
     await logout();
     navigate("/login", {
       replace: true,

@@ -366,7 +366,9 @@ export function SpamRecordDialog({ record, contact, onClose }: Props) {
 
               {runPhase === "running" && (
                 <p id="spam-solve-running" className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Solving… You can close this window. Solve keeps running.
+                  <span className="font-semibold">Solving…</span> You can close this popup or switch sections and it keeps
+                  running. If you sign out, or close or refresh this tab, it stops. The record stays Pending solve so it can be
+                  resumed.
                 </p>
               )}
               {runPhase === "solved" && (

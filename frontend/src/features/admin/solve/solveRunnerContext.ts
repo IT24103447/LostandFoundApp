@@ -26,10 +26,13 @@ export type StartSolveInput = {
 export type SolveRunnerValue = {
   runs: Record<string, SolveRun>;
   startSolve: (input: StartSolveInput) => void;
-  clearRun: (recordId: string) => void;
 };
 
 export const SolveRunnerContext = createContext<SolveRunnerValue | null>(null);
+
+export function useOptionalSolveRunner(): SolveRunnerValue | null {
+  return useContext(SolveRunnerContext);
+}
 
 export function useSolveRunner(): SolveRunnerValue {
   const value = useContext(SolveRunnerContext);
