@@ -244,7 +244,7 @@ export function SpamRecordDialog({ record, contact, onClose }: Props) {
           setDetail(latest);
           if (!isActive(latest.status) && !hasLocalRun) {
             setChangedNote(
-              `This record was ${latest.status === "DISMISSED" ? "dismissed" : "solved"} by another admin. It is now read-only.`,
+              `This record was ${latest.status === "DISMISSED" ? "dismissed" : "solved"} by another admin. It is now closed.`,
             );
           }
         })
@@ -345,7 +345,7 @@ export function SpamRecordDialog({ record, contact, onClose }: Props) {
               )}
               {readOnly && !changedNote && (
                 <p id="spam-record-readonly" className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                  This record is closed and read-only.
+                  This record is closed.
                 </p>
               )}
 
