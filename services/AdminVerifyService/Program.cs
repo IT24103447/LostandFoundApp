@@ -47,6 +47,8 @@ builder.Services.AddSingleton<TrackedListingRepository>();
 builder.Services.AddSingleton<SpamRecordRepository>();
 builder.Services.AddSingleton<SpamRule>();
 builder.Services.AddSingleton<SpamReviewRepository>();
+builder.Services.AddSingleton<SpamCaseRepository>();
+builder.Services.AddSingleton<SpamSolveRepository>();
 builder.Services.AddSingleton<ListingEventHandler>();
 builder.Services.AddHostedService<ListingEventConsumer>();
 
