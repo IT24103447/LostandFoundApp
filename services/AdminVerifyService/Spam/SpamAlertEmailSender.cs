@@ -32,7 +32,11 @@ public sealed class SpamAlertEmailSender : ISpamAlertEmailSender
         _fromName = configuration["Smtp:FromName"] ?? "Lost & Found";
         _port = configuration.GetValue("Smtp:Port", 587);
 
-        if (!Uri.TryCreate(Required(configuration, "Frontend:BaseUrl"), UriKind.Absolute, out var frontendUri))
+        var frontendUrl = Required(configuration, "Frontend:BaseUrl");
+
+        if (!Uri.TryCreate(frontendUrl, UriKind.Absolute, out var frontendUri) ||
+            (frontendUri.Scheme != Uri.UriSchemeHttp &&
+             frontendUri.Scheme != Uri.UriSchemeHttps))
         {
             throw new InvalidOperationException("Frontend:BaseUrl must be a valid frontend URL.");
         }

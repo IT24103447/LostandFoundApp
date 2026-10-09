@@ -31,9 +31,12 @@ public sealed class AppealEmailSender : IAppealEmailSender
 
         var frontendUrl = Required(configuration, "Frontend:BaseUrl");
 
-        if (!Uri.TryCreate(frontendUrl, UriKind.Absolute, out var frontendUri))
+        if (!Uri.TryCreate(frontendUrl, UriKind.Absolute, out var frontendUri) ||
+            (frontendUri.Scheme != Uri.UriSchemeHttp &&
+             frontendUri.Scheme != Uri.UriSchemeHttps))
         {
-            throw new InvalidOperationException("Frontend:BaseUrl must be a valid frontend URL.");
+            throw new InvalidOperationException(
+                "Frontend:BaseUrl must be a valid frontend URL.");
         }
 
         _frontendBaseUri = new Uri(frontendUri.AbsoluteUri.TrimEnd('/') + "/");
