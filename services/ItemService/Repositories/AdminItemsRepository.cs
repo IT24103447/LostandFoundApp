@@ -30,6 +30,18 @@ public class AdminItemsRepository : IAdminItemsRepository
         WHERE id = @id AND deleted_at IS NULL AND status = 'ACTIVE';
         """;
 
+    private const string LostPhotosSql = """
+        SELECT url FROM lost_item_photos
+        WHERE lost_item_id = @id
+        ORDER BY created_at, id;
+        """;
+
+    private const string FoundPhotosSql = """
+        SELECT url FROM found_item_photos
+        WHERE found_item_id = @id
+        ORDER BY created_at, id;
+        """;
+
     private readonly IDbConnectionFactory _db;
     private readonly IDbSession _session;
 
@@ -60,6 +72,25 @@ public class AdminItemsRepository : IAdminItemsRepository
         cmd.Parameters.AddWithValue("@id", id.ToString());
         cmd.Parameters.AddWithValue("@deletedAt", deletedAt);
         return await cmd.ExecuteNonQueryAsync(ct) > 0;
+    }
+
+    public async Task<IReadOnlyList<string>> GetPhotoUrlsAsync(AdminItemType type, Guid id, CancellationToken ct = default)
+    {
+        var sql = type == AdminItemType.LOST ? LostPhotosSql : FoundPhotosSql;
+
+        await using var conn = _db.Create();
+        await conn.OpenAsync(ct);
+        await using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@id", id.ToString());
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+
+        var urls = new List<string>();
+        while (await reader.ReadAsync(ct))
+        {
+            urls.Add(reader.GetString(0));
+        }
+
+        return urls;
     }
 
     private static AdminItemRecord Map(MySqlDataReader r, AdminItemType type) => new()

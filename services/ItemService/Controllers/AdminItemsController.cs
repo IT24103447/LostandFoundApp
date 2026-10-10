@@ -51,6 +51,18 @@ public class AdminItemsController : ControllerBase
         return Ok(ToDto(item));
     }
 
+    [HttpGet(ItemRoute + "/photos")]
+    public async Task<ActionResult<AdminItemPhotosDto>> GetItemPhotos(string type, Guid id, CancellationToken ct)
+    {
+        var itemType = ParseType(type);
+        if (await _items.GetByIdAsync(itemType, id, ct) is null)
+        {
+            return NotFound(new { error = ItemNotFoundMessage });
+        }
+
+        return Ok(new AdminItemPhotosDto { PhotoUrls = await _items.GetPhotoUrlsAsync(itemType, id, ct) });
+    }
+
     [HttpDelete(ItemRoute)]
     public async Task<IActionResult> DeleteItem(string type, Guid id, CancellationToken ct)
     {
