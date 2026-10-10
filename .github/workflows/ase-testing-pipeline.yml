@@ -8,6 +8,7 @@ on:
       - 'testing-pipeline/**'
       - 'global.json'
       - '.github/workflows/ase-testing-pipeline.yml'
+
   pull_request:
     branches: [develop, main]
     paths:
@@ -16,13 +17,19 @@ on:
       - 'testing-pipeline/**'
       - 'global.json'
       - '.github/workflows/ase-testing-pipeline.yml'
+
   workflow_dispatch:
     inputs:
       category:
         description: Testing category (mutation also runs the unit baseline)
         type: choice
         default: all
-        options: [all, unit-testing, mutation-testing, load-testing, ui-e2e-testing]
+        options:
+          - all
+          - unit-testing
+          - mutation-testing
+          - load-testing
+          - ui-e2e-testing
 
 permissions:
   contents: read
@@ -37,21 +44,35 @@ defaults:
 
 jobs:
   unit:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.category == 'all' || inputs.category == 'unit-testing' || inputs.category == 'mutation-testing' }}
+    if: >-
+      ${{
+        github.event_name != 'workflow_dispatch' ||
+        inputs.category == 'all' ||
+        inputs.category == 'unit-testing' ||
+        inputs.category == 'mutation-testing'
+      }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      ASE_REPORT_ROOT: ${{ runner.temp }}/ase-reports
+
     steps:
+      - name: Initialize temporary directories
+        run: |
+          echo "ASE_REPORT_ROOT=$RUNNER_TEMP/ase-reports" >> "$GITHUB_ENV"
+          echo "ASE_RUNTIME_DIR=$RUNNER_TEMP/ase-environment" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22.14.0'
+
       - name: Run assessment unit tests
         run: bash testing-pipeline/unit-testing/run.sh
+
       - name: Save results even after failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -66,19 +87,29 @@ jobs:
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+
     strategy:
       fail-fast: false
       matrix:
-        category: [mutation-testing, load-testing, ui-e2e-testing]
+        category:
+          - mutation-testing
+          - load-testing
+          - ui-e2e-testing
+
     env:
-      ASE_REPORT_ROOT: ${{ runner.temp }}/ase-reports
-      ASE_RUNTIME_DIR: ${{ runner.temp }}/ase-environment
       ASE_CATEGORY: ${{ matrix.category }}
       ASE_REQUESTED: ${{ inputs.category || 'all' }}
       ASE_UNIT_RESULT: ${{ needs.unit.result }}
       ASE_COMPOSE_PROJECT: ase-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
+
     steps:
+      - name: Initialize temporary directories
+        run: |
+          echo "ASE_REPORT_ROOT=$RUNNER_TEMP/ase-reports" >> "$GITHUB_ENV"
+          echo "ASE_RUNTIME_DIR=$RUNNER_TEMP/ase-environment" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
+
       - name: Select category and check prerequisites
         id: selection
         run: |
@@ -86,48 +117,68 @@ jobs:
             echo 'active=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
           mkdir -p "$ASE_REPORT_ROOT/$ASE_CATEGORY"
           echo 'active=true' >> "$GITHUB_OUTPUT"
+
           if [[ "$ASE_CATEGORY" == mutation-testing && "$ASE_UNIT_RESULT" != success ]]; then
             echo blocked > "$ASE_REPORT_ROOT/$ASE_CATEGORY/status.txt"
-            echo 'Mutation analysis requires a passing assessment unit baseline.' > "$ASE_REPORT_ROOT/$ASE_CATEGORY/summary.md"
+            echo 'Mutation analysis requires a passing assessment unit baseline.' \
+              > "$ASE_REPORT_ROOT/$ASE_CATEGORY/summary.md"
             exit 1
           fi
+
           if [[ ! -f "testing-pipeline/$ASE_CATEGORY/execute.sh" ]]; then
             bash "testing-pipeline/$ASE_CATEGORY/run.sh"
           fi
+
       - uses: actions/setup-dotnet@v4
         if: steps.selection.outputs.active == 'true' && success()
         with:
           global-json-file: global.json
+
       - uses: actions/setup-node@v4
         if: steps.selection.outputs.active == 'true' && success()
         with:
           node-version: '22.14.0'
+
       - name: Start shared application environment
-        if: steps.selection.outputs.active == 'true' && matrix.category != 'mutation-testing' && success()
+        if: >-
+          steps.selection.outputs.active == 'true' &&
+          matrix.category != 'mutation-testing' &&
+          success()
         run: |
           bash testing-pipeline/shared/start-environment.sh start
           source "$ASE_RUNTIME_DIR/environment.sh"
           bash testing-pipeline/shared/seed-test-data.sh "$ASE_CATEGORY"
+
       - name: Run category
         if: steps.selection.outputs.active == 'true' && success()
         run: |
           if [[ -f "$ASE_RUNTIME_DIR/environment.sh" ]]; then
             source "$ASE_RUNTIME_DIR/environment.sh"
           fi
+
           bash "testing-pipeline/$ASE_CATEGORY/run.sh"
+
       - name: Stop environment and retain logs
-        if: always() && steps.selection.outputs.active == 'true' && matrix.category != 'mutation-testing'
+        if: >-
+          always() &&
+          steps.selection.outputs.active == 'true' &&
+          matrix.category != 'mutation-testing'
         run: bash testing-pipeline/shared/start-environment.sh stop
+
       - name: Record setup failures
         if: always() && steps.selection.outputs.active == 'true'
         run: |
           mkdir -p "$ASE_REPORT_ROOT/$ASE_CATEGORY"
+
           if [[ ! -f "$ASE_REPORT_ROOT/$ASE_CATEGORY/status.txt" ]]; then
             echo failed > "$ASE_REPORT_ROOT/$ASE_CATEGORY/status.txt"
-            echo 'The category did not finish. Inspect the setup steps and application logs.' > "$ASE_REPORT_ROOT/$ASE_CATEGORY/summary.md"
+            echo 'The category did not finish. Inspect the setup steps and application logs.' \
+              > "$ASE_REPORT_ROOT/$ASE_CATEGORY/summary.md"
           fi
+
       - name: Save reports and application logs
         if: always() && steps.selection.outputs.active == 'true'
         uses: actions/upload-artifact@v4
@@ -144,41 +195,60 @@ jobs:
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+
     env:
       ASE_REQUESTED: ${{ inputs.category || 'all' }}
       ASE_UNIT_RESULT: ${{ needs.unit.result }}
       ASE_OTHER_RESULT: ${{ needs.other-categories.result }}
+
     steps:
       - uses: actions/download-artifact@v4
         with:
           pattern: ase-*
           path: collected
           merge-multiple: true
+
       - name: Publish combined summary and final result
         run: |
           mkdir -p collected
+
           echo '## ASE assessment testing results' >> "$GITHUB_STEP_SUMMARY"
           echo '| Category | Status |' >> "$GITHUB_STEP_SUMMARY"
           echo '|---|---|' >> "$GITHUB_STEP_SUMMARY"
+
           failed=0
+
           for category in unit-testing mutation-testing load-testing ui-e2e-testing; do
-            if [[ "$ASE_REQUESTED" != all && "$ASE_REQUESTED" != "$category" && !( "$ASE_REQUESTED" == mutation-testing && "$category" == unit-testing ) ]]; then
+            if [[ "$ASE_REQUESTED" != all &&
+                  "$ASE_REQUESTED" != "$category" &&
+                  !( "$ASE_REQUESTED" == mutation-testing &&
+                     "$category" == unit-testing ) ]]; then
               echo "| $category | Not selected |" >> "$GITHUB_STEP_SUMMARY"
               continue
             fi
-            status_file=$(find collected -type f -path "*/$category/status.txt" -print -quit)
+
+            status_file=$(find collected -type f \
+              -path "*/$category/status.txt" -print -quit)
+
             if [[ -n "$status_file" ]]; then
               status=$(cat "$status_file")
               echo "| $category | $status |" >> "$GITHUB_STEP_SUMMARY"
               [[ "$status" == passed ]] || failed=1
             else
-              echo "| $category | No result (setup failure or cancellation) |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| $category | No result (setup failure or cancellation) |" \
+                >> "$GITHUB_STEP_SUMMARY"
               failed=1
             fi
           done
+
           echo '' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Download the ase-* artifacts on this run for category summaries, detailed reports, and available application logs.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Download the ase-* artifacts on this run for category summaries, detailed reports, and available application logs.' \
+            >> "$GITHUB_STEP_SUMMARY"
+
           for result in "$ASE_UNIT_RESULT" "$ASE_OTHER_RESULT"; do
-            if [[ "$result" == failure || "$result" == cancelled ]]; then failed=1; fi
+            if [[ "$result" == failure || "$result" == cancelled ]]; then
+              failed=1
+            fi
           done
+
           exit "$failed"
