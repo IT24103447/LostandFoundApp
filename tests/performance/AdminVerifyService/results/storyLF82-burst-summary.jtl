@@ -1,0 +1,19 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1791577381332,41,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-1,text,true,,628,827,1,1,http://localhost:5001/api/items/lost,38,0,17
+1791577381421,10,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-2,text,true,,628,827,1,1,http://localhost:5001/api/items/lost,9,0,1
+1791577381546,56,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-3,text,true,,628,827,1,1,http://localhost:5001/api/items/lost,54,0,6
+1791577381677,18,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-4,text,true,,628,827,1,1,http://localhost:5001/api/items/lost,18,0,4
+1791577381808,29,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-5,text,true,,628,827,1,1,http://localhost:5001/api/items/lost,28,0,3
+1791577381944,45,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-6,text,true,,628,827,1,1,http://localhost:5001/api/items/lost,44,0,4
+1791577382077,26,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-7,text,true,,628,827,1,1,http://localhost:5001/api/items/lost,25,0,4
+1791577382207,19,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-8,text,true,,628,827,1,1,http://localhost:5001/api/items/lost,19,0,2
+1791577382337,22,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-9,text,true,,628,827,1,1,http://localhost:5001/api/items/lost,21,0,1
+1791577382473,16,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-10,text,true,,629,830,1,1,http://localhost:5001/api/items/lost,16,0,3
+1791577382604,11,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-11,text,true,,630,830,1,1,http://localhost:5001/api/items/lost,11,0,1
+1791577382736,11,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-12,text,true,,630,830,1,1,http://localhost:5001/api/items/lost,11,0,1
+1791577382873,17,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-13,text,true,,628,830,1,1,http://localhost:5001/api/items/lost,17,0,1
+1791577383009,28,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-14,text,true,,630,830,1,1,http://localhost:5001/api/items/lost,28,0,8
+1791577383137,19,Report one lost item (real outbox),201,Created,Burst: concurrent lost-item creates 1-15,text,true,,630,830,1,1,http://localhost:5001/api/items/lost,19,0,2
+1791577383278,12,Poll the admin spam-records list,200,OK,Verify: exactly one collecting spam record 2-1,text,true,,391,660,1,1,http://localhost:5019/api/admin/spam-records?tab=active&userIds=76656280-04af-47eb-b0ba-3d5f87129f6d&page=1,11,0,4
+1791577386091,20,Poll the admin spam-records list,200,OK,Verify: exactly one collecting spam record 2-1,text,true,,391,660,1,1,http://localhost:5019/api/admin/spam-records?tab=active&userIds=76656280-04af-47eb-b0ba-3d5f87129f6d&page=1,19,0,4
+1791577386129,25,Verify: exactly one active record,200,OK,Verify: exactly one collecting spam record 2-1,text,true,,391,660,1,1,http://localhost:5019/api/admin/spam-records?tab=active&userIds=76656280-04af-47eb-b0ba-3d5f87129f6d&page=1,24,0,9

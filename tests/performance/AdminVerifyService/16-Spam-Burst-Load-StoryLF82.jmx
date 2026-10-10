@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-16 - Story LF-82 Spam Burst Load">
+      <stringProp name="TestPlan.comments">Story LF-82, the burst detection pipe end-to-end under concurrency: JMeter drives the REAL ItemService create endpoint (POST /api/items/lost) with one user&apos;s JWT, so the events travel the real outbox (item_service.outbox_events) -&gt; real OutboxRelayService -&gt; real Kafka -&gt; real ListingEventConsumer -&gt; SpamRule.ApplyAsync. The whole run must return 201 for every create (0 errors) and leave exactly ONE active NEEDS_REVIEW spam record whose listingCount equals the number of creates - the SR11 invariant (xUnit LF82-RL-11) reproduced through the real pipe.
+
+Run from the REPO ROOT (relative paths in this plan assume that).
+Required -J properties:
+  -JBURST_USER_ID=    the throwaway burst user id (a fresh auth_service.users row)
+  -JBURST_TOKEN=      a real JWT for that user (POST /api/auth/login as that user)
+  -JADMIN_TOKEN=      a real admin JWT (login as admin1@lostandfound.com / Admin123!)
+Optional: -JHOST, -JPORT (ItemService, default localhost:5001), -JTHREADS, -JRAMP_SECONDS, -JVERIFY_ATTEMPTS, -JVERIFY_SLEEP_MS.
+
+A single-consumer/single-partition broker means the consumer processes the burst serially, so the first-created-record race documented in known-gaps 3.4 cannot fire here - the plan measures the pipe under concurrent REQUEST load and imports the SR11 concurrency pin from the xUnit suite.</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument">
+            <stringProp name="Argument.name">HOST</stringProp>
+            <stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PORT" elementType="Argument">
+            <stringProp name="Argument.name">PORT</stringProp>
+            <stringProp name="Argument.value">${__P(PORT,5001)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="THREADS" elementType="Argument">
+            <stringProp name="Argument.name">THREADS</stringProp>
+            <stringProp name="Argument.value">${__P(THREADS,15)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="RAMP_SECONDS" elementType="Argument">
+            <stringProp name="Argument.name">RAMP_SECONDS</stringProp>
+            <stringProp name="Argument.value">${__P(RAMP_SECONDS,2)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="BURST_TOKEN" elementType="Argument">
+            <stringProp name="Argument.name">BURST_TOKEN</stringProp>
+            <stringProp name="Argument.value">${__P(BURST_TOKEN,SET_ME)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="REVIEW_HOST" elementType="Argument">
+            <stringProp name="Argument.name">REVIEW_HOST</stringProp>
+            <stringProp name="Argument.value">${__P(REVIEW_HOST,localhost)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="REVIEW_PORT" elementType="Argument">
+            <stringProp name="Argument.name">REVIEW_PORT</stringProp>
+            <stringProp name="Argument.value">${__P(REVIEW_PORT,5019)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="ADMIN_TOKEN" elementType="Argument">
+            <stringProp name="Argument.name">ADMIN_TOKEN</stringProp>
+            <stringProp name="Argument.value">${__P(ADMIN_TOKEN,SET_ME)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="BURST_USER_ID" elementType="Argument">
+            <stringProp name="Argument.name">BURST_USER_ID</stringProp>
+            <stringProp name="Argument.value">${__P(BURST_USER_ID,SET_ME)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="VERIFY_ATTEMPTS" elementType="Argument">
+            <stringProp name="Argument.name">VERIFY_ATTEMPTS</stringProp>
+            <stringProp name="Argument.value">${__P(VERIFY_ATTEMPTS,40)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="VERIFY_SLEEP_MS" elementType="Argument">
+            <stringProp name="Argument.name">VERIFY_SLEEP_MS</stringProp>
+            <stringProp name="Argument.value">${__P(VERIFY_SLEEP_MS,500)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="VERIFY_STATE" elementType="Argument">
+            <stringProp name="Argument.name">VERIFY_STATE</stringProp>
+            <stringProp name="Argument.value">pending</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="VERIFY_TRIES" elementType="Argument">
+            <stringProp name="Argument.name">VERIFY_TRIES</stringProp>
+            <stringProp name="Argument.value">0</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Burst: concurrent lost-item creates" enabled="true">
+        <stringProp name="TestPlan.comments">A burst of item reports from ONE user - every thread carries the same JWT, so every event keys on the same userId in the consumer. A short ramp keeps arrivals burst-like while leaving room for the real HTTP + outbox + relay + consume pipeline to flow; each thread creates exactly one item.</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${THREADS}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${RAMP_SECONDS}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Report one lost item (real outbox)" enabled="true">
+          <stringProp name="TestPlan.comments">POST /api/items/lost on ItemService. The RequestTransactionFilter commits the item AND its outbox row in one transaction; OutboxRelayService then publishes items.lost_item.created to Kafka, and AdminVerify&apos;s ListingEventConsumer feeds SpamRule. Assertions below demand 201 + a body without &quot;error&quot; for EVERY create - a 0-error run is the plan&apos;s first acceptance line.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/items/lost</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="title" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">Burst test item ${__threadNum}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">title</stringProp>
+              </elementProp>
+              <elementProp name="category" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">Electronics</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">category</stringProp>
+              </elementProp>
+              <elementProp name="description" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">QA burst load test item ${__threadNum}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">description</stringProp>
+              </elementProp>
+              <elementProp name="lastKnownLocation" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">Colombo 03</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">lastKnownLocation</stringProp>
+              </elementProp>
+              <elementProp name="hiddenInformation" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">BurstHidden${__threadNum}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">hiddenInformation</stringProp>
+              </elementProp>
+              <elementProp name="dateLost" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">2026-10-01</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">dateLost</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Burst user bearer auth">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="Authorization" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${BURST_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Create returns 201" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">201</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">A 401/403 here means BURST_TOKEN is not a valid item-service JWT; a 400 means the request body is malformed.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Create body carries no error object" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">&quot;error&quot;</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">SUBSTRING + NOT on the body: an error envelope would fail the sample even though the status is a 2xx.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">20</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Verify: exactly one collecting spam record" enabled="true">
+        <stringProp name="TestPlan.comments">Runs AFTER the burst group (TestPlan.serialize_threadgroups). Polls the real admin API (GET /api/admin/spam-records?tab=active&amp;userIds=...) until the burst&apos;s single NEEDS_REVIEW record is fully collected (listingCount == THREADS), then asserts exactly one record and the full listing count - the SR11 invariant observed through the real pipe. Bounded by VERIFY_ATTEMPTS x VERIFY_SLEEP_MS; the final verdict is enforced by the last sample&apos;s JSR223 post-processor.</stringProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="Poll spam records until the burst record is fully collected" enabled="true">
+          <stringProp name="TestPlan.comments">Keeps polling while the record is still building (VERIFY_STATE=pending) and the attempt budget is not spent. VERIFY_STATE/VERIFY_TRIES are bumped by the poll post-processor below.</stringProp>
+          <stringProp name="WhileController.condition">${__jexl3("${VERIFY_STATE}" == "pending" &amp;&amp; ${VERIFY_TRIES} &lt; ${VERIFY_ATTEMPTS})}</stringProp>
+        </WhileController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Poll the admin spam-records list" enabled="true">
+            <stringProp name="TestPlan.comments">GET the real LF-87 list endpoint filtered to the burst user. JMeter re-substitutes ${BURST_USER_ID} and the bearer token on every iteration.</stringProp>
+            <stringProp name="HTTPSampler.domain">${REVIEW_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${REVIEW_PORT}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/spam-records?tab=active&amp;userIds=${BURST_USER_ID}&amp;page=1</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Admin bearer auth">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="Authorization" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${ADMIN_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Mark poll result" enabled="true">
+              <stringProp name="TestPlan.comments">Parses the poll response and records the observed count/listings, then promotes VERIFY_STATE to passed (exactly one record with the full listing count) or failed (time budget spent with the wrong shape). Sleeps between polls while still pending.</stringProp>
+              <stringProp name="cacheKey">true</stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="script">def expected = Integer.parseInt(vars.get("THREADS"))
+def attempts = Integer.parseInt(vars.get("VERIFY_ATTEMPTS"))
+def sleepMs = Integer.parseInt(vars.get("VERIFY_SLEEP_MS"))
+def tries = Integer.parseInt(vars.get("VERIFY_TRIES")) + 1
+vars.put("VERIFY_TRIES", String.valueOf(tries))
+def items = []
+try {
+    def body = new groovy.json.JsonSlurper().parseText(prev.getResponseDataAsString())
+    items = body.items as List
+} catch (Exception e) {
+    vars.put("VERIFY_STATE", "failed")
+    vars.put("VERIFY_MESSAGE", "poll response was not JSON: " + e.getMessage())
+}
+if (vars.get("VERIFY_STATE") != "failed") {
+    vars.put("VERIFY_OBSERVED_COUNT", String.valueOf(items.size()))
+    if (items.size() == 1) {
+        def lc = items[0].listingCount as int
+        vars.put("VERIFY_OBSERVED_LISTINGS", String.valueOf(lc))
+        if (lc == expected) {
+            vars.put("VERIFY_STATE", "passed")
+            vars.put("VERIFY_ATTEMPT", String.valueOf(tries))
+        } else if (tries &gt;= attempts) {
+            vars.put("VERIFY_STATE", "failed")
+            vars.put("VERIFY_MESSAGE", "one record but listingCount " + lc + " != expected " + expected)
+        }
+    } else if (tries &gt;= attempts) {
+        vars.put("VERIFY_STATE", "failed")
+        vars.put("VERIFY_MESSAGE", "expected exactly one active record; observed " + items.size())
+        vars.put("VERIFY_OBSERVED_LISTINGS", String.valueOf(-1))
+    }
+    if (vars.get("VERIFY_STATE") == "pending" &amp;&amp; tries &lt; attempts) {
+        Thread.sleep(sleepMs)
+    }
+}</stringProp>
+              <stringProp name="scriptLanguage">groovy</stringProp>
+            </JSR223PostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Verify: exactly one active record" enabled="true">
+          <stringProp name="TestPlan.comments">The verdict sample: one final read of the same list. Its post-processor below marks the sample failed unless the poll phase ended with VERIFY_STATE=passed, which is how a wrong record count shows up as a run error.</stringProp>
+          <stringProp name="HTTPSampler.domain">${REVIEW_HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${REVIEW_PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/admin/spam-records?tab=active&amp;userIds=${BURST_USER_ID}&amp;page=1</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Admin bearer auth">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="Authorization" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${ADMIN_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Enforce the exactly-one invariant" enabled="true">
+            <stringProp name="TestPlan.comments">Fails the verdict sample unless VERIFY_STATE=passed, and stamps the observed JSON onto the sample so the results tree shows the evidence.</stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">def state = vars.get("VERIFY_STATE")
+def expected = Integer.parseInt(vars.get("THREADS"))
+def observedCount = vars.get("VERIFY_OBSERVED_COUNT")
+def observedListings = vars.get("VERIFY_OBSERVED_LISTINGS")
+def message = vars.get("VERIFY_MESSAGE")
+def listing = observedListings == null ? -1 : (observedListings as int)
+def attempt = vars.get("VERIFY_ATTEMPT") == null ? 0 : (vars.get("VERIFY_ATTEMPT") as int)
+prev.setResponseData(('{"exactlyOne":' + (state == "passed") + ',"listingCount":' + listing + ',"attempt":' + attempt + '}').bytes, "UTF-8")
+if (state == "passed") {
+    prev.setSuccessful(true)
+} else {
+    prev.setSuccessful(false)
+    prev.setResponseCode("504")
+    prev.setResponseMessage("Expected exactly one active spam record with listingCount=" + expected + "; observed count=" + observedCount + ", listingCount=" + listing + (message == null ? "" : " - " + message))
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PostProcessor>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">tests/performance/AdminVerifyService/results/storyLF82-burst-tree.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">tests/performance/AdminVerifyService/results/storyLF82-burst-summary.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AdminVerifyService.Spam;
 
 public static class KickStatus
@@ -15,7 +17,7 @@ public static class SolveResult
     public const string Failed = "FAILED";
 }
 
-public sealed record SolveRequest(bool Kick, bool Resume);
+public sealed record SolveRequest([property: JsonRequired] bool Kick, [property: JsonRequired] bool Resume);
 
 public sealed record ResultRequest(string? Result);
 

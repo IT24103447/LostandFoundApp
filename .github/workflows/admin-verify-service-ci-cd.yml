@@ -83,3 +83,31 @@ jobs:
           app-name: 'lostfound-adminverify-service'
           publish-profile: ${{ secrets.AZURE_ADMIN_VERIFY_SERVICE_PUBLISH_PROFILE }}
           package: services/AdminVerifyService/publish
+
+      - name: Smoke check deployed Admin Verify service
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          base_url="https://lostfound-adminverify-service-b8fjfybzdkcrashd.southeastasia-01.azurewebsites.net"
+
+          for attempt in {1..18}; do
+            health_status="$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' --max-time 8 \
+              "$base_url/health" || true)"
+
+            auth_status="$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' --max-time 8 \
+              "$base_url/api/admin/spam-records" || true)"
+
+            echo "Attempt $attempt: health=$health_status, protected API=$auth_status"
+
+            if [[ "$health_status" == "200" && "$auth_status" == "401" ]]; then
+              echo "Admin Verify smoke check passed."
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "Admin Verify smoke check failed after deployment."
+          exit 1
