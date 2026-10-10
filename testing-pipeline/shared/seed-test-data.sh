@@ -26,7 +26,7 @@ SQL
       bash "$hook"
     else
       echo "No $category/seed.sh supplied. Only application startup seed data is available."
-      echo 'The category executor must create any additional scenario records it needs.'
+      echo 'The category run.sh must create any additional scenario records it needs.'
     fi
     ;;
   *) echo 'Usage: bash seed-test-data.sh --databases|load-testing|ui-e2e-testing' >&2; exit 2 ;;

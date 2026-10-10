@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared runner protocol and lifecycle, kept in one file to avoid extra framework files.
+# Shared application lifecycle and report validation. Tests run in category/run.sh.
 set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
@@ -8,40 +8,19 @@ export ASE_REPORT_ROOT=${ASE_REPORT_ROOT:-${TMPDIR:-/tmp}/ase-testing-reports}
 export ASE_COMPOSE_PROJECT=${ASE_COMPOSE_PROJECT:-ase-testing-local}
 compose() { docker compose -p "$ASE_COMPOSE_PROJECT" -f "$SCRIPT_DIR/docker-compose.yml" "$@"; }
 
-run_category() {
+validate_report() {
   local category=${1:-}
-  shift || true
   case "$category" in
     unit-testing|mutation-testing|load-testing|ui-e2e-testing) ;;
     *) echo 'Unknown testing category.' >&2; return 2 ;;
   esac
-  export ASE_CATEGORY=$category
-  export ASE_REPORT_DIR="$ASE_REPORT_ROOT/$category"
-  mkdir -p "$ASE_REPORT_DIR"
-  # Never reuse a previous execution's pass status or reports.
-  if [[ -e "$ASE_REPORT_DIR/status.txt" ]]; then
-    echo "Results already exist at $ASE_REPORT_DIR. Choose a fresh ASE_REPORT_ROOT for this run." >&2
-    return 2
+  local report_dir="$ASE_REPORT_ROOT/$category"
+  if [[ ! -s "$report_dir/summary.md" || ! -s "$report_dir/details.json" ]]; then
+    echo 'The test run must produce nonempty summary.md and details.json reports.' >&2
+    return 1
   fi
-  local executor="$ROOT/testing-pipeline/$category/execute.sh"
-  if [[ ! -f "$executor" ]]; then
-    printf 'not-implemented\n' > "$ASE_REPORT_DIR/status.txt"
-    printf '# %s\n\nNo assessment test executor exists yet. No tests were run.\n\nAdd `%s/execute.sh` with the real tool commands and reports.\n' \
-      "$category" "testing-pipeline/$category" > "$ASE_REPORT_DIR/summary.md"
-    cat "$ASE_REPORT_DIR/summary.md"
-    return 78
-  fi
-  printf 'running\n' > "$ASE_REPORT_DIR/status.txt"
-  echo "Running $category; reports: $ASE_REPORT_DIR"
-  local result=0
-  bash "$executor" "$@" > >(tee "$ASE_REPORT_DIR/console.log") 2>&1 || result=$?
-  if (( result == 0 )) && [[ ! -s "$ASE_REPORT_DIR/summary.md" || ! -s "$ASE_REPORT_DIR/details.json" ]]; then
-    echo 'Executor returned success without the required summary.md and details.json reports.' >&2
-    result=1
-  fi
-  if (( result == 0 )); then
-    # Validate structured evidence instead of accepting an empty successful command.
-    node - "$ASE_REPORT_DIR/details.json" <<'JS' || result=1
+  # Validate and display detailed evidence without running any testing commands.
+  node - "$report_dir/details.json" <<'JS'
 const fs = require('node:fs');
 const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 if (!Array.isArray(report.cases) || report.cases.length === 0) throw new Error('No cases reported.');
@@ -54,17 +33,9 @@ for (const c of report.cases) {
   if (c.durationMs !== undefined) console.log(`  Duration: ${c.durationMs} ms`);
   if (c.error) console.log(`  Details: ${c.error}`);
 }
-if (report.cases.some(c => c.status === 'failed')) throw new Error('Failed cases reported by a successful executor.');
+if (report.cases.some(c => c.status === 'failed')) throw new Error('Failed cases reported by a successful test command.');
 if (report.cases.every(c => c.status === 'skipped' || c.status === 'compile-error')) throw new Error('No runnable cases reported.');
 JS
-  fi
-  if (( result == 0 )); then echo passed > "$ASE_REPORT_DIR/status.txt";
-  else echo failed > "$ASE_REPORT_DIR/status.txt"; fi
-  if [[ ! -s "$ASE_REPORT_DIR/summary.md" ]]; then
-    printf '# %s\n\nExecution failed with exit code %s. Inspect console.log.\n' "$category" "$result" > "$ASE_REPORT_DIR/summary.md"
-  fi
-  cat "$ASE_REPORT_DIR/summary.md"
-  return "$result"
 }
 
 wait_http() {
@@ -171,8 +142,8 @@ SERVICES
 }
 
 case "${1:-}" in
-  run-category) shift; run_category "$@" ;;
+  validate-report) validate_report "${2:-}" ;;
   start) start_environment ;;
   stop) stop_environment ;;
-  *) echo 'Usage: bash start-environment.sh start|stop|run-category CATEGORY' >&2; exit 2 ;;
+  *) echo 'Usage: bash start-environment.sh start|stop|validate-report CATEGORY' >&2; exit 2 ;;
 esac

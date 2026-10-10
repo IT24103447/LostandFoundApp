@@ -2,7 +2,7 @@
 
 This folder contains the separate SE3112 assessment testing framework for the existing .NET 8 microservices and React frontend. Application code remains in `services/` and `frontend/`. This workflow does not execute the earlier CSP suites in `services/*.Tests/`, `tests/e2e/`, or `tests/performance/`.
 
-**Current state:** shared infrastructure, category entry points, and CI coordination are implemented. Assessment test suites and tool-specific executors are not implemented yet. An unfinished category returns exit code 78 and is reported as `not-implemented`; the complete pipeline cannot pass until the selected categories contain real tests and reporting.
+**Current state:** shared infrastructure, category entry points, and CI coordination are implemented. Assessment test suites and testing commands are not implemented yet. Each category's `run.sh` is its only test entry point. An unfinished category returns exit code 78 and is reported as `not-implemented`; the complete pipeline cannot pass until the selected categories contain real tests and reporting.
 
 ## Folder map and contribution record
 
@@ -23,7 +23,7 @@ Fill the contribution columns before submission. No student names or IDs have be
 - Node.js 22.14.0 and npm, used by the frontend and report validator.
 - Docker with Compose v2 supporting `up --wait`, with the Docker daemon running, for UI/load environments.
 - `curl` and standard Bash utilities.
-- Additional category tools installed by the future category executors: Stryker.NET, JMeter/Java, and Selenium/browser dependencies as required. Their installation is not part of this initial framework.
+- Additional category tools installed inside the category's `run.sh`: Stryker.NET, JMeter/Java, and Selenium/browser dependencies as required. Their installation is not part of this initial framework.
 
 Run all commands below from the repository root. Scripts are invoked with `bash`, so executable Git file permissions are not required.
 
@@ -97,21 +97,23 @@ Cleanup stops recorded application processes and removes the dedicated Compose c
 4. `all` selects the complete assessment. Selecting mutation also runs unit testing first. Selecting a single UI/load category does not run the unit suite.
 5. Read the final summary, category logs, and downloadable `ase-*` artifacts. Artifacts are retained for 14 days.
 
-Unit testing runs first. Mutation requires unit success. UI and load execute independently and are not blocked by a unit failure. The matrix keeps running other categories after one fails. Environment startup is deferred until the selected category has an executor, so empty folders do not start unnecessary infrastructure.
+Unit testing runs first. Mutation requires unit success. UI and load execute independently and are not blocked by a unit failure. The matrix keeps running other categories after one fails. Before starting an environment, CI calls the category's `run.sh --check-ready`. An unfinished category then runs its normal stub to write `not-implemented` reports, without starting infrastructure. This check does not execute tests or write reports itself.
 
 This workflow only tests; it does not deploy or alter the existing CSP CI/CD workflows. It does not add SonarQube/static analysis as an assessment category. Cancellation supersedes report/cleanup guarantees; GitHub disposes its hosted runners, but a cancelled job may have no artifact. The final summary treats missing selected-category evidence as unsuccessful.
 
 ## Connect a testing implementation
 
-Add `execute.sh` inside the appropriate category folder. This future file installs any required category-specific tools, runs only assessment tests, evaluates assertions/thresholds, and exits nonzero on failure. The supplied `run.sh` calls it from any working directory; executors must resolve their own paths or change to the repository root. Extra runner arguments are forwarded to the executor.
+Edit the existing `run.sh` inside the appropriate category folder. Replace the `run_tests()` placeholder with tool installation, actual assessment test commands, threshold evaluation, and report generation. Keep failed commands as nonzero exits. The script changes to the repository root before calling `run_tests`, and forwards extra arguments to that function. No additional test-entry script is required.
 
-For UI/load categories, optionally add `seed.sh` alongside `execute.sh`. The shared seeding script calls this hook after startup with the test environment variables available. Create fresh accounts/records using unique identifiers and write needed IDs/tokens to private runtime data, not publicly downloadable reports. Without a hook, the executor must create its own scenario data. The shared bootstrap does not assert that a category has sufficient data.
+After the real suite and reporting are implemented, set `ASE_SUITE_READY=true` in that same file. CI calls `run.sh --check-ready` before starting the UI/load environment; it returns 0 for a ready suite or 78 for an unfinished suite. Keep this check free of installation, test execution, and data changes. Setting the flag alone does not make the placeholder pass: it still returns 78. Successful testing commands must also produce valid nonempty reports.
 
-Executors receive `ASE_CATEGORY`, `ASE_REPORT_DIR`, and `ASE_REPORT_ROOT`; UI/load additionally receive `ASE_MYSQL_CONNECTION` and the `VITE_*` service URLs after sourcing `environment.sh`.
+For UI/load categories, optionally add `seed.sh` alongside `run.sh`. The shared seeding script calls this hook after startup with the test environment variables available. Alternatively, create the scenario data directly inside `run_tests()`. Create fresh accounts/records using unique identifiers and write needed IDs/tokens to private runtime data, not publicly downloadable reports. The shared bootstrap does not assert that a category has sufficient data.
+
+Testing commands receive `ASE_CATEGORY`, `ASE_REPORT_DIR`, and `ASE_REPORT_ROOT`; UI/load additionally receive `ASE_MYSQL_CONNECTION` and the `VITE_*` service URLs after sourcing `environment.sh`.
 
 ### Required output contract
 
-Each executor must write these nonempty files into `ASE_REPORT_DIR`:
+Each implemented `run_tests()` must write these nonempty files into `ASE_REPORT_DIR`:
 
 - `summary.md`: a brief human-readable result with executed counts, skips, failures, scope, and applicable thresholds.
 - `details.json`: structured evidence with a nonempty `cases` array. Each entry has a meaningful `name`, `description` explaining what is verified, and `status`. Optional fields include `durationMs`, `error`, endpoint, source location, and performance metrics.
@@ -132,15 +134,15 @@ Example shape (illustrative; not a real test result):
 }
 ```
 
-Accepted statuses: `passed`, `failed`, `skipped`, `killed`, `survived`, `timeout`, `no-coverage`, `compile-error`. The shared validator rejects an empty suite, invalid/missing fields, an all-skipped/all-compile-error report, or failed cases paired with exit code zero. Category executors must enforce their mutation/performance thresholds and interpret other statuses accurately; the generic framework cannot determine those category-specific thresholds. It prints each reported case's description/status and available timing/error details on successful executor completion, while preserving tool output in `console.log`. On tool failure, the native console log and category summary remain available; the executor should still write partial detailed results.
+Accepted statuses: `passed`, `failed`, `skipped`, `killed`, `survived`, `timeout`, `no-coverage`, `compile-error`. The shared report validator rejects an empty suite, invalid/missing fields, an all-skipped/all-compile-error report, or failed cases paired with exit code zero. Each `run.sh` must enforce its mutation/performance thresholds and interpret other statuses accurately; the generic framework cannot determine those category-specific thresholds. After successful testing commands, `run.sh` calls the validator, which prints each reported case's description/status and available timing/error details. Tool and validator output are preserved in `console.log`. On tool failure, the native console log and category summary remain available; testing commands should still write partial detailed results when possible.
 
-Mutation details should identify each mutant and its outcome rather than call a surviving mutant a passed test. Load details should identify scenarios/endpoints and include concurrency, requests, error rate, response-time percentiles, and threshold outcomes. Test names alone are insufficient to explain purpose; the executor/test metadata must supply the descriptions.
+Mutation details should identify each mutant and its outcome rather than call a surviving mutant a passed test. Load details should identify scenarios/endpoints and include concurrency, requests, error rate, response-time percentiles, and threshold outcomes. Test names alone are insufficient to explain purpose; test/scenario metadata must supply the descriptions.
 
-`status.txt` and `console.log` are generated by the shared runner. The summary job gathers category status without turning unavailable suites into passes. Generated data defaults to OS temporary directories because this change does not update `.gitignore`. Do not commit generated reports, runtime files, credentials, screenshots containing private data, or browser profiles.
+`status.txt` and `console.log` are generated directly by each `run.sh`. Its exit handler records command failures and validates reports before marking a run passed. The shared script only manages the environment and validates reports; it does not launch category tests. The summary job gathers category status without turning unavailable suites into passes. Generated data defaults to OS temporary directories because this change does not update `.gitignore`. Do not commit generated reports, runtime files, credentials, screenshots containing private data, or browser profiles.
 
 ## Troubleshooting
 
-- `not-implemented` / exit 78: add the category's real `execute.sh`; no tests have run.
+- `not-implemented` / exit 78: implement `run_tests()` in the category's existing `run.sh`, generate reports, and then set `ASE_SUITE_READY=true`; no assessment tests have run while the stub remains.
 - `blocked` mutation: fix the assessment unit baseline first.
 - Setup failure: inspect application build/startup logs in the artifact or `$ASE_RUNTIME_DIR/logs`.
 - Port conflict: stop the conflicting application/environment before startup.

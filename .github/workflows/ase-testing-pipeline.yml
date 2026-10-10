@@ -128,8 +128,13 @@ jobs:
             exit 1
           fi
 
-          if [[ ! -f "testing-pipeline/$ASE_CATEGORY/execute.sh" ]]; then
+          readiness=0
+          bash "testing-pipeline/$ASE_CATEGORY/run.sh" --check-ready || readiness=$?
+          if [[ "$readiness" == 78 ]]; then
             bash "testing-pipeline/$ASE_CATEGORY/run.sh"
+          elif [[ "$readiness" != 0 ]]; then
+            echo "Category readiness check failed with exit code $readiness." >&2
+            exit "$readiness"
           fi
 
       - uses: actions/setup-dotnet@v4
