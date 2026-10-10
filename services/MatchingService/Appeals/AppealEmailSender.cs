@@ -5,7 +5,12 @@ using System.Text;
 
 namespace MatchingService.Appeals;
 
-public sealed class AppealEmailSender
+public interface IAppealEmailSender
+{
+    Task SendAsync(AppealEmailJob job, CancellationToken cancellationToken);
+}
+
+public sealed class AppealEmailSender : IAppealEmailSender
 {
     private readonly string _host;
     private readonly int _port;

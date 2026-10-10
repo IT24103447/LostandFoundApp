@@ -226,6 +226,7 @@ public static class ClaimRegistration
                 AppealNotificationRepository>();
 
             services.AddSingleton<
+                IAppealEmailSender,
                 AppealEmailSender>();
 
             services.AddHostedService<
