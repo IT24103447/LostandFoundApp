@@ -10,10 +10,10 @@ All category runners require Bash and Node.js 22.14.0 for the current reporting 
 |---|---|---|---|
 | Unit / `unit-testing` | .NET 8 SDK, xUnit and Moq; reference the service projects | — | — |
 | Mutation / `mutation-testing` | .NET 8 SDK and Stryker.NET; configure source scope, unit suites and score threshold | — | — |
-| Load / `load-testing` | Java 17+; runner downloads JMeter 5.6.3; configure plans, users and performance thresholds | — | — |
+| Load / `load-testing` | Java 17+ and curl; `run.sh` downloads JMeter 5.6.3 once (checksum-verified, cached). Configured in `load-testing/`: the JMeter plan (one fragment per service), the load profile (`config/load.properties`), p95 and error-rate thresholds (`config/thresholds.json`), and seeded users and data | Wattegama B. C. | IT24610328 |
 | UI/E2E / `ui-e2e-testing` | .NET 8 SDK, Selenium and Chrome/driver; configure journeys, service URLs and test data | — | — |
 
-Each category's `run.sh` contains its testing commands. Set `ASE_SUITE_READY=true` after implementing and verifying the suite and its reports. Unit, mutation and UI currently remain unfinished. The load runner is enabled, but its current plan exercises Auth only.
+Each category's `run.sh` contains its testing commands. Set `ASE_SUITE_READY=true` after implementing and verifying the suite and its reports. Unit, mutation and UI currently remain unfinished. The load runner is enabled and covers Auth, Item, Matching and Admin Verify.
 
 ## Workflow
 
@@ -86,4 +86,4 @@ Use a fresh `ASE_REPORT_ROOT` for another execution. Stop the environment after 
 bash testing-pipeline/shared/start-environment.sh stop
 ```
 
-Email-dependent scenarios additionally need a test SMTP provider. Detailed setup, reporting rules and implementation notes are in the [DevOps documentation](../DevOps_Documentation/ASE-Testing-Pipeline.md). Load-specific instructions are in the [load-testing README](load-testing/README.md).
+Email-dependent scenarios additionally need a test SMTP provider. Detailed setup, reporting rules and implementation notes are in the [DevOps documentation](../DevOps_Documentation/ASE-Testing-Pipeline.md). Load-specific instructions are in the [load-testing README](load-testing/README.md). Locally, `load-testing/local-run.sh start|run|stop` wraps these steps for load testing.
