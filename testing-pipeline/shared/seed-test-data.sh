@@ -13,7 +13,7 @@ case "${1:-}" in
 CREATE DATABASE IF NOT EXISTS auth_service;
 CREATE DATABASE IF NOT EXISTS item_service;
 CREATE DATABASE IF NOT EXISTS matching_service;
-CREATE DATABASE IF NOT EXISTS admin_verify_service;
+CREATE DATABASE IF NOT EXISTS admin_verify_db;
 SQL
     echo 'Assessment databases prepared; applications apply their own migrations on startup.'
     ;;

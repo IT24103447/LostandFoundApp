@@ -128,7 +128,7 @@ JS
 AuthService auth_service 5261 swagger/v1/swagger.json
 ItemService item_service 5001 swagger/v1/swagger.json
 MatchingService matching_service 5179 health
-AdminVerifyService admin_verify_service 5003 health
+AdminVerifyService admin_verify_db 5003 health
 SERVICES
   (cd "$ROOT/frontend" && npm ci) > "$ASE_RUNTIME_DIR/logs/frontend-install.log" 2>&1
   # Launch Vite directly so the recorded PID owns the server rather than an npm wrapper.
