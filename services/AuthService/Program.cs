@@ -143,7 +143,7 @@ builder.Services.AddRateLimiter(o =>
     });
     o.AddFixedWindowLimiter("login", opt =>
     {
-        opt.PermitLimit = 10;
+        opt.PermitLimit = 1000;
         opt.Window = TimeSpan.FromMinutes(5);
     });
     o.AddFixedWindowLimiter("forgot-password", opt =>
