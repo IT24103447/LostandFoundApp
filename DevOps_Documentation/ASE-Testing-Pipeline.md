@@ -53,9 +53,40 @@ Each category's existing `run.sh` directly contains its testing commands in a `r
 
 Each runner captures console output and uses an exit handler to record failure, incomplete, or passed status. A successful command must also pass the shared `validate-report` check before the runner can record `passed`. The environment script retains that reporting helper, along with `start` and `stop`, but does not launch tests. This correction changes nine existing framework files (including the seeding message) and adds no files or testing suites. The earlier invalid job-level runner expressions are also absent; temporary paths are initialized inside job steps using `RUNNER_TEMP` and `GITHUB_ENV`.
 
-Common report fields are described in the README. The validator requires meaningful case names/descriptions and recognized statuses. A nonempty suite containing a failed case cannot return success. Native reports preserve debugging evidence and tool-specific measurements. Category testing commands remain responsible for accurate counts, interpreting tool outcomes, enforcing thresholds, and producing descriptions from their test/scenario metadata. The shared framework cannot verify the truth of fabricated reports or determine appropriate performance/mutation targets.
+Common report fields are described in "Required output contract" below. The validator requires meaningful case names/descriptions and recognized statuses. A nonempty suite containing a failed case cannot return success. Native reports preserve debugging evidence and tool-specific measurements. Category testing commands remain responsible for accurate counts, interpreting tool outcomes, enforcing thresholds, and producing descriptions from their test/scenario metadata. The shared framework cannot verify the truth of fabricated reports or determine appropriate performance/mutation targets.
 
 Artifacts are retained for 14 days. Only reports and application logs are uploaded; the generated environment file is excluded. Testing commands must keep SMTP credentials, JWTs, user records, and other sensitive runtime data out of reports/logs. Tool-specific detailed results can be accessed through artifacts, with the GitHub summary providing one unified overview.
+
+### Required output contract
+
+Moved here from the README, which now lists the generated files only.
+
+Each implemented `run_tests()` must write these nonempty files into `ASE_REPORT_DIR`:
+
+- `summary.md`: a brief human-readable result with executed counts, skips, failures, scope, and applicable thresholds.
+- `details.json`: structured evidence with a nonempty `cases` array. Each entry has a meaningful `name`, `description` explaining what is verified, and `status`. Optional fields include `durationMs`, `error`, endpoint, source location, and performance metrics.
+- Native reports as applicable: TRX/coverage, Stryker HTML/JSON, JMeter JTL/HTML, Selenium screenshots/results. These supplement the shared summary.
+
+Example shape (illustrative; not a real test result):
+
+```json
+{
+  "cases": [
+    {
+      "name": "Reject invalid registration email",
+      "description": "Checks that invalid email input is rejected before a user is stored.",
+      "status": "passed",
+      "durationMs": 12
+    }
+  ]
+}
+```
+
+Accepted statuses: `passed`, `failed`, `skipped`, `killed`, `survived`, `timeout`, `no-coverage`, `compile-error`. The shared report validator rejects an empty suite, invalid/missing fields, an all-skipped/all-compile-error report, or failed cases paired with exit code zero. Each `run.sh` must enforce its mutation/performance thresholds and interpret other statuses accurately; the generic framework cannot determine those category-specific thresholds. After successful testing commands, `run.sh` calls the validator, which prints each reported case's description/status and available timing/error details. Tool and validator output are preserved in `console.log`. On tool failure, the native console log and category summary remain available; testing commands should still write partial detailed results when possible.
+
+Mutation details should identify each mutant and its outcome rather than call a surviving mutant a passed test. Load details should identify scenarios/endpoints and include concurrency, requests, error rate, response-time percentiles, and threshold outcomes. Test names alone are insufficient to explain purpose; test/scenario metadata must supply the descriptions.
+
+`status.txt` and `console.log` are generated directly by each `run.sh`. Its exit handler records command failures and validates reports before marking a run passed. The shared script only manages the environment and validates reports; it does not launch category tests. The summary job gathers category status without turning unavailable suites into passes. Generated data defaults to OS temporary directories because this change does not update `.gitignore`. Do not commit generated reports, runtime files, credentials, screenshots containing private data, or browser profiles.
 
 ## How to implement each category's run.sh
 
@@ -128,6 +159,32 @@ For the live VIVA, install tools, prepare builds, and start the required environ
 
 The current shared `start` command builds the services and runs `npm ci` every time it starts an environment; no reuse-existing-build mode has been added. Downloaded packages/container images can be reused locally, but startup and scenario preparation are not one-time machine installation tasks. Stopping the disposable environment removes its database containers; a later start creates a new environment. Keep that distinction clear when timing or rehearsing demonstrations.
 
+## Local setup on Windows (WSL2)
+
+One-time machine setup for running the shared environment and category runners locally on Windows (moved here from the README, which keeps a one-line summary).
+
+The scripts target Linux, the same as the GitHub runner. On Windows, run them inside a WSL2 distribution (tested with Ubuntu 22.04) from an interactive WSL terminal. The Windows checkout is reachable at `/mnt/c/...`.
+
+1. Docker Desktop with **WSL integration** enabled for the distribution. Check with `docker info`.
+2. .NET SDK 8.0.424 inside WSL. A Windows SDK or Node found through the Windows PATH does not work.
+   ```bash
+   curl -sSL https://dot.net/v1/dotnet-install.sh -o ~/dotnet-install.sh
+   bash ~/dotnet-install.sh --version 8.0.424 --install-dir ~/.dotnet
+   echo 'export DOTNET_ROOT=$HOME/.dotnet; export PATH=$HOME/.dotnet:$HOME/.dotnet/tools:$PATH' >> ~/.bashrc
+   ```
+3. Node 22.14.0 inside WSL (via nvm), so the Linux `node`/`npm` take precedence over the Windows ones.
+   ```bash
+   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+   source ~/.bashrc
+   nvm install 22.14.0
+   nvm alias default 22.14.0
+   ```
+4. Open a new WSL terminal. Then check `dotnet --version` (from the repo root, it should print `8.0.424`), `node --version` (`v22.14.0`), `docker compose version` and `curl --version`. Category tools (for example Java 17+ for JMeter) are listed in the README's contribution and setup table.
+
+These paths load from `~/.bashrc`, which Ubuntu only reads in interactive shells. From outside WSL, use `wsl -e bash -ic "..."`.
+
+**Line endings:** the repository's `.gitattributes` keeps `*.sh` files on LF line endings in every checkout. If a checkout predates that file, refresh the scripts once with `git rm --cached -r -q testing-pipeline` and then `git checkout HEAD -- testing-pipeline` (see change 1).
+
 ## Changes after the original implementation (11 October 2026)
 
 The original framework was verified with syntax checks, Compose validation and stub runs. Those never started the shared environment, because every category was still a stub. The first real start, for the load-testing category in WSL2 on Windows, needed the changes below before the environment and its scripts worked. Each change is a separate commit on `ASE/Assignment`.
@@ -168,7 +225,7 @@ The original framework was verified with syntax checks, Compose validation and s
 ### 5. Windows / WSL2 local setup
 
 - **Observed:** on Windows, the scripts need Linux tooling. Under Git Bash, the PID-based `stop` cannot terminate the real Windows `dotnet.exe` processes. In a fresh WSL2 Ubuntu, `dotnet` and `node` were missing, and the `npm` found was the Windows one, leaking through the Windows PATH.
-- **Change:** documented the one-time WSL2 setup under **Prerequisites → Windows: WSL2 setup** in `testing-pipeline/README.md`:
+- **Change:** documented the one-time WSL2 setup (originally in `testing-pipeline/README.md`, now under **Local setup on Windows (WSL2)** in this document):
   - Docker Desktop with WSL integration;
   - .NET SDK 8.0.424 and Node 22.14.0 installed **inside** WSL (dotnet-install script and nvm);
   - using an interactive WSL terminal, because the paths load from `~/.bashrc`.
@@ -179,6 +236,18 @@ The original framework was verified with syntax checks, Compose validation and s
 With changes 1–5, in WSL2 (Ubuntu 22.04):
 - `start-environment.sh start` completed in **88 seconds**: MySQL and Kafka healthy, all four services ready (Auth 5261, Item 5001, Matching 5179, Admin Verify 5003), and the frontend on 5173.
 - `seed-test-data.sh load-testing` then ran the load-testing seed: 6 users logged in through the real API and 12 listings were created, all of which search returns.
+
+## Troubleshooting
+
+Moved here from the README.
+
+- `not-implemented` / exit 78: implement `run_tests()` in the category's existing `run.sh`, generate reports, and then set `ASE_SUITE_READY=true`; no assessment tests have run while the stub remains.
+- `blocked` mutation: fix the assessment unit baseline first.
+- Setup failure: inspect application build/startup logs in the artifact or `$ASE_RUNTIME_DIR/logs`.
+- Port conflict: stop the conflicting application/environment before startup.
+- Existing result directory: choose a new `ASE_REPORT_ROOT` for another run.
+- SMTP failure: configure a TLS-capable test provider; defaults do not deliver email.
+- Missing summary/details: implement the reporting contract; an exit code zero alone is insufficient.
 
 ## Assessment mapping
 

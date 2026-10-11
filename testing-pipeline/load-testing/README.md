@@ -79,7 +79,7 @@ load-testing/run.sh
 
 ## Run locally (WSL2)
 
-One-time machine setup: see **Prerequisites → Windows: WSL2 setup** in [`../README.md`](../README.md). Then, from the repository root in a WSL terminal:
+One-time machine setup: see **Local setup on Windows (WSL2)** in the [DevOps documentation](../../DevOps_Documentation/ASE-Testing-Pipeline.md). Then, from the repository root in a WSL terminal:
 
 ```bash
 bash testing-pipeline/load-testing/local-run.sh start   # fresh environment + seed (about 1.5 minutes)
@@ -126,4 +126,4 @@ Written to `$ASE_REPORT_ROOT/load-testing/`:
 
 ## Assessment-branch note
 
-Auth's login rate limit is raised from 10 to 1000 per 5 minutes on `ASE/Assignment` only, so 20 real users can log in on every run. See "Changes after the original implementation", change 4, in [`../README.md`](../README.md). Production keeps 10 per 5 minutes.
+Auth's login rate limit is raised from 10 to 1000 per 5 minutes on `ASE/Assignment` only, so 20 real users can log in on every run. See "Changes after the original implementation", change 4, in the [DevOps documentation](../../DevOps_Documentation/ASE-Testing-Pipeline.md). Production keeps 10 per 5 minutes.
