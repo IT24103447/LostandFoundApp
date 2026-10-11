@@ -1,5 +1,5 @@
 {
-  "description": "Pass/fail limits checked after the run. Steady = ramp-up and peak users, spike = burst users, admin = admin thread. p95 limits are in milliseconds, set at roughly 5x the p95 measured over three local runs (12 Oct 2026); endpoints without their own limit use the group's default. 'expected' lists the thread groups that must run and the endpoints each must call (coverage).",
+  "description": "Pass/fail limits checked after the run. Steady = ramp-up and peak users, spike = burst users, admin = admin thread. p95 limits are in milliseconds, set at roughly 5x the p95 measured over three local runs and adjusted for CI (12 Oct 2026): the spike login burst is CPU-bound (20 BCrypt hashes at once on a 2-4 core runner) and the admin group has only about 15 samples, so its p95 is effectively its slowest request. Endpoints without their own limit use the group's default. 'expected' lists the thread groups that must run and the endpoints each must call (coverage).",
   "errorRatePercent": {
     "max": 1
   },
@@ -11,11 +11,11 @@
     },
     "spike": {
       "default": 1000,
-      "Auth - login": 1500,
+      "Auth - login": 5000,
       "Item - create lost listing": 1500
     },
     "admin": {
-      "default": 500,
+      "default": 1500,
       "Auth - login": 1000
     }
   },
