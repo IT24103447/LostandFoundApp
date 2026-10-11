@@ -2,7 +2,7 @@
 
 Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matching, Admin Verify). This folder is the load-testing category of the ASE testing pipeline. Shared setup, the CI workflow and the reporting contract are described in [`../README.md`](../README.md).
 
-> **Status:** environment, data, seed, configuration and the local helper are done. The JMeter plan, the results summary and `run.sh`'s `run_tests()` are in progress. Until `run.sh` is finished it still reports `not-implemented` (exit 78).
+> **Status:** `run.sh`, the results summary, configuration, data, seed and the local helper are done, and the category runs for real (`ASE_SUITE_READY=true`). The JMeter plan is being extended one service fragment at a time. It currently contains the Auth fragment and the steady users; Item, Matching, the admin and the spike users are in progress. Each run reports exactly what the plan contains.
 
 ## What is tested
 
@@ -30,7 +30,7 @@ Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matchin
 
 | File | Purpose |
 |---|---|
-| `run.sh` | **The only test entry point**, called by GitHub Actions and locally. Installs JMeter, runs the plan, checks the thresholds, and writes the reports (see "What `run.sh` does"). *In progress.* |
+| `run.sh` | **The only test entry point**, called by GitHub Actions and locally. It checks the service URLs are set; installs JMeter 5.6.3 once (checksum-verified, cached in `~/.cache/ase-load-testing`, or `ASE_JMETER_CACHE`); runs the plan headless with the environment's hosts and ports; builds the HTML dashboard; then calls the summary script, which checks the thresholds. In GitHub Actions it also adds `summary.md` to the run page. Its exit code fails the run when JMeter fails or a threshold is broken. |
 | `seed.sh` | Scenario data. Run by the shared `seed-test-data.sh load-testing` after the environment starts. Logs in the first 6 users through the real API and creates 1 lost plus 1 found listing each (12 total, unique `(seed <runId>)` titles, no photos), so search and view have data from the first request. Two per user stays below Admin Verify's spam rule (3 in 60 minutes). |
 | `local-run.sh` | **Local convenience only; CI does not use it.** Wraps the documented local commands (see "Run locally"). |
 | `config/load.properties` | The load profile: users, ramp, peak and spike lengths, think times. Each value can be overridden with `-J<name>=<value>`. |
@@ -38,8 +38,8 @@ Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matchin
 | `data/users.csv` | `user1`–`user20` login details, one row per user thread (Development seed accounts, test-only passwords) |
 | `data/admin.csv` | `admin1` login details |
 | `data/search-terms.csv` | Search word, category and type combinations, so searches vary instead of repeating one cached query |
-| `plans/lost-and-found-load.jmx` | The JMeter plan, organised as one Test Fragment per service called from the user and admin journeys. *In progress.* |
-| `scripts/summarize-results.mjs` | Reads `results.jtl`, works out per-endpoint and per-group statistics, checks `config/thresholds.json`, and writes `summary.md` and `details.json`. *In progress.* |
+| `plans/lost-and-found-load.jmx` | The JMeter plan, organised as one Test Fragment per service called from the user and admin journeys. *Being extended per fragment; see Status.* |
+| `scripts/summarize-results.mjs` | Reads `results.jtl`, works out statistics overall, per thread group and per endpoint (requests, error %, p50/p90/p95/p99, throughput), checks `config/thresholds.json`, and writes `summary.md` and `details.json`. Exits 1 if any check fails or no results were recorded. |
 
 ## Shared scripts these call
 
@@ -69,6 +69,13 @@ load-testing/run.sh
   ├─ node scripts/summarize-results.mjs  → summary.md, details.json (fails if a threshold is broken)
   └─ exit handler → validate-report → status.txt (passed / failed)
 ```
+
+## Why `run.sh` does not start the environment
+
+- In GitHub Actions, the workflow starts the shared environment, runs `run.sh`, and stops the environment as **separate steps**. The framework says runners must not start it again: a second start would collide on the fixed ports.
+- Startup takes about 90 seconds and a run about 60. Keeping them separate lets you start once, then run as often as needed (for example a warm-up and then the live demonstration).
+- `local-run.sh` is the local equivalent of the workflow's steps around `run.sh`: start, then run, then stop. It also remembers the environment across terminals, gives each run a fresh report folder, and opens the dashboard.
+- In CI, unit testing runs first. Load testing starts once unit testing has finished (whatever its result), in parallel with mutation and UI/E2E, on its own runner with its own MySQL, Kafka and services.
 
 ## Run locally (WSL2)
 
