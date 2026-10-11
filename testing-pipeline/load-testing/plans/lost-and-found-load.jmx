@@ -105,6 +105,10 @@
       <hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Auth - login step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Auth">
+            <stringProp name="TestPlan.comments">Live console progress for Auth: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Auth - login">
             <stringProp name="HTTPSampler.domain">${AUTH_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${AUTH_PORT}</stringProp>
@@ -163,6 +167,10 @@
         </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Auth - me step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Auth">
+            <stringProp name="TestPlan.comments">Live console progress for Auth: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Auth - me">
             <stringProp name="HTTPSampler.domain">${AUTH_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${AUTH_PORT}</stringProp>
@@ -198,6 +206,10 @@
         </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Auth - admin user list step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Auth">
+            <stringProp name="TestPlan.comments">Live console progress for Auth: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Auth - admin user list">
             <stringProp name="HTTPSampler.domain">${AUTH_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${AUTH_PORT}</stringProp>
@@ -238,6 +250,10 @@
       <hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - search step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Search terms">
             <stringProp name="delimiter">,</stringProp>
             <stringProp name="fileEncoding">UTF-8</stringProp>
@@ -292,6 +308,10 @@
         </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - view listing step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Only when the search found a listing">
             <stringProp name="IfController.condition">${__jexl3("${ITEM_ID}" != "NO_ITEM")}</stringProp>
             <boolProp name="IfController.evaluateAll">false</boolProp>
@@ -334,6 +354,10 @@
         </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - my lost reports step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Item - my lost reports">
             <stringProp name="HTTPSampler.domain">${ITEM_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${ITEM_PORT}</stringProp>
@@ -369,6 +393,10 @@
         </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - my found reports step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Item - my found reports">
             <stringProp name="HTTPSampler.domain">${ITEM_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${ITEM_PORT}</stringProp>
@@ -404,6 +432,10 @@
         </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - create lost listing step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Item - create lost listing">
             <stringProp name="HTTPSampler.domain">${ITEM_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${ITEM_PORT}</stringProp>
@@ -488,6 +520,10 @@
       <hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - my matches step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
+            <stringProp name="TestPlan.comments">Live console progress for Matching: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matching - my matches">
             <stringProp name="HTTPSampler.domain">${MATCHING_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${MATCHING_PORT}</stringProp>
@@ -523,6 +559,10 @@
         </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - my claims step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
+            <stringProp name="TestPlan.comments">Live console progress for Matching: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matching - my claims">
             <stringProp name="HTTPSampler.domain">${MATCHING_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${MATCHING_PORT}</stringProp>
@@ -558,6 +598,10 @@
         </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - my appeals step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
+            <stringProp name="TestPlan.comments">Live console progress for Matching: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matching - my appeals">
             <stringProp name="HTTPSampler.domain">${MATCHING_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${MATCHING_PORT}</stringProp>
@@ -598,6 +642,10 @@
       <hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="AdminVerify - spam review list step"/>
         <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="AdminVerify">
+            <stringProp name="TestPlan.comments">Live console progress for AdminVerify: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
           <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="AdminVerify - spam review list">
             <stringProp name="HTTPSampler.domain">${ADMIN_HOST}</stringProp>
             <stringProp name="HTTPSampler.port">${ADMIN_PORT}</stringProp>

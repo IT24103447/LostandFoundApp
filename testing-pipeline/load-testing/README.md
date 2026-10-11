@@ -33,7 +33,7 @@ Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matchin
 | `run.sh` | **The only test entry point**, called by GitHub Actions and locally. It checks the service URLs are set; installs JMeter 5.6.3 once (checksum-verified, cached in `~/.cache/ase-load-testing`, or `ASE_JMETER_CACHE`); runs the plan headless with the environment's hosts and ports; builds the HTML dashboard; then calls the summary script, which checks the thresholds. In GitHub Actions it also adds `summary.md` to the run page. Its exit code fails the run when JMeter fails or a threshold is broken. |
 | `seed.sh` | Scenario data. Run by the shared `seed-test-data.sh load-testing` after the environment starts. Logs in the first 6 users through the real API and creates 1 lost plus 1 found listing each (12 total, unique `(seed <runId>)` titles, no photos), so search and view have data from the first request. Two per user stays below Admin Verify's spam rule (3 in 60 minutes). |
 | `local-run.sh` | **Local convenience only; CI does not use it.** Wraps the documented local commands (see "Run locally"). |
-| `config/load.properties` | The load profile: users, ramp, peak and spike lengths, think times. Each value can be overridden with `-J<name>=<value>`. |
+| `config/load.properties` | The load profile: users, ramp, peak and spike lengths, think times, and `summariser.interval=5` for live console progress. Each value can be overridden with `-J<name>=<value>`. |
 | `config/thresholds.json` | Pass/fail limits checked after the run: error rate ≤ 1%; p95 per thread group (steady 1000 ms, with login and create at 2000 ms; spike 3000 ms; admin 1000 ms, with login at 2000 ms). Starting values, to be calibrated. |
 | `data/users.csv` | `user1`–`user20` login details, one row per user thread (Development seed accounts, test-only passwords) |
 | `data/admin.csv` | `admin1` login details |
@@ -111,6 +111,10 @@ Only one environment can run at a time on a machine, because the ports are fixed
 ## Run in GitHub Actions
 
 Actions → **ASE testing pipeline** → Run workflow → `load-testing` (or `all`). The load-testing job runs on its own runner with its own fresh environment, in parallel with mutation and UI/E2E. The `ase-load-testing` artifact contains the reports and application logs.
+
+## Live progress while it runs
+
+Every 5 seconds the console prints one line per service (`Auth`, `Item`, `Matching`, `AdminVerify`) plus JMeter's overall `summary` line. Each comes in two forms: `+` for the last interval and `=` for the running total, with requests, rate, average and maximum response time, errors, and active, started and finished users. Each fragment's steps contain a Summariser named after the service, and same-named summarisers combine into one line. The ramp-up, steady peak and the spike at about 45 s are visible as they happen; the endpoint table and dashboard follow when the run ends.
 
 ## Reports
 
