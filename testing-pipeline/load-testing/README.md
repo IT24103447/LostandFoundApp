@@ -2,7 +2,7 @@
 
 Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matching, Admin Verify). This folder is the load-testing category of the ASE testing pipeline. Shared setup, the CI workflow and the reporting contract are described in [`../README.md`](../README.md).
 
-> **Status:** `run.sh`, the results summary, configuration, data, seed and the local helper are done, and the category runs for real (`ASE_SUITE_READY=true`). The JMeter plan is complete: all four service fragments (Auth, Item, Matching, Admin Verify) and the three thread groups (steady users, spike users, admin), about 60 seconds per run. Coverage is checked on every run, and the thresholds are calibrated from three local runs.
+> **Status:** complete. The JMeter plan covers all four services (Auth, Item, Matching, Admin Verify) with three thread groups (steady users, spike users, admin), and the category runs for real (`ASE_SUITE_READY=true`). Coverage is checked on every run. The thresholds are calibrated from three local runs and adjusted after one CI failure; the load-testing job has passed on GitHub Actions since then.
 
 ## What is tested
 
@@ -73,7 +73,7 @@ load-testing/run.sh
 ## Why `run.sh` does not start the environment
 
 - In GitHub Actions, the workflow starts the shared environment, runs `run.sh`, and stops the environment as **separate steps**. The framework says runners must not start it again: a second start would collide on the fixed ports.
-- Startup takes about 90 seconds and a run about 60. Keeping them separate lets you start once, then run as often as needed (for example a warm-up and then the live demonstration).
+- Startup takes about 90 seconds and a run about 65 (60 s of load, then under 2 s for the summary and dashboard). Keeping them separate lets you start once, then run as often as needed (for example a warm-up and then the live demonstration).
 - `local-run.sh` is the local equivalent of the workflow's steps around `run.sh`: start, then run, then stop. It also remembers the environment across terminals, gives each run a fresh report folder, and opens the dashboard.
 - In CI, unit testing runs first. Load testing starts once unit testing has finished (whatever its result), in parallel with mutation and UI/E2E, on its own runner with its own MySQL, Kafka and services.
 
@@ -83,11 +83,13 @@ One-time machine setup: see **Local setup on Windows (WSL2)** in the [DevOps doc
 
 ```bash
 bash testing-pipeline/load-testing/local-run.sh start   # fresh environment + seed (about 1.5 minutes)
-bash testing-pipeline/load-testing/local-run.sh run     # run the load tests; repeat as often as needed
+bash testing-pipeline/load-testing/local-run.sh run     # run the load tests (about 65 s); repeat as often as needed
 bash testing-pipeline/load-testing/local-run.sh stop    # stop the environment when finished
 ```
 
 `bash testing-pipeline/load-testing/local-run.sh all` does start, run and stop in one go.
+
+The first run on a newly started environment can be slower: after a machine restart, one run saw a ~9 s database write stall. For a demonstration, do one warm-up `run` first.
 
 **What `local-run.sh` does for you:**
 - **`start`** creates a fresh runtime folder, starts the environment, seeds it, and records where it lives (`/tmp/ase-load-testing-environment`). Later commands work from any terminal, without keeping exported variables. It refuses to start a second environment while one is recorded. If seeding fails after the environment has started, it stops that environment again, so nothing is left running on the ports.
@@ -128,6 +130,15 @@ Written to `$ASE_REPORT_ROOT/load-testing/`:
 | `results.jtl` | JMeter's raw results |
 | `html/index.html` | JMeter's HTML dashboard |
 | `status.txt`, `console.log` | The runner's status and full console output |
+
+## Typical results
+
+A passing local run (WSL2, after a warm-up) is **PASSED (30 checks)**, with about 14,000 requests and 0 errors:
+
+- **Steady users:** p95 is 3–57 ms on every endpoint except login (about 185 ms). Login is slow by design, because BCrypt password hashing is deliberately CPU-heavy.
+- **Spike users:** with 20 users arriving at once and no think time, p95 rises to 8–58 ms, except search (about 175 ms, the heaviest query) and login (about 255 ms). There are still 0 errors.
+- **Admin:** the two admin reads stay under 15 ms p95 while the user load changes around it.
+- **On GitHub's runner:** steady and spike reads are similar, but the spike's 20 simultaneous logins queue on the 2–4 cores (p95 up to about 2.3 s). That is why spike login has its own 5000 ms limit.
 
 ## Assessment-branch note
 
