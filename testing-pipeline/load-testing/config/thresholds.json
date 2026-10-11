@@ -1,0 +1,20 @@
+{
+  "description": "Pass/fail limits checked after the run. Steady = ramp-up and peak users, spike = burst users, admin = admin thread. p95 limits are in milliseconds; endpoints without their own limit use the group's default.",
+  "errorRatePercent": {
+    "max": 1
+  },
+  "p95Ms": {
+    "steady": {
+      "default": 1000,
+      "Auth - login": 2000,
+      "Item - create lost listing": 2000
+    },
+    "spike": {
+      "default": 3000
+    },
+    "admin": {
+      "default": 1000,
+      "Auth - login": 2000
+    }
+  }
+}
