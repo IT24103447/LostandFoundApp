@@ -915,15 +915,24 @@
             </collectionProp>
           </ModuleController>
           <hashTree/>
-          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Report a lost item">
-            <collectionProp name="ModuleController.node_path">
-              <stringProp name="764597751">Test Plan</stringProp>
-              <stringProp name="1001">Lost and Found load test</stringProp>
-              <stringProp name="1005">Item</stringProp>
-              <stringProp name="1006">Item - create lost listing step</stringProp>
-            </collectionProp>
-          </ModuleController>
-          <hashTree/>
+          <ThroughputController guiclass="ThroughputControllerGui" testclass="ThroughputController" testname="Create on a share of loops">
+            <stringProp name="TestPlan.comments">Read-heavy burst: only spike_create_percent of loops report a listing (real traffic is mostly browsing).</stringProp>
+            <intProp name="ThroughputController.style">1</intProp>
+            <boolProp name="ThroughputController.perThread">false</boolProp>
+            <intProp name="ThroughputController.maxThroughput">1</intProp>
+            <stringProp name="ThroughputController.percentThroughput">${__P(spike_create_percent,10)}</stringProp>
+          </ThroughputController>
+          <hashTree>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Report a lost item">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="1005">Item</stringProp>
+                <stringProp name="1006">Item - create lost listing step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+          </hashTree>
           <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="My matches">
             <collectionProp name="ModuleController.node_path">
               <stringProp name="764597751">Test Plan</stringProp>
