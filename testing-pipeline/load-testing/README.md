@@ -2,7 +2,7 @@
 
 Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matching, Admin Verify). This folder is the load-testing category of the ASE testing pipeline. Shared setup, the CI workflow and the reporting contract are described in [`../README.md`](../README.md).
 
-> **Status:** `run.sh`, the results summary, configuration, data, seed and the local helper are done, and the category runs for real (`ASE_SUITE_READY=true`). The JMeter plan is being extended one service fragment at a time. It currently contains the Auth, Item and Matching fragments and the steady users; the admin and the spike users are in progress. Each run reports exactly what the plan contains.
+> **Status:** `run.sh`, the results summary, configuration, data, seed and the local helper are done, and the category runs for real (`ASE_SUITE_READY=true`). The JMeter plan is being extended one service fragment at a time. It currently contains all four service fragments (Auth, Item, Matching, Admin Verify), the steady users and the admin; the spike users are in progress. Each run reports exactly what the plan contains.
 
 ## What is tested
 
