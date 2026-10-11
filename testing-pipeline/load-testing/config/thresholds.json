@@ -1,5 +1,5 @@
 {
-  "description": "Pass/fail limits checked after the run. Steady = ramp-up and peak users, spike = burst users, admin = admin thread. p95 limits are in milliseconds; endpoints without their own limit use the group's default.",
+  "description": "Pass/fail limits checked after the run. Steady = ramp-up and peak users, spike = burst users, admin = admin thread. p95 limits are in milliseconds; endpoints without their own limit use the group's default. 'expected' lists the thread groups that must run and the endpoints each must call (coverage).",
   "errorRatePercent": {
     "max": 1
   },
@@ -16,5 +16,36 @@
       "default": 1000,
       "Auth - login": 2000
     }
+  },
+  "expected": {
+    "steady": [
+      "Auth - login",
+      "Auth - me",
+      "Item - search",
+      "Item - view listing",
+      "Item - my lost reports",
+      "Item - my found reports",
+      "Item - create lost listing",
+      "Matching - my matches",
+      "Matching - my claims",
+      "Matching - my appeals"
+    ],
+    "spike": [
+      "Auth - login",
+      "Auth - me",
+      "Item - search",
+      "Item - view listing",
+      "Item - my lost reports",
+      "Item - my found reports",
+      "Item - create lost listing",
+      "Matching - my matches",
+      "Matching - my claims",
+      "Matching - my appeals"
+    ],
+    "admin": [
+      "Auth - login",
+      "Auth - admin user list",
+      "AdminVerify - spam review list"
+    ]
   }
 }

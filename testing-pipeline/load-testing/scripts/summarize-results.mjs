@@ -11,9 +11,9 @@ if (!jtlPath || !thresholdsPath || !outDir) {
 }
 
 const GROUPS = {
-  steady: { match: /steady/i, phase: 'ramp-up and steady peak (users join one by one, then hold, with think time)' },
-  spike: { match: /spike/i, phase: 'spike (users start together, no think time)' },
-  admin: { match: /admin/i, phase: 'admin working throughout the run' },
+  steady: { name: 'Users - steady', match: /steady/i, phase: 'ramp-up and steady peak (users join one by one, then hold, with think time)' },
+  spike: { name: 'Users - spike', match: /spike/i, phase: 'spike (users start together, no think time)' },
+  admin: { name: 'Admin', match: /admin/i, phase: 'admin working throughout the run' },
 };
 
 const ENDPOINTS = {
@@ -109,8 +109,20 @@ const samples = rows.filter(r => r.length === header.length).map(r => {
   };
 });
 
+const expected = thresholds.expected ?? {};
+const groupOrder = Object.keys(GROUPS);
+const rank = (group, label) => [
+  groupOrder.includes(group) ? groupOrder.indexOf(group) : groupOrder.length,
+  expected[group]?.includes(label) ? expected[group].indexOf(label) : Number.MAX_SAFE_INTEGER,
+];
+const compare = (a, b) => {
+  const [ga, la] = rank(a.group, a.label);
+  const [gb, lb] = rank(b.group, b.label);
+  return ga - gb || la - lb || `${a.thread}${a.label}`.localeCompare(`${b.thread}${b.label}`);
+};
+
 const byKey = new Map();
-for (const s of samples) {
+for (const s of [...samples].sort(compare)) {
   const key = `${s.thread}\u0000${s.label}`;
   if (!byKey.has(key)) byKey.set(key, []);
   byKey.get(key).push(s);
@@ -128,7 +140,25 @@ cases.push({
   ...(overallPass ? {} : { error: `${overall.errorRatePercent}% of requests failed (limit ${maxErrorRate}%).` }),
 });
 
-const threadGroups = [...new Set(samples.map(s => s.thread))];
+const threadGroups = [...new Set([...samples].sort(compare).map(s => s.thread))];
+
+const coverage = [];
+for (const [group, labels] of Object.entries(expected)) {
+  const groupSamples = samples.filter(s => s.group === group);
+  const thread = groupSamples[0]?.thread ?? GROUPS[group]?.name ?? group;
+  const missing = labels.filter(label => !groupSamples.some(s => s.label === label));
+  const problem = !groupSamples.length ? `${thread} did not run` : missing.length ? `missing: ${missing.join(', ')}` : null;
+  coverage.push({ group, thread, problem });
+  cases.push({
+    name: `Coverage: ${thread}`,
+    description: `The ${GROUPS[group]?.phase ?? group} thread group must run and call every expected endpoint: ${labels.join(', ')}. Guards against parts of the plan silently not executing.`,
+    status: problem ? 'failed' : 'passed',
+    expectedEndpoints: labels,
+    recordedEndpoints: [...new Set(groupSamples.map(s => s.label))],
+    ...(problem ? { error: problem } : {}),
+  });
+}
+
 for (const thread of threadGroups) {
   const groupSamples = samples.filter(s => s.thread === thread);
   const g = stats(groupSamples);
@@ -184,7 +214,9 @@ const md = [
   '',
   `- Overall error rate ≤ ${maxErrorRate}%: ${overallPass ? 'passed' : 'FAILED'} (${overall.errorRatePercent}%)`,
   `- p95 per endpoint within its thread group's limit: ${endpointRows.every(r => !r.problems.some(p => p.startsWith('p95'))) ? 'passed' : 'FAILED'}`,
+  ...(coverage.length ? [`- Coverage (every expected thread group ran and called all its endpoints): ${coverage.every(c => !c.problem) ? 'passed' : 'FAILED'}`] : []),
   '',
+  ...(coverage.length ? ['## Coverage', '', ...coverage.map(c => `- ${c.thread}: ${c.problem ?? `all ${expected[c.group].length} expected endpoints recorded`}`), ''] : []),
   '## Endpoints',
   '',
   '| Thread group | Endpoint | Path | Requests | Errors | p50 ms | p90 ms | p95 ms | p99 ms | Req/s | p95 limit | Result |',
