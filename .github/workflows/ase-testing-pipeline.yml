@@ -30,6 +30,17 @@ on:
           - mutation-testing
           - load-testing
           - ui-e2e-testing
+      mode:
+        description: Development allows unfinished suites; strict requires all selected suites
+        type: choice
+        default: development
+        options:
+          - development
+          - strict
+
+# Set repository variable ASE_PIPELINE_MODE=strict once the assessment suites are ready.
+env:
+  ASE_PIPELINE_MODE: ${{ inputs.mode || vars.ASE_PIPELINE_MODE || 'development' }}
 
 permissions:
   contents: read
@@ -53,24 +64,55 @@ jobs:
       }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    outputs:
+      baseline: ${{ steps.tests.outcome == 'success' && 'passed' || 'unavailable' }}
 
     steps:
       - name: Initialize temporary directories
         run: |
+          case "$ASE_PIPELINE_MODE" in
+            development|strict) ;;
+            *) echo 'Invalid ASE_PIPELINE_MODE; use development or strict.' >&2; exit 1 ;;
+          esac
           echo "ASE_REPORT_ROOT=$RUNNER_TEMP/ase-reports" >> "$GITHUB_ENV"
           echo "ASE_RUNTIME_DIR=$RUNNER_TEMP/ase-environment" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
 
+      - name: Check unit suite readiness
+        id: readiness
+        run: |
+          readiness=0
+          bash testing-pipeline/unit-testing/run.sh --check-ready || readiness=$?
+          if [[ "$readiness" == 0 ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          elif [[ "$readiness" == 78 ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            result=0
+            bash testing-pipeline/unit-testing/run.sh || result=$?
+            if [[ "$result" != 78 || "$(cat "$ASE_REPORT_ROOT/unit-testing/status.txt")" != not-implemented ]]; then
+              echo 'Unexpected failure while recording the unfinished suite.' >&2
+              exit 1
+            fi
+            if [[ "$ASE_PIPELINE_MODE" == strict ]]; then exit 78; fi
+            echo 'Development mode: unit tests are not implemented; no passing baseline exists.'
+          else
+            exit "$readiness"
+          fi
+
       - uses: actions/setup-dotnet@v4
+        if: steps.readiness.outputs.ready == 'true' && success()
         with:
           global-json-file: global.json
 
       - uses: actions/setup-node@v4
+        if: steps.readiness.outputs.ready == 'true' && success()
         with:
           node-version: '22.14.0'
 
       - name: Run assessment unit tests
+        id: tests
+        if: steps.readiness.outputs.ready == 'true' && success()
         run: bash testing-pipeline/unit-testing/run.sh
 
       - name: Save results even after failure
@@ -100,11 +142,16 @@ jobs:
       ASE_CATEGORY: ${{ matrix.category }}
       ASE_REQUESTED: ${{ inputs.category || 'all' }}
       ASE_UNIT_RESULT: ${{ needs.unit.result }}
+      ASE_UNIT_BASELINE: ${{ needs.unit.outputs.baseline }}
       ASE_COMPOSE_PROJECT: ase-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
 
     steps:
       - name: Initialize temporary directories
         run: |
+          case "$ASE_PIPELINE_MODE" in
+            development|strict) ;;
+            *) echo 'Invalid ASE_PIPELINE_MODE; use development or strict.' >&2; exit 1 ;;
+          esac
           echo "ASE_REPORT_ROOT=$RUNNER_TEMP/ase-reports" >> "$GITHUB_ENV"
           echo "ASE_RUNTIME_DIR=$RUNNER_TEMP/ase-environment" >> "$GITHUB_ENV"
 
@@ -121,35 +168,51 @@ jobs:
           mkdir -p "$ASE_REPORT_ROOT/$ASE_CATEGORY"
           echo 'active=true' >> "$GITHUB_OUTPUT"
 
-          if [[ "$ASE_CATEGORY" == mutation-testing && "$ASE_UNIT_RESULT" != success ]]; then
-            echo blocked > "$ASE_REPORT_ROOT/$ASE_CATEGORY/status.txt"
-            echo 'Mutation analysis requires a passing assessment unit baseline.' \
-              > "$ASE_REPORT_ROOT/$ASE_CATEGORY/summary.md"
-            exit 1
-          fi
-
           readiness=0
           bash "testing-pipeline/$ASE_CATEGORY/run.sh" --check-ready || readiness=$?
           if [[ "$readiness" == 78 ]]; then
-            bash "testing-pipeline/$ASE_CATEGORY/run.sh"
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            result=0
+            bash "testing-pipeline/$ASE_CATEGORY/run.sh" || result=$?
+            if [[ "$result" != 78 || "$(cat "$ASE_REPORT_ROOT/$ASE_CATEGORY/status.txt")" != not-implemented ]]; then
+              echo 'Unexpected failure while recording the unfinished suite.' >&2
+              exit 1
+            fi
+            if [[ "$ASE_PIPELINE_MODE" == strict ]]; then exit 78; fi
+            echo "Development mode: $ASE_CATEGORY is not implemented; no tests were run."
+            exit 0
           elif [[ "$readiness" != 0 ]]; then
             echo "Category readiness check failed with exit code $readiness." >&2
             exit "$readiness"
           fi
 
+          if [[ "$ASE_CATEGORY" == mutation-testing && "$ASE_UNIT_BASELINE" != passed ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'Mutation analysis requires an executed, passing assessment unit baseline.' \
+              > "$ASE_REPORT_ROOT/$ASE_CATEGORY/summary.md"
+            if [[ "$ASE_PIPELINE_MODE" == development && "$ASE_UNIT_RESULT" == success ]]; then
+              echo blocked-not-implemented > "$ASE_REPORT_ROOT/$ASE_CATEGORY/status.txt"
+              echo 'Development mode: mutation waits for the unfinished unit suite.'
+              exit 0
+            fi
+            echo blocked > "$ASE_REPORT_ROOT/$ASE_CATEGORY/status.txt"
+            exit 1
+          fi
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-dotnet@v4
-        if: steps.selection.outputs.active == 'true' && success()
+        if: steps.selection.outputs.ready == 'true' && success()
         with:
           global-json-file: global.json
 
       - uses: actions/setup-node@v4
-        if: steps.selection.outputs.active == 'true' && success()
+        if: steps.selection.outputs.ready == 'true' && success()
         with:
           node-version: '22.14.0'
 
       - name: Start shared application environment
         if: >-
-          steps.selection.outputs.active == 'true' &&
+          steps.selection.outputs.ready == 'true' &&
           matrix.category != 'mutation-testing' &&
           success()
         run: |
@@ -158,7 +221,7 @@ jobs:
           bash testing-pipeline/shared/seed-test-data.sh "$ASE_CATEGORY"
 
       - name: Run category
-        if: steps.selection.outputs.active == 'true' && success()
+        if: steps.selection.outputs.ready == 'true' && success()
         run: |
           if [[ -f "$ASE_RUNTIME_DIR/environment.sh" ]]; then
             source "$ASE_RUNTIME_DIR/environment.sh"
@@ -169,7 +232,7 @@ jobs:
       - name: Stop environment and retain logs
         if: >-
           always() &&
-          steps.selection.outputs.active == 'true' &&
+          steps.selection.outputs.ready == 'true' &&
           matrix.category != 'mutation-testing'
         run: bash testing-pipeline/shared/start-environment.sh stop
 
@@ -218,10 +281,13 @@ jobs:
           mkdir -p collected
 
           echo '## ASE assessment testing results' >> "$GITHUB_STEP_SUMMARY"
+          echo "Mode: **$ASE_PIPELINE_MODE**" >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
           echo '| Category | Status |' >> "$GITHUB_STEP_SUMMARY"
           echo '|---|---|' >> "$GITHUB_STEP_SUMMARY"
 
           failed=0
+          incomplete=0
 
           for category in unit-testing mutation-testing load-testing ui-e2e-testing; do
             if [[ "$ASE_REQUESTED" != all &&
@@ -238,7 +304,14 @@ jobs:
             if [[ -n "$status_file" ]]; then
               status=$(cat "$status_file")
               echo "| $category | $status |" >> "$GITHUB_STEP_SUMMARY"
-              [[ "$status" == passed ]] || failed=1
+              case "$status" in
+                passed) ;;
+                not-implemented|blocked-not-implemented)
+                  incomplete=$((incomplete + 1))
+                  if [[ "$ASE_PIPELINE_MODE" != development ]]; then failed=1; fi
+                  ;;
+                *) failed=1 ;;
+              esac
             else
               echo "| $category | No result (setup failure or cancellation) |" \
                 >> "$GITHUB_STEP_SUMMARY"
@@ -256,4 +329,12 @@ jobs:
             fi
           done
 
+          if (( incomplete > 0 )); then
+            echo '' >> "$GITHUB_STEP_SUMMARY"
+            echo "**Assessment incomplete:** $incomplete selected categories did not execute. Development success does not mean all tests passed. Use strict mode for assessment validation." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          case "$ASE_PIPELINE_MODE" in
+            development|strict) ;;
+            *) failed=1 ;;
+          esac
           exit "$failed"

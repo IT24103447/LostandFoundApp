@@ -27,11 +27,11 @@ Relevant pushes select all categories. Relevant pull requests targeting `develop
 
 1. The unit job checks out the repository, selects the pinned SDK and Node runtime, and calls the assessment unit entry point.
 2. A separate category matrix coordinates mutation, load, and UI/E2E. `fail-fast: false` preserves other category runs after one fails.
-3. Mutation is blocked unless the unit job passed on the same revision. It uses the assessment unit suite; its category's `run.sh` selects the mutation scope and score threshold when implemented.
+3. Implemented mutation testing is blocked unless actual unit tests executed and passed on the same revision. The unit job publishes a baseline output so an unfinished but nonblocking development job cannot count as a passing baseline. Mutation uses the assessment unit suite; its category's `run.sh` selects the mutation scope and score threshold when implemented.
 4. UI/load each receive a separate hosted runner, Compose project, runtime, and report directory. Both can proceed after unit failure. Each starts infrastructure/applications only once `run.sh --check-ready` returns zero. Unfinished categories write incomplete reports without starting infrastructure.
 5. Optional category seeding runs after application startup. The category's `run.sh` then runs actual tests and emits the common reports plus native tool reports.
 6. Cleanup stops the owned processes and Compose containers and saves infrastructure logs. Artifact upload runs after ordinary failures.
-7. The summary job downloads the artifacts and shows every selected category's status. Missing, blocked, unfinished, failed, cancelled, or otherwise non-passed results fail the overall assessment result.
+7. The summary job downloads the artifacts and shows every selected category's status and the chosen mode. Strict mode rejects every non-passed selected category. Development permits explicitly unfinished categories while keeping missing results, real failures, and failed dependencies blocking.
 
 Unselected matrix entries do not execute tests or upload artifacts. They are explicitly shown as not selected in the summary. Branch concurrency cancels superseded runs; cancellation can prevent final reports, unlike ordinary assertion failure. Timeouts bound unit execution at 20 minutes, other-category jobs at 45 minutes, and summary at 5 minutes.
 
@@ -200,10 +200,45 @@ The assessment does not mandate exact push filters, Docker, a report schema, or 
 
 ## Current limits and validation
 
-The framework intentionally starts incomplete: all four `run.sh` files contain placeholders with `ASE_SUITE_READY=false` and report `not-implemented` with nonzero exit status. No additional test-entry script is required. The initial workflow should therefore be unsuccessful rather than claim four passing suites. Mutation is blocked by an incomplete unit baseline.
+The framework remains partially implemented: unit, mutation and UI/E2E have `ASE_SUITE_READY=false` and report `not-implemented` with nonzero local exit status. The JMeter load runner now declares readiness and executes its current Auth plan. No additional test-entry script is required. Development CI can finish successfully while explicitly identifying incomplete suites, provided implemented testing and setup succeed; this does not mean four testing categories passed. Strict mode remains unsuccessful until the selected categories are implemented and passing.
+
+### Temporary development policy (11 October 2026)
+
+The workflow now has `development` and `strict` modes to avoid repeated red runs caused solely by unfinished contributions. No dummy tests, fake successful results, or placeholder HTML reports were created. Existing runner behavior and future category implementation instructions remain unchanged.
+
+| Condition | Development mode | Strict mode |
+|---|---|---|
+| Suite declares unfinished and emits the expected incomplete reports | Report not-implemented; do not fail CI solely for this | Fail |
+| Real test suite executes and passes with valid reports | Pass | Pass |
+| Real tests, thresholds, report validation, or setup fail | Fail | Fail |
+| Implemented mutation waits for an unfinished unit suite | Report blocked-not-implemented; assessment remains incomplete | Fail |
+| Unit execution/setup fails before mutation | Fail; no mutation run | Fail; no mutation run |
+| Selected category has no result or unexpected readiness behavior | Fail | Fail |
+
+Automatic pushes/PRs default to development unless the repository Actions variable `ASE_PIPELINE_MODE` is set to `strict`. The manual workflow exposes a mode choice, defaulting to development; that choice overrides the repository variable. Use strict mode for assessment completion evidence and change the repository variable to strict once the suites are ready. The combined summary always shows the mode and warns when selected categories did not execute.
+
+CI checks the readiness flag before installing runtimes or starting environments for unfinished categories. It runs the existing stub only to preserve the honest incomplete-state reports, and accepts that exit 78 only when the category explicitly declared itself unfinished and wrote the expected not-implemented status. Real category execution is not wrapped in blanket continue-on-error behavior. Mutation requires a successful actual unit execution step, not merely an overall successful unit job.
 
 Initial verification covers shell syntax, Compose configuration where Docker tooling is available, the unfinished-category exit/report behavior, and source-file scope. Actual service startup, browser/load/mutation execution, and a hosted GitHub Actions run must be verified when runtime prerequisites and the assessment implementations are available. A passing scaffold check does not demonstrate successful application or assessment tests.
 
 The direct-runner correction was verified with syntax checks for all six shell files and seven inline workflow scripts, Compose configuration validation, and temporary fixtures. All four readiness checks returned 78 without creating reports or starting infrastructure; normal unfinished runs produced incomplete reports. Fixture checks confirmed detailed output for valid reports, propagation of command failure, rejection of missing/empty/failed evidence, and continued incomplete status when only the readiness flag is changed. No fixture files or fake results were added to the repository.
 
 The source package and this document support the pipeline deliverable, but they do not complete the individual testing contributions, presentation, live demonstration, or VIVA requirements.
+
+## Development-mode handover and documentation cleanup (12 October 2026)
+
+The pending workflow change allows the unfinished unit, mutation and Selenium/UI categories to remain nonblocking in development mode. Mutation is the selected assessment category; integration testing is not a separate fifth job. The JMeter category is ready, so its actual plan, setup and reporting must succeed. No blanket error suppression or dummy passing tests were added. Strict mode still rejects unfinished selected categories.
+
+The assessment README was reduced to the essential entry-point information: contribution/setup table, workflow, generated files, local service startup, category commands and cleanup. Implementation history and detailed runner/reporting rules remain in this DevOps document. No test suites, JMeter scripts, source code or deployment workflows were changed in this documentation update.
+
+### Review of the newly added JMeter implementation
+
+- Shell syntax, JMeter XML structure, Node syntax and Compose configuration validated. Temporary result fixtures confirmed reports are generated and slow requests, failed requests and missing results produce failures.
+- The current JMX plan contains one steady-user group and two Auth samplers (login and profile). The documented Item/Matching/Admin, spike and admin journeys have not been added to the plan yet. Enabled load readiness means this existing scope runs; it does not prove four-service coverage.
+- A fixture containing only successful login samples passed the result checker. Expected endpoint/group coverage should be checked explicitly when the remaining intended scenarios are added.
+- The Windows checkout contains CRLF user CSV records. A read-only reproduction showed that the current Bash seed loop includes a trailing carriage return in the password. Normalize the CSV input or strip that character before login to make Windows-checkout/WSL seeding reliable.
+- The local convenience command does not guarantee cleanup if scenario seeding fails after environment startup. Add cleanup covering the full start/run lifecycle in a separate approved change.
+
+Those JMeter findings were reported for follow-up and were not changed as part of this handover. A full hosted Actions run and actual JMeter load execution were not performed in this review. Earlier WSL startup timings and validation records above are historical results and should not be treated as verification of the latest JMeter plan.
+
+Development CI is expected to pass only when the enabled JMeter setup/tests/reporting succeed. Unfinished unit, mutation and UI categories alone do not cause failure. Once all contributions are implemented, use strict mode for assessment evidence and set the repository Actions variable ASE_PIPELINE_MODE to strict for automatic runs.
