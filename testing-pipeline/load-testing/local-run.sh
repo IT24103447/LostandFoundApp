@@ -47,8 +47,16 @@ start() {
 run() {
   load_environment
   # Set after sourcing: environment.sh carries the report root from start time.
+  # ASE_LOCAL_REPORTS (optional) keeps each run in its own dated folder there instead of a temporary one.
   export ASE_REPORT_ROOT
-  ASE_REPORT_ROOT=$(mktemp -d -t ase-reports.XXXXXX)
+  if [[ -n "${ASE_LOCAL_REPORTS:-}" ]]; then
+    local base=$ASE_LOCAL_REPORTS
+    [[ "$base" == /* ]] || base="$ROOT/$base"
+    ASE_REPORT_ROOT="$base/load-report-$(date +%Y-%m-%d_%H%M%S)"
+    mkdir -p "$ASE_REPORT_ROOT"
+  else
+    ASE_REPORT_ROOT=$(mktemp -d -t ase-reports.XXXXXX)
+  fi
   local result=0 report="$ASE_REPORT_ROOT/load-testing"
   bash "$SCRIPT_DIR/run.sh" "$@" || result=$?
   echo "Reports: $report"

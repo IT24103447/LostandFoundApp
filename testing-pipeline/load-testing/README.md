@@ -93,6 +93,7 @@ bash testing-pipeline/load-testing/local-run.sh stop    # stop the environment w
 - **`start`** creates a fresh runtime folder, starts the environment, seeds it, and records where it lives (`/tmp/ase-load-testing-environment`). Later commands work from any terminal, without keeping exported variables. It refuses to start a second environment while one is recorded. If seeding fails after the environment has started, it stops that environment again, so nothing is left running on the ports.
 - **`run`** loads the recorded environment and gives every run a **fresh report folder** (the runner refuses to overwrite earlier results). It then calls `run.sh`, prints the report folder, and opens the HTML dashboard in the Windows browser. Set `ASE_OPEN_REPORT=false` to skip opening it.
 - **`stop`** stops the recorded environment and forgets it.
+- **Keeping local reports (optional):** set `ASE_LOCAL_REPORTS` to a folder (relative to the repository root or absolute) and each `run` writes to its own `load-report-<date>_<time>/` subfolder there instead of a temporary folder, for example `ASE_LOCAL_REPORTS=QA_Sprint3/ASE-Report/Reports bash testing-pipeline/load-testing/local-run.sh run`. Unset, reports go to a temporary folder as before. CI is unaffected. Choose a git-ignored folder, because generated reports should not be committed.
 
 **Without the helper**, the same steps are:
 ```bash
