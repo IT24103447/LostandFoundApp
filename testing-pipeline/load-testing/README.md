@@ -2,7 +2,7 @@
 
 Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matching, Admin Verify). This folder is the load-testing category of the ASE testing pipeline. Shared setup, the CI workflow and the reporting contract are described in [`../README.md`](../README.md).
 
-> **Status:** `run.sh`, the results summary, configuration, data, seed and the local helper are done, and the category runs for real (`ASE_SUITE_READY=true`). The JMeter plan is being extended one service fragment at a time. It currently contains all four service fragments (Auth, Item, Matching, Admin Verify), the steady users and the admin; the spike users are in progress. Each run reports exactly what the plan contains.
+> **Status:** `run.sh`, the results summary, configuration, data, seed and the local helper are done, and the category runs for real (`ASE_SUITE_READY=true`). The JMeter plan is complete: all four service fragments (Auth, Item, Matching, Admin Verify) and the three thread groups (steady users, spike users, admin), about 60 seconds per run. Threshold calibration and an expected-coverage check are still to come.
 
 ## What is tested
 
@@ -38,7 +38,7 @@ Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matchin
 | `data/users.csv` | `user1`–`user20` login details, one row per user thread (Development seed accounts, test-only passwords) |
 | `data/admin.csv` | `admin1` login details |
 | `data/search-terms.csv` | Search word, category and type combinations, so searches vary instead of repeating one cached query |
-| `plans/lost-and-found-load.jmx` | The JMeter plan, organised as one Test Fragment per service called from the user and admin journeys. *Being extended per fragment; see Status.* |
+| `plans/lost-and-found-load.jmx` | The JMeter plan: one Test Fragment per service (Auth, Item, Matching, Admin Verify) called through Module Controllers, and three thread groups. **Users - steady** (20, ramp 20 s, peak 25 s, think time 0.5–1.5 s) and **Users - spike** (20 starting within 1 s at 45 s, 15 s, no think time) run the same user journey; **Admin** (1, 60 s, think time 2 s) reads the user list and the Spam Review queue. Every user logs in once through the real API and reuses its JWT. |
 | `scripts/summarize-results.mjs` | Reads `results.jtl`, works out statistics overall, per thread group and per endpoint (requests, error %, p50/p90/p95/p99, throughput), checks `config/thresholds.json`, and writes `summary.md` and `details.json`. Exits 1 if any check fails or no results were recorded. |
 
 ## Shared scripts these call

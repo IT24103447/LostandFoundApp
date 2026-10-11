@@ -771,6 +771,140 @@
           <hashTree/>
         </hashTree>
       </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Users - spike">
+        <stringProp name="TestPlan.comments">Sudden burst after the steady phase: all users start within the spike ramp, log in once each and loop the same journey with no think time.</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(spike_users,20)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(spike_ramp_seconds,1)}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">-1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${__P(spike_seconds,15)}</stringProp>
+        <stringProp name="ThreadGroup.delay">${__intSum(${__P(steady_ramp_seconds,20)},${__P(steady_peak_seconds,25)})}</stringProp>
+        <boolProp name="ThreadGroup.delayedStart">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <OnceOnlyController guiclass="OnceOnlyControllerGui" testclass="OnceOnlyController" testname="Log in once"/>
+        <hashTree>
+          <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="User accounts">
+            <stringProp name="delimiter">,</stringProp>
+            <stringProp name="fileEncoding">UTF-8</stringProp>
+            <stringProp name="filename">${DATA_DIR}/users.csv</stringProp>
+            <boolProp name="ignoreFirstLine">true</boolProp>
+            <boolProp name="quotedData">false</boolProp>
+            <boolProp name="recycle">true</boolProp>
+            <stringProp name="shareMode">shareMode.group</stringProp>
+            <boolProp name="stopThread">false</boolProp>
+            <stringProp name="variableNames">email,password</stringProp>
+          </CSVDataSet>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Login">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1002">Auth</stringProp>
+              <stringProp name="1003">Auth - login step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Journey"/>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Bearer token">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Current user">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1002">Auth</stringProp>
+              <stringProp name="1004">Auth - me step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Search listings">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1005">Item</stringProp>
+              <stringProp name="1006">Item - search step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="View a listing">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1005">Item</stringProp>
+              <stringProp name="1006">Item - view listing step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="My lost reports">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1005">Item</stringProp>
+              <stringProp name="1006">Item - my lost reports step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="My found reports">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1005">Item</stringProp>
+              <stringProp name="1006">Item - my found reports step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Report a lost item">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1005">Item</stringProp>
+              <stringProp name="1006">Item - create lost listing step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="My matches">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1007">Matching</stringProp>
+              <stringProp name="1008">Matching - my matches step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="My claims">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1007">Matching</stringProp>
+              <stringProp name="1008">Matching - my claims step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="My appeals">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1007">Matching</stringProp>
+              <stringProp name="1008">Matching - my appeals step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Admin">
         <stringProp name="TestPlan.comments">One admin working for the whole run: logs in once, then reads the user list and the Spam Review queue.</stringProp>
         <stringProp name="ThreadGroup.num_threads">${__P(admin_users,1)}</stringProp>
