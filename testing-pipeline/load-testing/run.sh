@@ -82,6 +82,7 @@ run_tests() {
 
   local args=(-n -t "$SCRIPT_DIR/plans/lost-and-found-load.jmx" -q "$SCRIPT_DIR/config/load.properties"
     -Jdata_dir="$SCRIPT_DIR/data"
+    -Jjmeter.reportgenerator.temp_dir="$ASE_REPORT_DIR/.report-temp"
     -l "$ASE_REPORT_DIR/results.jtl" -j "$ASE_REPORT_DIR/jmeter.log"
     -e -o "$ASE_REPORT_DIR/html")
   local pair service variable
