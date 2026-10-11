@@ -20,8 +20,9 @@ load_environment() {
   runtime=$(recorded_runtime) || { echo "No environment recorded. Run: $0 start" >&2; return 1; }
   [[ -f "$runtime/environment.sh" ]] || { echo "Recorded environment is incomplete: $runtime. Run: $0 stop, then $0 start" >&2; return 1; }
   export ASE_RUNTIME_DIR=$runtime
+  # environment.sh uses "declare -x", which would make the variables local to this function.
   # shellcheck source=/dev/null
-  source "$ASE_RUNTIME_DIR/environment.sh"
+  source <(sed 's/^declare -x /export /' "$ASE_RUNTIME_DIR/environment.sh")
 }
 
 start() {
