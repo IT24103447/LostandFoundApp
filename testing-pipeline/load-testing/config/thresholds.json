@@ -1,20 +1,22 @@
 {
-  "description": "Pass/fail limits checked after the run. Steady = ramp-up and peak users, spike = burst users, admin = admin thread. p95 limits are in milliseconds; endpoints without their own limit use the group's default. 'expected' lists the thread groups that must run and the endpoints each must call (coverage).",
+  "description": "Pass/fail limits checked after the run. Steady = ramp-up and peak users, spike = burst users, admin = admin thread. p95 limits are in milliseconds, set at roughly 5x the p95 measured over three local runs (12 Oct 2026); endpoints without their own limit use the group's default. 'expected' lists the thread groups that must run and the endpoints each must call (coverage).",
   "errorRatePercent": {
     "max": 1
   },
   "p95Ms": {
     "steady": {
-      "default": 1000,
-      "Auth - login": 2000,
-      "Item - create lost listing": 2000
+      "default": 300,
+      "Auth - login": 1000,
+      "Item - create lost listing": 1000
     },
     "spike": {
-      "default": 3000
+      "default": 1000,
+      "Auth - login": 1500,
+      "Item - create lost listing": 1500
     },
     "admin": {
-      "default": 1000,
-      "Auth - login": 2000
+      "default": 500,
+      "Auth - login": 1000
     }
   },
   "expected": {

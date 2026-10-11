@@ -2,7 +2,7 @@
 
 Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matching, Admin Verify). This folder is the load-testing category of the ASE testing pipeline. Shared setup, the CI workflow and the reporting contract are described in [`../README.md`](../README.md).
 
-> **Status:** `run.sh`, the results summary, configuration, data, seed and the local helper are done, and the category runs for real (`ASE_SUITE_READY=true`). The JMeter plan is complete: all four service fragments (Auth, Item, Matching, Admin Verify) and the three thread groups (steady users, spike users, admin), about 60 seconds per run. Coverage is checked on every run; threshold calibration is still to come.
+> **Status:** `run.sh`, the results summary, configuration, data, seed and the local helper are done, and the category runs for real (`ASE_SUITE_READY=true`). The JMeter plan is complete: all four service fragments (Auth, Item, Matching, Admin Verify) and the three thread groups (steady users, spike users, admin), about 60 seconds per run. Coverage is checked on every run, and the thresholds are calibrated from three local runs.
 
 ## What is tested
 
@@ -34,7 +34,7 @@ Apache JMeter load tests for the Lost & Found microservices (Auth, Item, Matchin
 | `seed.sh` | Scenario data. Run by the shared `seed-test-data.sh load-testing` after the environment starts. Logs in the first 6 users through the real API and creates 1 lost plus 1 found listing each (12 total, unique `(seed <runId>)` titles, no photos), so search and view have data from the first request. Two per user stays below Admin Verify's spam rule (3 in 60 minutes). |
 | `local-run.sh` | **Local convenience only; CI does not use it.** Wraps the documented local commands (see "Run locally"). |
 | `config/load.properties` | The load profile: users, ramp, peak and spike lengths, think times, and `summariser.interval=5` for live console progress. Each value can be overridden with `-J<name>=<value>`. |
-| `config/thresholds.json` | Pass/fail limits checked after the run: error rate ≤ 1%; p95 per thread group (steady 1000 ms, with login and create at 2000 ms; spike 3000 ms; admin 1000 ms, with login at 2000 ms), still to be calibrated. Its `expected` section lists the thread groups that must run and the endpoints each must call (coverage). |
+| `config/thresholds.json` | Pass/fail limits checked after the run: error rate ≤ 1%; p95 per thread group, calibrated at about 5× the p95 measured over three local runs: steady 300 ms (login and create 1000 ms), spike 1000 ms (login and create 1500 ms), admin 500 ms (login 1000 ms). Its `expected` section lists the thread groups that must run and the endpoints each must call (coverage). |
 | `data/users.csv` | `user1`–`user20` login details, one row per user thread (Development seed accounts, test-only passwords) |
 | `data/admin.csv` | `admin1` login details |
 | `data/search-terms.csv` | Search word, category and type combinations, so searches vary instead of repeating one cached query |
