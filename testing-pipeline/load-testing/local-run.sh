@@ -35,8 +35,12 @@ start() {
   ASE_RUNTIME_DIR=$(mktemp -d -t ase-environment.XXXXXX)
   bash "$SHARED/start-environment.sh" start
   echo "$ASE_RUNTIME_DIR" > "$STATE_FILE"
-  load_environment
-  bash "$SHARED/seed-test-data.sh" load-testing
+  # start-environment.sh cleans up its own startup failures; anything failing after it must stop the environment too.
+  if ! { load_environment && bash "$SHARED/seed-test-data.sh" load-testing; }; then
+    echo "Seeding failed; stopping the environment that was just started." >&2
+    stop
+    return 1
+  fi
   echo "Environment ready and seeded. Run: $0 run"
 }
 

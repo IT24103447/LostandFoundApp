@@ -90,7 +90,7 @@ bash testing-pipeline/load-testing/local-run.sh stop    # stop the environment w
 `bash testing-pipeline/load-testing/local-run.sh all` does start, run and stop in one go.
 
 **What `local-run.sh` does for you:**
-- **`start`** creates a fresh runtime folder, starts the environment, seeds it, and records where it lives (`/tmp/ase-load-testing-environment`). Later commands work from any terminal, without keeping exported variables. It refuses to start a second environment while one is recorded.
+- **`start`** creates a fresh runtime folder, starts the environment, seeds it, and records where it lives (`/tmp/ase-load-testing-environment`). Later commands work from any terminal, without keeping exported variables. It refuses to start a second environment while one is recorded. If seeding fails after the environment has started, it stops that environment again, so nothing is left running on the ports.
 - **`run`** loads the recorded environment and gives every run a **fresh report folder** (the runner refuses to overwrite earlier results). It then calls `run.sh`, prints the report folder, and opens the HTML dashboard in the Windows browser. Set `ASE_OPEN_REPORT=false` to skip opening it.
 - **`stop`** stops the recorded environment and forgets it.
 
