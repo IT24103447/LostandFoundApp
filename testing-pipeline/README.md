@@ -27,6 +27,30 @@ Fill the contribution columns before submission. No student names or IDs have be
 
 Run all commands below from the repository root. Scripts are invoked with `bash`, so executable Git file permissions are not required.
 
+### Windows: WSL2 setup (once per machine)
+
+The scripts target Linux, the same as the GitHub runner. On Windows, run them inside a WSL2 distribution (tested with Ubuntu 22.04) from an interactive WSL terminal. The Windows checkout is reachable at `/mnt/c/...`.
+
+1. Docker Desktop with **WSL integration** enabled for the distribution. Check with `docker info`.
+2. .NET SDK 8.0.424 inside WSL. A Windows SDK or Node found through the Windows PATH does not work.
+   ```bash
+   curl -sSL https://dot.net/v1/dotnet-install.sh -o ~/dotnet-install.sh
+   bash ~/dotnet-install.sh --version 8.0.424 --install-dir ~/.dotnet
+   echo 'export DOTNET_ROOT=$HOME/.dotnet; export PATH=$HOME/.dotnet:$HOME/.dotnet/tools:$PATH' >> ~/.bashrc
+   ```
+3. Node 22.14.0 inside WSL (via nvm), so the Linux `node`/`npm` take precedence over the Windows ones.
+   ```bash
+   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+   source ~/.bashrc
+   nvm install 22.14.0
+   nvm alias default 22.14.0
+   ```
+4. Open a new WSL terminal. Then check `dotnet --version` (from the repo root, it should print `8.0.424`), `node --version` (`v22.14.0`), `docker compose version` and `curl --version`. Category tools (for example Java for JMeter) are listed in that category's section.
+
+These paths load from `~/.bashrc`, which Ubuntu only reads in interactive shells. From outside WSL, use `wsl -e bash -ic "..."`.
+
+**Line endings:** the repository's `.gitattributes` keeps `*.sh` files on LF line endings in every checkout. If a checkout predates that file, refresh the scripts once with `git rm --cached -r -q testing-pipeline` and then `git checkout HEAD -- testing-pipeline` (see change 1).
+
 ## Start the project in the assessment environment
 
 Do not run another copy of the application on the same ports. Infrastructure uses different ports from the existing local MySQL/Kafka defaults, but application ports remain the project's established defaults.
@@ -51,7 +75,9 @@ Startup waits for MySQL and Kafka, creates the service databases, builds and sta
 | MySQL | `localhost:3307` |
 | Kafka | `localhost:19092` |
 
-The four database names are `auth_service`, `item_service`, `matching_service`, and `admin_verify_service`. These names align with the existing migration conventions. Connections use disposable credentials defined in the Compose file and startup script. Local MySQL/Kafka installations and Azure databases are not used. All database data lives in the temporary container; there are no persistent database volumes.
+The four database names are `auth_service`, `item_service`, `matching_service`, and `admin_verify_db`. These names align with the existing migration conventions (Admin Verify's migration runner only accepts `admin_verify_db`; see change 3). Connections use disposable credentials defined in the Compose file and startup script. Local MySQL/Kafka installations and Azure databases are not used. All database data lives in the temporary container; there are no persistent database volumes.
+
+On the `ASE/Assignment` branch, Auth Service's login rate limit is raised from 10 to 1000 logins per 5 minutes so load tests can sign in 20 real users on every run. That branch is never merged into `develop`/`main`, so production keeps 10 per 5 minutes (see "Changes after the original implementation", change 4).
 
 The startup script overrides JWT, Kafka, CORS, storage, and service URL settings. Gemini image processing and Matching/Admin email notifications are disabled. Item photos are written under the runtime directory. These defaults support a basic local environment; photo-analysis and notification scenarios require explicit additional configuration and cannot be claimed as covered under these defaults.
 
@@ -88,6 +114,58 @@ bash testing-pipeline/shared/start-environment.sh stop
 ```
 
 Cleanup stops recorded application processes and removes the dedicated Compose containers. It retains runtime logs/reports for inspection and does not delete the repository or other Compose projects. Use a unique `ASE_COMPOSE_PROJECT`/runtime per environment. Fixed host ports mean two environments cannot run concurrently on the same host.
+
+## Changes after the original implementation (11 October 2026)
+
+The original framework was verified with syntax checks, Compose validation and stub runs. Those never started the shared environment, because every category was still a stub. The first real start, for the load-testing category in WSL2 on Windows, needed the changes below before the environment and its scripts worked. Each change is a separate commit on `ASE/Assignment`.
+
+### 1. Line endings: `.gitattributes` keeps shell scripts on LF
+
+- **Observed:** on a Windows checkout, every `testing-pipeline` script failed in WSL2 bash with errors such as `$'\r': command not found`.
+- **Cause:** Git for Windows defaults to `core.autocrlf=true`. The repository stores the scripts with LF line endings, but they were checked out with CRLF. Bash only accepts LF, so every line ended in a stray carriage return. `git ls-files --eol testing-pipeline/load-testing/run.sh` showed `i/lf w/crlf`. The GitHub runner (Ubuntu) checks out LF, so CI was not affected. Local runs from Windows, including live demonstrations, were.
+- **Change:** a new `.gitattributes` at the repository root containing `*.sh text eol=lf`. It forces LF for shell scripts on every checkout, whatever the machine's `core.autocrlf` setting. Repository contents are unchanged (already LF), and no other file types are affected. Cleared with DevOps.
+- **Existing Windows checkouts** refresh their scripts once: `git rm --cached -r -q testing-pipeline`, then `git checkout HEAD -- testing-pipeline`. Use `git checkout HEAD -- …`: after `git rm --cached`, a plain `git checkout -- …` has nothing to restore from and fails with "pathspec did not match". New clones are correct automatically.
+- **Verified:** `git check-attr eol` reports `lf`, and all six `.sh` files show `i/lf w/lf`.
+
+### 2. MySQL health check over TCP
+
+- **Observed:** `start-environment.sh start` intermittently failed right after Compose reported MySQL as healthy, with `ERROR 2013 (HY000) at line 2: Lost connection to MySQL server during query` while creating the databases. The startup trap then removed the containers.
+- **Cause:** on first start, the `mysql:8.0.40` image runs a temporary initialisation server with networking disabled (socket only), then shuts it down and starts the real server. The health check ran `mysqladmin ping -h localhost`, which connects through the socket, so it passed against the temporary server. The database bootstrap then connected just as that server shut down.
+- **Change:** in `testing-pipeline/shared/docker-compose.yml`, the health check pings `-h 127.0.0.1`, which forces TCP. The temporary server doesn't listen on TCP, so the container only becomes healthy once the real server accepts connections.
+- **Verified:** subsequent starts passed the database bootstrap every time.
+
+### 3. Admin Verify database name: `admin_verify_db`
+
+- **Observed:** every start failed with `Application stopped before readiness: http://localhost:5003/health`. Admin Verify's log showed `System.InvalidOperationException: The configured database must be admin_verify_db.` from `DbInitializer.RunPendingMigrations`.
+- **Cause:** Admin Verify's migration runner deliberately refuses to migrate any database not named `admin_verify_db`, a guard against migrating the wrong database. The shared scripts created and connected to `admin_verify_service`.
+- **Change:** `admin_verify_db` in `testing-pipeline/shared/seed-test-data.sh` (the `CREATE DATABASE` statement) and in `testing-pipeline/shared/start-environment.sh` (the services table), plus the database names listed in the README and the DevOps implementation record. Auth, Item and Matching keep `auth_service`, `item_service` and `matching_service`.
+- **Verified:** Admin Verify now starts, applies its migrations and passes `/health` on port 5003.
+
+### 4. Auth login rate limit raised on the assessment branch
+
+- **Observed:** Auth's `"login"` rate limiter is **global**: one fixed window of 10 logins per 5 minutes shared by every caller, active in Development. A load test with 20 users logging in gets `429 Too Many Requests` from the 11th login on. Waiting for the window (up to 5 minutes) does not fit the two-minute demonstration.
+- **Change:** in `services/AuthService/Program.cs`, the `"login"` limiter's `PermitLimit` goes from 10 to 1000. The 5-minute window and the other five limiters (register, verify-email, resend-verification, forgot-password, reset-password) are unchanged.
+- **Why it is safe:**
+  - `ASE/Assignment` only receives merges from `develop` and is never merged back.
+  - `auth-service-ci-cd.yml` only runs for `develop`, `main` and `feature/**`, and only deploys from `develop`.
+  - So production keeps 10 per 5 minutes. Never open a pull request from `ASE/Assignment` into `develop` or `main`.
+- **Impact check:** the login limit is referenced only by that policy and `[EnableRateLimiting("login")]` on the login action. The frontend's 429 handling belongs to other forms, and no test or JMeter plan depends on the login limit's value.
+- **Verified:** AuthService builds with 0 warnings; AuthService.Tests passes 145/145.
+
+### 5. Windows / WSL2 local setup
+
+- **Observed:** on Windows, the scripts need Linux tooling. Under Git Bash, the PID-based `stop` cannot terminate the real Windows `dotnet.exe` processes. In a fresh WSL2 Ubuntu, `dotnet` and `node` were missing, and the `npm` found was the Windows one, leaking through the Windows PATH.
+- **Change:** documented the one-time WSL2 setup under **Prerequisites → Windows: WSL2 setup** in `testing-pipeline/README.md`:
+  - Docker Desktop with WSL integration;
+  - .NET SDK 8.0.424 and Node 22.14.0 installed **inside** WSL (dotnet-install script and nvm);
+  - using an interactive WSL terminal, because the paths load from `~/.bashrc`.
+- **Verified:** inside WSL2 (Ubuntu 22.04), `dotnet --version` from the repository root is `8.0.424`, `node --version` is `v22.14.0`, and Docker Compose v5.1 is reachable.
+
+### Result
+
+With changes 1–5, in WSL2 (Ubuntu 22.04):
+- `start-environment.sh start` completed in **88 seconds**: MySQL and Kafka healthy, all four services ready (Auth 5261, Item 5001, Matching 5179, Admin Verify 5003), and the frontend on 5173.
+- `seed-test-data.sh load-testing` then ran the load-testing seed: 6 users logged in through the real API and 12 listings were created, all of which search returns.
 
 ## Run in GitHub Actions
 

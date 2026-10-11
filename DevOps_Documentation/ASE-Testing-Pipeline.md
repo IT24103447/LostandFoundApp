@@ -37,11 +37,11 @@ Unselected matrix entries do not execute tests or upload artifacts. They are exp
 
 ## Shared environment
 
-The current Compose file includes MySQL 8.0.40 and Kafka 7.5.0 with health checks and loopback-only host port mappings. Kafka advertises an internal listener for container tools and an external listener for host application clients. MySQL is available on host port 3307; Kafka is on 19092. No persistent volumes or fixed container names are introduced.
+The current Compose file includes MySQL 8.0.40 and Kafka 7.5.0 with health checks and loopback-only host port mappings. The MySQL health check pings over TCP (`-h 127.0.0.1`) so it only passes once the real server is accepting connections (see "Changes after the original implementation", change 2). Kafka advertises an internal listener for container tools and an external listener for host application clients. MySQL is available on host port 3307; Kafka is on 19092. No persistent volumes or fixed container names are introduced.
 
 Applications run on the host using the repository's .NET SDK. Startup builds each service in Release and launches its DLL with Development configuration; this permits the existing embedded migrations to run. Auth/Item readiness checks use their Development Swagger documents because they do not expose the health routes used by Matching/Admin. HTTP readiness confirms startup, not the correctness of Kafka processing or an end-to-end business transaction; the assessment tests must verify those behaviors.
 
-Service ports are Auth 5261, Item 5001, Matching 5179, and Admin Verify 5003. Frontend uses Node 22.14.0, installs from the existing lockfile, and launches Vite on 5173. MySQL database names match the service migration conventions. Development Auth startup supplies its existing development accounts; the new seed script only creates databases and invokes optional assessment `seed.sh` hooks.
+Service ports are Auth 5261, Item 5001, Matching 5179, and Admin Verify 5003. Frontend uses Node 22.14.0, installs from the existing lockfile, and launches Vite on 5173. MySQL database names match the service migration conventions: `auth_service`, `item_service`, `matching_service`, and `admin_verify_db` (Admin Verify's migration runner only accepts `admin_verify_db`; see change 3). Development Auth startup supplies its existing development accounts; the new seed script only creates databases and invokes optional assessment `seed.sh` hooks.
 
 All services receive the same disposable JWT key, issuer/audience, local Kafka, CORS, and test database settings. Cloud telemetry/blob configuration is cleared. Photo uploads use runtime storage. Gemini processing and Matching/Admin notifications are off. Real SMTP, external AI, and notification delivery remain explicit scenario prerequisites; no coverage of those paths is implied by environment startup. Auth SMTP requires TLS, so an unauthenticated plaintext mail catcher would not work without an application change. No application change or SMTP infrastructure was included in this scope.
 
@@ -127,6 +127,58 @@ If a category's full suite is too slow, a representative demonstration mode can 
 For the live VIVA, install tools, prepare builds, and start the required environment before the individual presentation slot. Then demonstrate the actual tests and their outputs. The group introduction can show how automation coordinates setup and testing. A complete fresh CI execution is not promised to finish in two minutes.
 
 The current shared `start` command builds the services and runs `npm ci` every time it starts an environment; no reuse-existing-build mode has been added. Downloaded packages/container images can be reused locally, but startup and scenario preparation are not one-time machine installation tasks. Stopping the disposable environment removes its database containers; a later start creates a new environment. Keep that distinction clear when timing or rehearsing demonstrations.
+
+## Changes after the original implementation (11 October 2026)
+
+The original framework was verified with syntax checks, Compose validation and stub runs. Those never started the shared environment, because every category was still a stub. The first real start, for the load-testing category in WSL2 on Windows, needed the changes below before the environment and its scripts worked. Each change is a separate commit on `ASE/Assignment`.
+
+### 1. Line endings: `.gitattributes` keeps shell scripts on LF
+
+- **Observed:** on a Windows checkout, every `testing-pipeline` script failed in WSL2 bash with errors such as `$'\r': command not found`.
+- **Cause:** Git for Windows defaults to `core.autocrlf=true`. The repository stores the scripts with LF line endings, but they were checked out with CRLF. Bash only accepts LF, so every line ended in a stray carriage return. `git ls-files --eol testing-pipeline/load-testing/run.sh` showed `i/lf w/crlf`. The GitHub runner (Ubuntu) checks out LF, so CI was not affected. Local runs from Windows, including live demonstrations, were.
+- **Change:** a new `.gitattributes` at the repository root containing `*.sh text eol=lf`. It forces LF for shell scripts on every checkout, whatever the machine's `core.autocrlf` setting. Repository contents are unchanged (already LF), and no other file types are affected. Cleared with DevOps.
+- **Existing Windows checkouts** refresh their scripts once: `git rm --cached -r -q testing-pipeline`, then `git checkout HEAD -- testing-pipeline`. Use `git checkout HEAD -- …`: after `git rm --cached`, a plain `git checkout -- …` has nothing to restore from and fails with "pathspec did not match". New clones are correct automatically.
+- **Verified:** `git check-attr eol` reports `lf`, and all six `.sh` files show `i/lf w/lf`.
+
+### 2. MySQL health check over TCP
+
+- **Observed:** `start-environment.sh start` intermittently failed right after Compose reported MySQL as healthy, with `ERROR 2013 (HY000) at line 2: Lost connection to MySQL server during query` while creating the databases. The startup trap then removed the containers.
+- **Cause:** on first start, the `mysql:8.0.40` image runs a temporary initialisation server with networking disabled (socket only), then shuts it down and starts the real server. The health check ran `mysqladmin ping -h localhost`, which connects through the socket, so it passed against the temporary server. The database bootstrap then connected just as that server shut down.
+- **Change:** in `testing-pipeline/shared/docker-compose.yml`, the health check pings `-h 127.0.0.1`, which forces TCP. The temporary server doesn't listen on TCP, so the container only becomes healthy once the real server accepts connections.
+- **Verified:** subsequent starts passed the database bootstrap every time.
+
+### 3. Admin Verify database name: `admin_verify_db`
+
+- **Observed:** every start failed with `Application stopped before readiness: http://localhost:5003/health`. Admin Verify's log showed `System.InvalidOperationException: The configured database must be admin_verify_db.` from `DbInitializer.RunPendingMigrations`.
+- **Cause:** Admin Verify's migration runner deliberately refuses to migrate any database not named `admin_verify_db`, a guard against migrating the wrong database. The shared scripts created and connected to `admin_verify_service`.
+- **Change:** `admin_verify_db` in `testing-pipeline/shared/seed-test-data.sh` (the `CREATE DATABASE` statement) and in `testing-pipeline/shared/start-environment.sh` (the services table), plus the database names listed in the README and the DevOps implementation record. Auth, Item and Matching keep `auth_service`, `item_service` and `matching_service`.
+- **Verified:** Admin Verify now starts, applies its migrations and passes `/health` on port 5003.
+
+### 4. Auth login rate limit raised on the assessment branch
+
+- **Observed:** Auth's `"login"` rate limiter is **global**: one fixed window of 10 logins per 5 minutes shared by every caller, active in Development. A load test with 20 users logging in gets `429 Too Many Requests` from the 11th login on. Waiting for the window (up to 5 minutes) does not fit the two-minute demonstration.
+- **Change:** in `services/AuthService/Program.cs`, the `"login"` limiter's `PermitLimit` goes from 10 to 1000. The 5-minute window and the other five limiters (register, verify-email, resend-verification, forgot-password, reset-password) are unchanged.
+- **Why it is safe:**
+  - `ASE/Assignment` only receives merges from `develop` and is never merged back.
+  - `auth-service-ci-cd.yml` only runs for `develop`, `main` and `feature/**`, and only deploys from `develop`.
+  - So production keeps 10 per 5 minutes. Never open a pull request from `ASE/Assignment` into `develop` or `main`.
+- **Impact check:** the login limit is referenced only by that policy and `[EnableRateLimiting("login")]` on the login action. The frontend's 429 handling belongs to other forms, and no test or JMeter plan depends on the login limit's value.
+- **Verified:** AuthService builds with 0 warnings; AuthService.Tests passes 145/145.
+
+### 5. Windows / WSL2 local setup
+
+- **Observed:** on Windows, the scripts need Linux tooling. Under Git Bash, the PID-based `stop` cannot terminate the real Windows `dotnet.exe` processes. In a fresh WSL2 Ubuntu, `dotnet` and `node` were missing, and the `npm` found was the Windows one, leaking through the Windows PATH.
+- **Change:** documented the one-time WSL2 setup under **Prerequisites → Windows: WSL2 setup** in `testing-pipeline/README.md`:
+  - Docker Desktop with WSL integration;
+  - .NET SDK 8.0.424 and Node 22.14.0 installed **inside** WSL (dotnet-install script and nvm);
+  - using an interactive WSL terminal, because the paths load from `~/.bashrc`.
+- **Verified:** inside WSL2 (Ubuntu 22.04), `dotnet --version` from the repository root is `8.0.424`, `node --version` is `v22.14.0`, and Docker Compose v5.1 is reachable.
+
+### Result
+
+With changes 1–5, in WSL2 (Ubuntu 22.04):
+- `start-environment.sh start` completed in **88 seconds**: MySQL and Kafka healthy, all four services ready (Auth 5261, Item 5001, Matching 5179, Admin Verify 5003), and the frontend on 5173.
+- `seed-test-data.sh load-testing` then ran the load-testing seed: 6 users logged in through the real API and 12 listings were created, all of which search returns.
 
 ## Assessment mapping
 
