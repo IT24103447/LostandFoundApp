@@ -76,7 +76,7 @@ public sealed class SpamReviewFlowTests : IClassFixture<AdminSpamReviewFixture>
     }
 
     [Fact]
-    public void SpamReviewRow_ShowsContactScoreStatusAndDisabledAction()
+    public void SpamReviewRow_ShowsContactScoreStatusAndEnabledAction()
     {
         _fixture.PurgeSeleniumSpamRows();
         var name = $"Selenium SR row {NewTag()} Valentine";
@@ -107,7 +107,10 @@ public sealed class SpamReviewFlowTests : IClassFixture<AdminSpamReviewFixture>
 
             var view = rendered.FindElement(By.Id($"spam-record-view-{recordId}"));
             Assert.Equal("View record", view.Text);
-            Assert.False(view.Enabled, "Expected View record to be disabled while opening a record is not yet wired up.");
+            // LF-267 wired this button into the Spam record popup (SpamRecordDialog); since then a
+            // record is openable, so the action is enabled. The popup flows themselves live in
+            // SpamRecordCaseFlowTests.
+            Assert.True(view.Enabled, "LF-267 wired View record into the Spam record popup, so the row action is now enabled.");
         }
         finally
         {
