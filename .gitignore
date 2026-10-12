@@ -506,8 +506,12 @@ coverage*.xml
 **/CoverageReport/
 **/coverage/
 
-# Commit only the published HTML coverage evidence for Auth/Item/Matching Service.
+# Commit only the published HTML coverage evidence for the four backend services.
 # Raw Coverlet XML remains under TestResults and is still ignored above.
+# AdminVerifyService additionally feeds SonarQube an OpenCover report in CI; this
+# CoverageReport is the local Cobertura-derived evidence QA publishes alongside it.
+!services/AdminVerifyService.Tests/CoverageReport/
+!services/AdminVerifyService.Tests/CoverageReport/**
 !services/AuthService.Tests/CoverageReport/
 !services/AuthService.Tests/CoverageReport/**
 !services/ItemService.Tests/CoverageReport/
