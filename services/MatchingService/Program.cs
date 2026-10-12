@@ -5,6 +5,7 @@ using MatchingService.Databases;
 using MatchingService.Repositories;
 using MatchingService.Services;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Models;
 using MatchingService.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,7 +23,18 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var bearer = new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+    };
+    options.AddSecurityDefinition("Bearer", bearer);
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement { [bearer] = [] });
+});
 builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddHealthChecks();
 
@@ -177,9 +189,6 @@ app.UseExceptionHandler(errorApplication =>
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-
     DbInitializer.RunPendingMigrations(
         app.Services,
         app.Configuration);
@@ -188,6 +197,9 @@ else
 {
     app.UseHttpsRedirection();
 }
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors("matching-frontend");
 app.UseAuthentication();
