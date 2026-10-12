@@ -1,0 +1,560 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="JMT-18 - Story LF-267/268/269 Spam Case Actions">
+      <stringProp name="TestPlan.comments">Stories LF-267, LF-268 and LF-269 in ONE plan: the admin case actions an admin drives from the Spam record popup - open (GET detail + POST open), dismiss (POST dismiss) and solve (the runner sequence: POST solve, PUT each listing result, PUT kick-result when a kick was requested, POST finish). These are the write side of the Spam Review queue, the counterpart to plan 17&apos;s read-only list load.
+
+Why the load is shaped the way it is: every one of these endpoints is a guarded state transition, not an idempotent read. Open only moves NEEDS_REVIEW -&gt; UNDER_REVIEW, dismiss only moves UNDER_REVIEW -&gt; DISMISSED, solve start only moves UNDER_REVIEW -&gt; PENDING_SOLVE, and finish only moves PENDING_SOLVE -&gt; SOLVED once no listing is left NULL and the kick is no longer PENDING (SpamCaseRepository / SpamSolveRepository). So a thread cannot replay the same record - the second open of one record is a no-op update, and the second dismiss/solve is a 409. The plan therefore loads a POOL of throwaway records, one row per CSV line, and lets each thread consume exactly one row: concurrency lands on distinct rows that are genuinely racing for the same connection pool, while every sample stays a first-and-only transition whose 200 is meaningful.
+
+The pool is seeded OUT OF BAND (QA_Documentation/Story-LF-267/execution-log.md records the seed SQL) rather than by a JSR223 setUp thread, so the plan stays readable XML like 16 and 17 and the seed is auditable SQL instead of embedded Groovy.
+
+Run from the REPO ROOT (relative paths in this plan assume that).
+Required -J properties:
+  -JADMIN_TOKEN=        a real admin JWT (login as admin1@lostandfound.com / Admin123!)
+  -JOPEN_RECORDS_CSV=   records seeded NEEDS_REVIEW, one id per line (default tests/performance/AdminVerifyService/storyLF267-open-records.csv)
+  -JDISMISS_RECORDS_CSV= records seeded UNDER_REVIEW, one id per line (default tests/performance/AdminVerifyService/storyLF268-dismiss-records.csv)
+  -JSOLVE_RECORDS_CSV=  records seeded UNDER_REVIEW, id,listingId,kick,resume per line (default tests/performance/AdminVerifyService/storyLF269-solve-records.csv)
+Optional: -JHOST, -JPORT (AdminVerify, default localhost:5019), -JTHREADS, -JRAMP_SECONDS, -JLISTING_RESULT (default DELETED), -JKICK_RESULT (default KICKED).
+
+The solve rows carry their own kick/resume flags because that pair decides the whole runner shape: kick=false takes the start-solve -&gt; listing-result -&gt; finish path, kick=true inserts the kick-result step between the listing results and finish, and resume=true starts from an already PENDING_SOLVE record (so the start-solve step is skipped in JMeter and only the remaining listings are finished). Keeping the three shapes in one CSV is what makes this one plan rather than three.
+
+Acceptance lines per story plan: the status-bearing sample is HTTP 200, its body carries no &quot;error&quot; object, and the body reports the state the story promises (UNDER_REVIEW after open, DISMISSED after dismiss, SOLVED after finish). A 200 whose body is an error object fails the second assertion, not just the status one.</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="HOST" elementType="Argument">
+            <stringProp name="Argument.name">HOST</stringProp>
+            <stringProp name="Argument.value">${__P(HOST,localhost)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PORT" elementType="Argument">
+            <stringProp name="Argument.name">PORT</stringProp>
+            <stringProp name="Argument.value">${__P(PORT,5019)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="ADMIN_TOKEN" elementType="Argument">
+            <stringProp name="Argument.name">ADMIN_TOKEN</stringProp>
+            <stringProp name="Argument.value">${__P(ADMIN_TOKEN,SET_ME)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="THREADS" elementType="Argument">
+            <stringProp name="Argument.name">THREADS</stringProp>
+            <stringProp name="Argument.value">${__P(THREADS,10)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="RAMP_SECONDS" elementType="Argument">
+            <stringProp name="Argument.name">RAMP_SECONDS</stringProp>
+            <stringProp name="Argument.value">${__P(RAMP_SECONDS,5)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="OPEN_RECORDS_CSV" elementType="Argument">
+            <stringProp name="Argument.name">OPEN_RECORDS_CSV</stringProp>
+            <stringProp name="Argument.value">${__P(OPEN_RECORDS_CSV,tests/performance/AdminVerifyService/storyLF267-open-records.csv)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="DISMISS_RECORDS_CSV" elementType="Argument">
+            <stringProp name="Argument.name">DISMISS_RECORDS_CSV</stringProp>
+            <stringProp name="Argument.value">${__P(DISMISS_RECORDS_CSV,tests/performance/AdminVerifyService/storyLF268-dismiss-records.csv)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="SOLVE_RECORDS_CSV" elementType="Argument">
+            <stringProp name="Argument.name">SOLVE_RECORDS_CSV</stringProp>
+            <stringProp name="Argument.value">${__P(SOLVE_RECORDS_CSV,tests/performance/AdminVerifyService/storyLF269-solve-records.csv)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="LISTING_RESULT" elementType="Argument">
+            <stringProp name="Argument.name">LISTING_RESULT</stringProp>
+            <stringProp name="Argument.value">${__P(LISTING_RESULT,DELETED)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="KICK_RESULT" elementType="Argument">
+            <stringProp name="Argument.name">KICK_RESULT</stringProp>
+            <stringProp name="Argument.value">${__P(KICK_RESULT,KICKED)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Admin authentication + JSON content type">
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="auth-cookie" elementType="Header">
+            <stringProp name="Header.name">Cookie</stringProp>
+            <stringProp name="Header.value">auth_token=${ADMIN_TOKEN}</stringProp>
+          </elementProp>
+          <elementProp name="content-type" elementType="Header">
+            <stringProp name="Header.name">Content-Type</stringProp>
+            <stringProp name="Header.value">application/json</stringProp>
+          </elementProp>
+        </collectionProp>
+        <stringProp name="TestPlan.comments">Sends the admin JWT as the auth_token cookie (AdminVerifyService&apos;s JwtBearer handler accepts it as a fallback - SecurityRegistration.cs). Same header block as plan 17 so the two plans differ only in what they exercise.</stringProp>
+      </HeaderManager>
+      <hashTree/>
+
+      <!-- ============================ LF-267: open ============================ -->
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="LF-267 records to open (one id per line)" enabled="true">
+        <stringProp name="TestPlan.comments">One seeded NEEDS_REVIEW record id per line, recycled across threads with shareMode.all. Not recycled=false: the point of the pool is that extra threads past the pool size repeat a row, and the repeat is harmless here because OpenAsync only matches status=NEEDS_REVIEW - a second open of an already-opened record is a no-op UPDATE that still returns 200 with the record detail, so the shape assertions hold either way.</stringProp>
+        <stringProp name="filename">${OPEN_RECORDS_CSV}</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="variableNames">openRecordId</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <stringProp name="delimiter">,</stringProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <stringProp name="stopThread">false</stringProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="LF-267 Open records under concurrency" enabled="true">
+        <stringProp name="TestPlan.comments">A short ramp, not a Synchronizing Timer: a real review session produces arrivals spread over time, and the measurement is how the guarded UPDATE holds up under concurrent admin actions rather than a single stampede (same choice as plans 14 and 17).</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${THREADS}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${RAMP_SECONDS}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="LF-267 Read the record detail before opening" enabled="true">
+          <stringProp name="TestPlan.comments">GET the case detail first. The popup does exactly this before it decides whether to show the open warning, so this sampler is the read half of the story and also warms the record row the open is about to update.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/admin/spam-records/${openRecordId}</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Detail returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">A 401/403 here means ADMIN_TOKEN is not a valid admin JWT; a 404 means the id in the CSV is not a real record id.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Detail body carries no error object" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">&quot;error&quot;</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">20</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="LF-267 Open the spam record" enabled="true">
+          <stringProp name="TestPlan.comments">POST /open. The guarded UPDATE moves NEEDS_REVIEW -&gt; UNDER_REVIEW and returns the record detail, so the body assertion below is the story&apos;s acceptance line: the record is genuinely under review after the call.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/admin/spam-records/${openRecordId}/open</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Open returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49588">200</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">A 404 means the record does not exist; a 500 here means the guarded UPDATE or the follow-up detail read failed, which is exactly the regression this plan is here to catch.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Open response carries no error object" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49589">&quot;error&quot;</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">20</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Open response reports the record under review" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49590">&quot;status&quot;:&quot;UNDER_REVIEW&quot;</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">The story assertion, not just a status-code check: the returned detail must report UNDER_REVIEW. This is what makes the sample prove the transition happened instead of merely returning a body.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">16</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+
+      <!-- ============================ LF-268: dismiss ============================ -->
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="LF-268 records to dismiss (one id per line)" enabled="true">
+        <stringProp name="TestPlan.comments">One seeded UNDER_REVIEW record id per line. Recycled deliberately but, unlike open, a repeat here is NOT harmless: DismissAsync only matches UNDER_REVIEW, so re-dismissing returns 409 and would fail the run. Size the pool at or above THREADS and set the rows-per-iteration count so no thread draws a second row (stopThread=false keeps a short pool from aborting the run, but a 409 is reported as a failure either way).</stringProp>
+        <stringProp name="filename">${DISMISS_RECORDS_CSV}</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="variableNames">dismissRecordId</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <stringProp name="delimiter">,</stringProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <stringProp name="stopThread">false</stringProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="LF-268 Dismiss records under concurrency" enabled="true">
+        <stringProp name="TestPlan.comments">Serialized after the LF-267 group (TestPlan.serialize_threadgroups) so the two stories never contend for the same records, and so a failure in the open group is visible on its own before the dismiss group runs.</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${THREADS}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${RAMP_SECONDS}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="LF-268 Dismiss the spam record" enabled="true">
+          <stringProp name="TestPlan.comments">POST /dismiss. The guarded UPDATE moves UNDER_REVIEW -&gt; DISMISSED; because DismissAsync returns 409 when it changed no rows, this sample is the plan&apos;s direct test of the LF-268 concurrency contract: two admins dismissing the same record must not both see success.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/admin/spam-records/${dismissRecordId}/dismiss</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Dismiss returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49591">200</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">A 409 here is the correct answer for a record that was already dismissed - if it shows up unexpectedly the CSV had a duplicate id. A 404 means the id is not a real record id.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Dismiss response carries no error object" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49592">&quot;error&quot;</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">20</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Dismiss response reports the record dismissed" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49593">&quot;status&quot;:&quot;DISMISSED&quot;</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">The story assertion: the returned detail must report DISMISSED, so a 200 cannot pass on a record that did not actually transition.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">16</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+
+      <!-- ============================ LF-269: solve ============================ -->
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="LF-269 solve rows (recordId,listingId,kick,resume)" enabled="true">
+        <stringProp name="TestPlan.comments">Columns are recordId,listingId,kick,resume. kick/resume drive the If Controllers below: kick=true inserts the kick-result step (and requires kick_status to reach PENDING so finish is not blocked), resume=true means the row was seeded PENDING_SOLVE so the start-solve step is skipped. One row per thread - a repeated row would 409 on start-solve and fail the run, so size the pool at or above THREADS.</stringProp>
+        <stringProp name="filename">${SOLVE_RECORDS_CSV}</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="variableNames">solveRecordId,solveListingId,solveKick,solveResume</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <stringProp name="delimiter">,</stringProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <stringProp name="stopThread">false</stringProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="LF-269 Run solves under concurrency" enabled="true">
+        <stringProp name="TestPlan.comments">Serialized last. Each thread walks one record through the full runner sequence the browser drives, so this group is a multi-step scenario per thread rather than a single-sample load - the measurement is the slowest step of the sequence under concurrency, which is where a blocking UPDATE or a missing kick-result would show up.</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${THREADS}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${RAMP_SECONDS}</stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Only when this row is not a resume" enabled="true">
+          <stringProp name="TestPlan.comments">Skips the start-solve step for resume=true rows. A resumed record is already PENDING_SOLVE, so POST /solve would hit the status=UNDER_REVIEW guard, change no rows and return 409 - correct behaviour for the API, wrong for the plan.</stringProp>
+          <stringProp name="IfController.condition">${__groovy("${solveResume}".trim() != "true")}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="LF-269 Start the solve (kick/resume in the body)" enabled="true">
+            <stringProp name="TestPlan.comments">POST /solve with the required {kick, resume} body. Both fields are JsonRequired on SolveRequest, so a missing one is a 400 - the body is built from the CSV columns for exactly that reason.</stringProp>
+            <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/spam-records/${solveRecordId}/solve</stringProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{"kick":${solveKick},"resume":${solveResume}}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Start solve returns 200" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49594">200</stringProp>
+              </collectionProp>
+              <stringProp name="TestPlan.comments">A 400 means kick or resume was missing from the body; a 409 means the record was not UNDER_REVIEW (usually a CSV row that was already solved by an earlier run).</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <intProp name="Assertion.test_type">8</intProp>
+              <stringProp name="Assertion.custom_message"></stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Start solve response reports pending solve" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49595">&quot;status&quot;:&quot;PENDING_SOLVE&quot;</stringProp>
+              </collectionProp>
+              <stringProp name="TestPlan.comments">StartAsync only returns the detail when the record really landed in PENDING_SOLVE, so this assertion proves the transition instead of trusting the status code.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+              <intProp name="Assertion.test_type">16</intProp>
+              <stringProp name="Assertion.custom_message"></stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="LF-269 Save the listing result" enabled="true">
+          <stringProp name="TestPlan.comments">PUT the per-listing solve result. This is the step finish() blocks on: a listing still NULL (or FAILED) keeps the record out of SOLVED, so a run that skips or misreports this sample shows up as a 409 on the finish sample rather than passing silently.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/admin/spam-records/${solveRecordId}/listings/${solveListingId}/result</stringProp>
+          <stringProp name="HTTPSampler.method">PUT</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{"result":"${LISTING_RESULT}"}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Listing result returns 204" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49596">204</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">NoContent is the expected shape here (the controller returns NoContent for a successful save), so the assertion pins 204 rather than a loose 2xx - a 200 would mean the endpoint&apos;s contract drifted.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Listing result returns no error object" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49597">&quot;error&quot;</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">A 204 carries no body, so this passes trivially on success; its job is to fail loudly if the endpoint ever starts returning an error envelope with a non-2xx code.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">20</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Only when this row asked for a kick" enabled="true">
+          <stringProp name="TestPlan.comments">Skipped for kick=false rows. This step also has a second job: finish() refuses to solve while kick_status is still PENDING, so on a kicked row it is the step that unblocks the finish below - a kicked row that skipped it 409s on finish, which is the regression this controller makes visible.</stringProp>
+          <stringProp name="IfController.condition">${__groovy("${solveKick}".trim() == "true")}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="LF-269 Save the kick result" enabled="true">
+            <stringProp name="TestPlan.comments">PUT /kick-result with KICKED (or FAILED). SaveKickResultAsync only updates while kick_status=PENDING and 409s otherwise, so this sample pins both that the kick was recorded and that it was recorded exactly once.</stringProp>
+            <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/spam-records/${solveRecordId}/kick-result</stringProp>
+            <stringProp name="HTTPSampler.method">PUT</stringProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{"result":"${KICK_RESULT}"}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Kick result returns 200" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49598">200</stringProp>
+              </collectionProp>
+              <stringProp name="TestPlan.comments">A 400 means the result was not KICKED or FAILED; a 409 means the kick was not requested (kick=false row reaching this controller) or was already attempted.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <intProp name="Assertion.test_type">8</intProp>
+              <stringProp name="Assertion.custom_message"></stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Kick result response reports the kick state" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49599">&quot;kickStatus&quot;</stringProp>
+              </collectionProp>
+              <stringProp name="TestPlan.comments">The detail always carries kickStatus; asserting the key is present proves the kick endpoint returned a record detail rather than an error body. Use -JKICK_RESULT=FAILED to exercise the other branch.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+              <intProp name="Assertion.test_type">16</intProp>
+              <stringProp name="Assertion.custom_message"></stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="LF-269 Finish the solve" enabled="true">
+          <stringProp name="TestPlan.comments">POST /finish. The verdict sample for the whole solve scenario: it can only return 200 when the record is PENDING_SOLVE, the kick is no longer PENDING and every listing has a non-NULL, non-FAILED result. A 409 here is the plan catching a runner that skipped a step.</stringProp>
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/admin/spam-records/${solveRecordId}/finish</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Finish returns 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49600">200</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">A 409 is the expected failure for an incomplete solve - FinishBlockedReason distinguishes &quot;the kick has not been attempted&quot; from &quot;some listings have not been deleted or skipped&quot;, so read the response message when this fires.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <intProp name="Assertion.test_type">8</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Finish response reports the record solved" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49601">&quot;status&quot;:&quot;SOLVED&quot;</stringProp>
+            </collectionProp>
+            <stringProp name="TestPlan.comments">The LF-269 acceptance line: the record ends the run SOLVED, with the kick status and per-listing results recorded on the same response.</stringProp>
+            <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+            <intProp name="Assertion.test_type">16</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">tests/performance/AdminVerifyService/results/storyLF267-269-case-actions-tree.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">tests/performance/AdminVerifyService/results/storyLF267-269-case-actions-summary.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
