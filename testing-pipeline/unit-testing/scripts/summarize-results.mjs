@@ -25,7 +25,65 @@ const descriptions = {
   Invalid_phone_formats_produce_phone_validation_error:
     'Checks the real registration DTO rejects the supplied invalid phone format and identifies the phone field.',
   Each_required_field_rejects_empty_input:
-    'Checks the real registration DTO reports a required-field error when the named field is empty.'
+    'Checks the real registration DTO reports a required-field error when the named field is empty.',
+  Correct_otp_marks_account_verified_consumes_code_and_issues_auth_cookie:
+    'Verifies account/code updates, verification event payload, optional email change, returned token and environment-specific auth cookie using strict mocks.',
+  Consumed_otp_cannot_verify_again_when_repository_returns_no_active_code:
+    'After consumption, stubs the repository returning no active code; a retry cannot repeat verification, publication or JWT issuance. Does not test SQL filtering.',
+  Incorrect_otp_increments_attempts_and_locks_at_configured_limit:
+    'Checks retry and lockout boundaries with a ten-attempt configuration; wrong codes increment once and never verify the account.',
+  No_active_otp_returns_invalid_or_expired_error_without_verification:
+    'Stubs the repository returning no active OTP and checks the error with no verification side effects; expiry filtering itself belongs to integration tests.',
+  Invalid_verification_session_rejects_before_repository_access:
+    'An invalid verification session rejects before accessing account/code repositories or issuing authentication.',
+  Verified_or_suspended_account_rejects_before_otp_access:
+    'Already-verified or suspended accounts return their current errors without processing an OTP.',
+  Pending_email_claimed_by_another_account_consumes_code_without_verifying:
+    'An email claimed since OTP issuance invalidates the code without changing or verifying the account.',
+  Allowed_resend_invalidates_old_codes_stores_hash_and_emails_new_code:
+    'Checks invalidation before generation, hashed OTP storage, configured expiry, email content and resend timestamp; includes cooldown elapsed and changed email.',
+  Resend_inside_cooldown_returns_retry_after_without_side_effects:
+    'Checks HTTP 429 and Retry-After for recent resend timestamps, with no new OTP or email and no real waiting.',
+  Invalid_resend_rejects_without_creating_or_sending_code:
+    'Invalid sessions, missing/suspended accounts or duplicate pending emails reject without OTP/email side effects.',
+  Otp_validation_requires_exactly_six_digits:
+    'Exercises real DTO validation for missing, malformed and valid six-digit OTPs, including leading zeroes.',
+  Verification_requires_session_token:
+    'Checks that verification DTO validation identifies a missing session token.',
+  Resend_validation_requires_session_and_valid_email:
+    'Checks resend DTO validation identifies the missing session or missing/malformed email.',
+  Verification_session_validates_signature_identity_and_lifetime:
+    'Exercises the real session validator with valid, expired, wrong-key/issuer/audience, invalid-subject and malformed tokens; no sleep or network.',
+  Valid_credentials_return_user_or_admin_details_and_auth_cookie:
+    'Checks password verification against the stored hash, exact returned profile/role, JWT issuance, cookie security options and cancellation propagation.',
+  Invalid_credentials_or_filtered_deleted_account_return_same_error_without_token:
+    'Unknown email, incorrect password and repository-filtered deleted account return the same generic error with no token/cookie.',
+  Unverified_login_returns_forbidden_and_sends_new_verification_code_without_login_jwt:
+    'Documents current behaviour: HTTP 403 plus verification session, old-code invalidation and emailed replacement OTP, without a login JWT.',
+  Suspended_verified_account_rejects_login_without_token:
+    'Correct credentials on a suspended verified account return HTTP 403 without issuing authentication.',
+  Signed_login_jwt_has_correct_identity_role_verification_and_expiry:
+    'Validates a real HS256 signature, issuer, audience and lifetime, then checks identity, contact, admin and verification claims.',
+  Login_jwt_is_rejected_when_validated_with_wrong_signing_key:
+    'A real issued login JWT fails cryptographic validation with a different signing key.',
+  Admin_policy_only_allows_existing_active_admin:
+    'Runs the real AdminOnly handler against account/identity cases and checks AdminController uses that policy; HTTP middleware is outside this unit test.',
+  View_profile_uses_authenticated_identity_and_returns_contact_details:
+    'Checks profile lookup uses sub or NameIdentifier from the caller and returns exact contact details plus a refreshed JWT.',
+  Profile_update_persists_callers_record_returns_reload_and_publishes_only_changed_fields:
+    'Checks caller-owned lookup, uniqueness check, save/reload order and exact changed-field event payload for name, phone, both or unchanged input.',
+  Duplicate_profile_phone_rejects_without_saving_or_publishing:
+    'A phone belonging to another user returns HTTP 409 without profile persistence or event publication.',
+  Missing_or_invalid_profile_identity_rejects_before_repository_access:
+    'Both view and update reject missing/invalid caller identity before repository access or writes.',
+  Missing_profile_account_rejects_without_saving:
+    'Both view and update return HTTP 401 for a caller account absent from the repository, without writes.',
+  Ineligible_account_cannot_view_profile:
+    'Suspended or unverified accounts receive the current profile-view rejection without token issuance.',
+  Profile_name_validation_checks_required_and_length_boundaries:
+    'Real DTO validation checks empty/whitespace names, accepted lengths 1 and 150, and rejection at 151 characters.',
+  Profile_phone_validation_checks_e164_format_and_length_boundaries:
+    'Real DTO validation checks required input, leading plus, initial digit, numeric format and minimum/maximum E.164 lengths.'
 };
 
 function decode(value = '') {
@@ -150,7 +208,8 @@ function consoleName(test) {
     Weak_password_returns_requirements_before_repository_access: 'Weak password rejected before storage'
   };
   const method = name.split('(')[0].split('.').at(-1);
-  return labels[method] ?? method.replaceAll('_', ' ');
+  const parameters = name.includes('(') ? ` ${name.slice(name.indexOf('('))}` : '';
+  return labels[method] ?? `${method.replaceAll('_', ' ')}${parameters}`;
 }
 let heading = '';
 for (const test of [...cases].sort((a, b) => a.name.localeCompare(b.name))) {

@@ -82,6 +82,7 @@ run_tests() {
   (( ${#projects[@]} > 0 )) || { echo 'No assessment unit-test projects were found.' >&2; return 1; }
   local selection="${service:-All available services}${story:+ / $story}"
   echo "Running unit tests: $selection"
+  local suite_started=$SECONDS
   local project name result test_result=0 report_result=0
   for project in "${projects[@]}"; do
     name=$(basename "$project" .csproj)
@@ -94,8 +95,11 @@ run_tests() {
   done
   # Generate available reports even if compilation or a test assertion failed.
   node "$SCRIPT_DIR/scripts/summarize-results.mjs" "$ASE_REPORT_DIR/results" "$ASE_REPORT_DIR" || report_result=$?
+  local suite_elapsed=$((SECONDS - suite_started))
+  echo "Unit suite wall-clock time: ${suite_elapsed}s (selected projects and reporting)."
   if [[ -s "$ASE_REPORT_DIR/summary.md" ]]; then
     printf '\nSelected scope: %s\n' "$selection" >> "$ASE_REPORT_DIR/summary.md"
+    printf '\nWall-clock duration: %ss (selected projects and reporting; includes restore/build unless --no-build --no-restore).\n' "$suite_elapsed" >> "$ASE_REPORT_DIR/summary.md"
   fi
   if [[ -n "${GITHUB_STEP_SUMMARY:-}" && -s "$ASE_REPORT_DIR/summary.md" ]]; then
     cat "$ASE_REPORT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
