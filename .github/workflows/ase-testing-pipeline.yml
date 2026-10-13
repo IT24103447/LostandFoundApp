@@ -210,13 +210,52 @@ jobs:
         with:
           node-version: '22.14.0'
 
+      - name: Cache JMeter
+        id: jmeter-cache
+        if: steps.selection.outputs.ready == 'true' && matrix.category == 'load-testing' && success()
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ase-load-testing
+          key: ${{ runner.os }}-jmeter-${{ hashFiles('testing-pipeline/load-testing/run.sh') }}
+
+      - name: Download JMeter
+        if: steps.selection.outputs.ready == 'true' && matrix.category == 'load-testing' && steps.jmeter-cache.outputs.cache-hit != 'true' && success()
+        run: |
+          version=$(sed -n 's/^JMETER_VERSION=//p' testing-pipeline/load-testing/run.sh)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Could not read the JMeter version.' >&2; exit 1; }
+          echo "ASE_JMETER_VERSION=$version" >> "$GITHUB_ENV"
+          archive="apache-jmeter-$version.tgz"
+          cache_dir="$HOME/.cache/ase-load-testing"
+          url="https://archive.apache.org/dist/jmeter/binaries/$archive"
+          mkdir -p "$cache_dir"
+          cd "$cache_dir"
+          curl --fail --silent --show-error --location --retry 3 -o "$archive" "$url"
+          curl --fail --silent --show-error --location --retry 3 -o "$archive.sha512" "$url.sha512"
+          sha512sum -c "$archive.sha512"
+
+      - name: Extract JMeter
+        if: steps.selection.outputs.ready == 'true' && matrix.category == 'load-testing' && steps.jmeter-cache.outputs.cache-hit != 'true' && success()
+        run: |
+          archive="apache-jmeter-$ASE_JMETER_VERSION.tgz"
+          cache_dir="$HOME/.cache/ase-load-testing"
+          cd "$cache_dir"
+          tar -xzf "$archive"
+          test -x "apache-jmeter-$ASE_JMETER_VERSION/bin/jmeter"
+          rm -f "$archive" "$archive.sha512"
+
       - name: Start shared application environment
         if: >-
           steps.selection.outputs.ready == 'true' &&
           matrix.category != 'mutation-testing' &&
           success()
+        run: bash testing-pipeline/shared/start-environment.sh start
+
+      - name: Seed shared application environment
+        if: >-
+          steps.selection.outputs.ready == 'true' &&
+          matrix.category != 'mutation-testing' &&
+          success()
         run: |
-          bash testing-pipeline/shared/start-environment.sh start
           source "$ASE_RUNTIME_DIR/environment.sh"
           bash testing-pipeline/shared/seed-test-data.sh "$ASE_CATEGORY"
 
