@@ -2,6 +2,7 @@ using AdminVerifyService.Configuration;
 using AdminVerifyService.Databases;
 using AdminVerifyService.Listings;
 using AdminVerifyService.Spam;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +18,18 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var bearer = new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+    };
+    options.AddSecurityDefinition("Bearer", bearer);
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement { [bearer] = [] });
+});
 builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddHealthChecks();
 
@@ -47,6 +59,8 @@ builder.Services.AddSingleton<TrackedListingRepository>();
 builder.Services.AddSingleton<SpamRecordRepository>();
 builder.Services.AddSingleton<SpamRule>();
 builder.Services.AddSingleton<SpamReviewRepository>();
+builder.Services.AddSingleton<SpamCaseRepository>();
+builder.Services.AddSingleton<SpamSolveRepository>();
 builder.Services.AddSingleton<ListingEventHandler>();
 builder.Services.AddHostedService<ListingEventConsumer>();
 
@@ -79,15 +93,15 @@ app.UseExceptionHandler(errorApplication =>
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-
     DbInitializer.RunPendingMigrations(app.Services, app.Configuration);
 }
 else
 {
     app.UseHttpsRedirection();
 }
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors(SecurityRegistration.CorsPolicy);
 app.UseAuthentication();

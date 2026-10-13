@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { getUsers } from "../api/admin";
-import { getUserContact, type UserContact } from "../api/matchAppeals";
+import { getUserContact } from "../api/matchAppeals";
 import {
   MAX_FILTER_USERS,
   getSpamRecords,
   type SpamRecord,
-  type SpamRecordStatus,
   type SpamReviewSort,
   type SpamReviewTab,
 } from "../api/spamRecords";
+import { SpamRecordDialog } from "./SpamRecordDialog";
+import { STATUS_LABELS } from "./spamReviewLabels";
+import { UserCell, type ContactState } from "./spamReviewShared";
 
 const TABS: { value: SpamReviewTab; label: string }[] = [
   { value: "active", label: "Active" },
@@ -16,18 +18,8 @@ const TABS: { value: SpamReviewTab; label: string }[] = [
   { value: "solved", label: "Solved" },
 ];
 
-const STATUS_LABELS: Record<SpamRecordStatus, { label: string; style: string }> = {
-  NEEDS_REVIEW: { label: "Needs review", style: "bg-amber-100 text-amber-800" },
-  UNDER_REVIEW: { label: "Under review", style: "bg-sky-100 text-sky-800" },
-  PENDING_SOLVE: { label: "Pending solve", style: "bg-violet-100 text-violet-800" },
-  SOLVED: { label: "Solved", style: "bg-emerald-100 text-emerald-800" },
-  DISMISSED: { label: "Dismissed", style: "bg-gray-200 text-gray-700" },
-};
-
 const INPUT_CLASS =
   "rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none";
-
-type ContactState = UserContact | "deleted" | "error";
 
 type Filters = {
   sort: SpamReviewSort;
@@ -46,28 +38,6 @@ function errorMessage(reason: unknown): string {
   return response?.body?.error ?? "Couldn't load Spam records. Please try again.";
 }
 
-function UserCell({ contact }: { contact: ContactState | undefined }) {
-  let body: ReactNode;
-
-  if (contact === undefined) {
-    body = <span className="text-gray-400">Loading…</span>;
-  } else if (contact === "deleted") {
-    body = <span className="font-semibold text-rose-700">Deleted user</span>;
-  } else if (contact === "error") {
-    body = <span className="text-gray-500">Details unavailable</span>;
-  } else {
-    body = (
-      <>
-        <span className="font-semibold text-gray-900">{contact.name}</span>
-        <span className="break-all">{contact.email}</span>
-        <span>{contact.phoneNo}</span>
-      </>
-    );
-  }
-
-  return <div className="flex flex-col text-sm text-gray-600">{body}</div>;
-}
-
 export function SpamReviewSection() {
   const [tab, setTab] = useState<SpamReviewTab>("active");
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -80,6 +50,7 @@ export function SpamReviewSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Record<string, ContactState>>({});
+  const [viewing, setViewing] = useState<SpamRecord | null>(null);
 
   const requestId = useRef(0);
   const requestedContacts = useRef(new Set<string>());
@@ -331,7 +302,7 @@ export function SpamReviewSection() {
                     <button
                       id={`spam-record-view-${record.id}`}
                       type="button"
-                      disabled
+                      onClick={() => setViewing(record)}
                       className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
                     >
                       View record
@@ -345,6 +316,17 @@ export function SpamReviewSection() {
             {loading && records.length > 0 ? "Loading more…" : null}
           </div>
         </div>
+      )}
+
+      {viewing && (
+        <SpamRecordDialog
+          record={viewing}
+          contact={contacts[viewing.userId]}
+          onClose={() => {
+            setViewing(null);
+            load(1);
+          }}
+        />
       )}
     </div>
   );

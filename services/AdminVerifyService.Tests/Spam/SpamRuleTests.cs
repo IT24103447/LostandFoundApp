@@ -593,6 +593,77 @@ public sealed class SpamRuleTests : IClassFixture<AdminVerifyDbFixture>
         Assert.Equal(3, await CountAsync(_fixture.Connections, "SELECT COUNT(*) FROM spam_record_listings;"));
     }
 
+    [Fact] // LF-268 S2/DoD: after a Dismiss record, its listings are never counted again, but the
+    // user's NEW posts still count - a fresh burst is created from the new listings only.
+    public async Task SR12_DismissedRecord_ListingsStayedExcluded_NewPostsStillCount()
+    {
+        await ResetAsync(_fixture.Connections);
+
+        // A dismissed record has already consumed listing `consumed`.
+        var formerId = Guid.Parse("30000000-0000-0000-0000-000000000009");
+        var consumed = Guid.Parse("10000000-0000-0000-0000-300000000001");
+        var freshOne = Guid.Parse("10000000-0000-0000-0000-300000000002");
+        var freshTwo = Guid.Parse("10000000-0000-0000-0000-300000000003");
+        await SeedCollectingRecordAsync(
+            _fixture.Connections, formerId, UserA, scoreA: 1, SpamRecordStatus.Dismissed,
+            collectingUntil: RefNow.AddMinutes(-1),
+            links: new[] { (consumed, RefNow.AddMinutes(-40)) });
+
+        // Two NEW listings posted after the dismissal, both inside the burst window.
+        await SeedTrackedAsync(_fixture.Connections, freshOne, UserA, RefNow.AddMinutes(-5));
+        await SeedTrackedAsync(_fixture.Connections, freshTwo, UserA, RefNow);
+
+        var outcome = await ApplyAsync(
+            Rule(Settings(threshold: 2)),
+            Event(UserA, freshTwo, RefNow),
+            RefNow);
+
+        Assert.Equal(SpamRuleOutcome.CreatedRecord, outcome);
+        Assert.Equal(2, await CountAsync(_fixture.Connections, "SELECT COUNT(*) FROM spam_records;"));
+
+        var newRecordId = Guid.Parse(await ScalarAsync(
+            _fixture.Connections,
+            $"SELECT id FROM spam_records WHERE id <> '{formerId}' LIMIT 1;"));
+
+        var newRecord = await ReadSpamRecordAsync(_fixture.Connections, newRecordId);
+        Assert.Equal(2, newRecord.ScoreA);
+        Assert.Equal(SpamRecordStatus.NeedsReview, newRecord.Status);
+        Assert.Equal(UserA, newRecord.CollectingUserId); // the new burst is open to further joins
+
+        // The new burst counted ONLY the new posts - never the dismissed record's listing.
+        var newLinks = await ReadLinkedListingIdsAsync(_fixture.Connections, newRecordId);
+        Assert.Equal(new[] { freshOne, freshTwo }, newLinks);
+        Assert.DoesNotContain(consumed, newLinks);
+
+        // The dismissed record and its listings are untouched.
+        var former = await ReadSpamRecordAsync(_fixture.Connections, formerId);
+        Assert.Equal(1, former.ScoreA);
+        Assert.Equal(SpamRecordStatus.Dismissed, former.Status);
+        Assert.Equal(new[] { consumed }, await ReadLinkedListingIdsAsync(_fixture.Connections, formerId));
+    }
+
+    private static async Task<IReadOnlyList<Guid>> ReadLinkedListingIdsAsync(
+        IDbConnectionFactory connections,
+        Guid recordId)
+    {
+        await using var connection = connections.Create();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(
+            "SELECT listing_id FROM spam_record_listings WHERE spam_record_id = @recordId ORDER BY listing_id;",
+            connection);
+        command.Parameters.AddWithValue("@recordId", recordId);
+
+        var ids = new List<Guid>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            ids.Add(reader.GetGuid(0));
+        }
+
+        return ids;
+    }
+
     private static async Task<string> ScalarAsync(IDbConnectionFactory connections, string sql)
     {
         await using var connection = connections.Create();
