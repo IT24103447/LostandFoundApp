@@ -12,10 +12,13 @@ One service project, one folder/namespace per story. `Registration` is the exist
 | EmailVerification | 39 | Success and pending-email changes, consumed-code retry contract, wrong-code counts and lockout, missing active OTP, invalid sessions/account states, resend replacement/order/expiry/cooldown, DTO validation and real session signature/lifetime validation |
 | Login | 20 | User/admin responses, development/production cookies, generic credential rejection, repository-filtered deleted accounts, unverified/suspended account behaviour, real signed JWT claims/lifetime and AdminOnly authorization decisions |
 | Profile | 29 | Caller-owned reads/writes, name/phone/both updates, reload and exact changed-field events, unchanged input, duplicate phones, invalid identity/missing account, view restrictions and DTO validation boundaries |
+| PasswordReset | 34 | OTP requests/hashed storage/five-minute expiry, reset and fresh login, retry/lockout, complexity failures and boundaries, invalid sessions/account states, inactive/consumed codes and request validation |
+| AccountDeletion | 14 | Caller identity/password confirmation, ordered token cleanup/soft deletion/event publication, cookie expiry, rejected account states, post-deletion login contract and password-required validation |
+| AdminUserManagement | 22 | User DTO projection, search/status filter forwarding, empty results, pagination boundaries, confirmed kick/event/login rejection, moderation guards and real AdminOnly policy decisions including forged claims |
 
-Validation on 13 October 2026: Release build succeeded with zero warnings/errors; all 106 cases passed with none skipped. The prepared full assessment unit runner took 5 seconds including reporting on the current workstation. This measures the current Auth suite, not future service projects.
+Validation on 13 October 2026: Release build succeeded with zero warnings/errors; all 176 cases passed with none skipped. The prepared full Auth assessment unit runner took 3 seconds including reporting on the current workstation. This measures the current Auth suite, not future service projects.
 
-`[Theory]` and `[InlineData]` express meaningful input/state partitions instead of repeated test bodies. `[Fact]` expresses individual behaviours. Strict mocks fail on unconfigured calls, and verification checks expected interactions and unexpected calls. `MockSequence` checks resend invalidation precedes code creation/email and profile saves precede reload/event publication. A distinct cancellation token verifies forwarding on successful login and profile update.
+`[Theory]` and `[InlineData]` express meaningful input/state partitions instead of repeated test bodies. `[Fact]` expresses individual behaviours. Strict mocks fail on unconfigured calls, and verification checks expected interactions and unexpected calls. `MockSequence` checks resend/reset invalidation precedes code creation/email, profile saves precede reload/event publication, reset hashing precedes storage/code consumption, and deletion/kick writes precede event publication. Distinct cancellation tokens verify forwarding on successful login, profile update, OTP requests, password reset, self-deletion, admin list and kick.
 
 ## Match the current implementation
 
@@ -26,12 +29,17 @@ As requested, these tests follow the service code where the stories differ:
 - Unverified login returns 403 and a verification session plus a new emailed OTP, without a login JWT.
 - Admin role is the `is_admin` claim (`1`/`0`), not a conventional role string. Verification is `email_verified` (`1`/`0`).
 - Profile `/me` selects the account from `sub` or `NameIdentifier`; its request has no target user ID. Tests check every read/write stays on the caller ID. Current names accept lengths 1–150, with empty/whitespace values rejected.
+- Password-reset OTP expiry is five minutes; reset uses the same configured ten-attempt limit as email verification. A valid reset signs in verified accounts immediately; an unverified account's password is changed, then a verification session is returned with HTTP 403.
+- Forgot-password currently returns a specific error for an unknown email. There is no controller-level reset-request cooldown; middleware rate limiting is outside these direct unit tests.
+- Self-deletion uses `SoftDeleteAsync`, not permanent removal, after password confirmation. Reset and verification tokens are deleted, a deletion event is published and the auth cookie is expired. Admin accounts cannot use self-deletion.
+- Admin kick uses `SetKickedAsync(true)` to suspend the user, not delete the account. Tests check explicit confirmation and reject self-kicks, admin targets and already-kicked users.
 
 Scope limits to explain in the VIVA:
 
 - Mocked repositories test the controller's dependency contract, not MySQL persistence or SQL expiry/used/deleted filtering. The consumed-code retry test explicitly stubs the repository's inactive-code response.
 - DTO tests run real DataAnnotations validation. Direct controller calls do not run MVC automatic model validation, so these tests do not claim to prove HTTP rejection/no persistence for malformed DTOs.
 - Handler tests prove authorization decisions and the AdminController policy attribute; middleware-generated HTTP 403 responses, frontend messages/redirects and ItemService posting restrictions require integration/UI or that service's own tests.
+- New reset/login, deleted-account/login and kick/login cases use repository and password-hasher stubs around real controller methods. They verify those dependency contracts, not real persistence or BCrypt. Admin search tests verify arguments/results, not SQL matching. Event tests verify publication requests, not Kafka delivery/consumption; email delivery and confirmation dialogs need integration/UI tests.
 - Verification currently issues its immediate JWT from the originally loaded user without updating its in-memory `IsEmailVerified` flag. The success test checks the verification write and issuance call, and does not claim the immediate token contains a true verification claim. JWT tests prove a freshly loaded verified user's token has `email_verified=1`.
 
 Production files and the original registration tests are unchanged.
@@ -56,6 +64,9 @@ Select a service or story:
 .\test-unit.ps1 -Service AuthService -Story Login -NoBuild
 .\test-unit.ps1 -Service AuthService -Story Profile -NoBuild
 .\test-unit.ps1 -Service AuthService -Story Registration -NoBuild
+.\test-unit.ps1 -Service AuthService -Story PasswordReset -NoBuild
+.\test-unit.ps1 -Service AuthService -Story AccountDeletion -NoBuild
+.\test-unit.ps1 -Service AuthService -Story AdminUserManagement -NoBuild
 ```
 
 `-Story` requires `-Service`. To prepare one service, use `.\test-unit.ps1 -Service AuthService -Prepare`.
@@ -104,7 +115,7 @@ export ASE_REPORT_ROOT="$(mktemp -d -t ase-unit-reports.XXXXXX)"
 bash testing-pipeline/unit-testing/run.sh --service AuthService --story EmailVerification --no-build --no-restore
 ```
 
-Use `Login`, `Profile` or `Registration` as the story name. A direct PowerShell run without Node/Bash reporting is also possible:
+Use any story name from the coverage table. A direct PowerShell run without Node/Bash reporting is also possible:
 
 ```powershell
 dotnet test testing-pipeline/unit-testing/AuthService.UnitTests/AuthService.UnitTests.csproj -c Release --no-build --no-restore

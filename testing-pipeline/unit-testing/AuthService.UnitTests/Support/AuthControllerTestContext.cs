@@ -20,6 +20,7 @@ internal sealed class AuthControllerTestContext
 {
     public Mock<IUsersRepository> Users { get; } = new(MockBehavior.Strict);
     public Mock<IEmailVerificationTokensRepository> Tokens { get; } = new(MockBehavior.Strict);
+    public Mock<IPasswordResetTokensRepository> ResetTokens { get; } = new(MockBehavior.Strict);
     public Mock<IPasswordHasher> Hasher { get; } = new(MockBehavior.Strict);
     public Mock<ITokenGenerator> Otp { get; } = new(MockBehavior.Strict);
     public Mock<IEmailService> Email { get; } = new(MockBehavior.Strict);
@@ -41,7 +42,7 @@ internal sealed class AuthControllerTestContext
         };
         if (subject is not null)
             http.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(claimType, subject)], "UnitTest"));
-        return new AuthController(Users.Object, Tokens.Object, Mock.Of<IPasswordResetTokensRepository>(),
+        return new AuthController(Users.Object, Tokens.Object, ResetTokens.Object,
             Hasher.Object, new PasswordValidator(), Otp.Object, Email.Object, Session.Object, Jwt.Object,
             Publisher.Object, Options.Create(Auth), Options.Create(JwtSettings),
             Options.Create(new KafkaSettings { TopicPrefix = TopicPrefix }), Mock.Of<ILogger<AuthController>>())
@@ -49,6 +50,18 @@ internal sealed class AuthControllerTestContext
             ControllerContext = new ControllerContext { HttpContext = http }
         };
     }
+
+    public AdminController Admin(Guid adminId) => new(Users.Object, Publisher.Object,
+        Options.Create(new KafkaSettings { TopicPrefix = TopicPrefix }), Mock.Of<ILogger<AdminController>>())
+    {
+        ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", adminId.ToString())], "UnitTest"))
+            }
+        }
+    };
 
     public static User User(bool verified = true) => new()
     {
@@ -62,8 +75,10 @@ internal sealed class AuthControllerTestContext
     public void AssertAllCallsVerified()
     {
         Users.VerifyAll(); Tokens.VerifyAll(); Hasher.VerifyAll(); Otp.VerifyAll();
+        ResetTokens.VerifyAll();
         Email.VerifyAll(); Session.VerifyAll(); Jwt.VerifyAll(); Publisher.VerifyAll();
         Users.VerifyNoOtherCalls(); Tokens.VerifyNoOtherCalls(); Hasher.VerifyNoOtherCalls();
+        ResetTokens.VerifyNoOtherCalls();
         Otp.VerifyNoOtherCalls(); Email.VerifyNoOtherCalls(); Session.VerifyNoOtherCalls();
         Jwt.VerifyNoOtherCalls(); Publisher.VerifyNoOtherCalls();
     }

@@ -83,7 +83,63 @@ const descriptions = {
   Profile_name_validation_checks_required_and_length_boundaries:
     'Real DTO validation checks empty/whitespace names, accepted lengths 1 and 150, and rejection at 151 characters.',
   Profile_phone_validation_checks_e164_format_and_length_boundaries:
-    'Real DTO validation checks required input, leading plus, initial digit, numeric format and minimum/maximum E.164 lengths.'
+    'Real DTO validation checks required input, leading plus, initial digit, numeric format and minimum/maximum E.164 lengths.',
+  Registered_email_invalidates_old_reset_codes_and_emails_hashed_five_minute_otp:
+    'Checks old-code invalidation before generation/storage/email, hashed reset token data with five-minute expiry, email content, reset session and cancellation forwarding.',
+  Invalid_reset_request_rejects_without_creating_or_sending_code:
+    'Unknown email or suspended account returns its current error without reset token creation, email or session issuance.',
+  Correct_reset_code_hashes_valid_password_consumes_code_and_issues_cookie:
+    'Uses the real password validator for accepted boundaries; verifies hashing before persistence/OTP consumption, success response and environment-specific auth cookie.',
+  Wrong_reset_code_counts_failures_and_consumes_code_at_ten_attempt_limit:
+    'Checks first, sixth, ninth and tenth wrong attempts under the current ten-attempt limit, with no password change or authentication.',
+  Weak_reset_password_returns_requirements_without_hashing_saving_or_consuming_code:
+    'Each complexity failure returns the exact password requirement after OTP validation, without hashing, password writes or code consumption.',
+  Invalid_reset_session_rejects_before_repository_access:
+    'Invalid reset session is rejected before account/code lookups or reset side effects.',
+  No_active_reset_code_returns_expiry_error_without_changing_password:
+    'Stubs the repository inactive/expired-code response and checks rejection with no password update; does not test SQL expiry filtering.',
+  Suspended_account_cannot_reset_password_or_access_reset_codes:
+    'Suspended accounts return HTTP 403 before reset code processing or password changes.',
+  Unverified_account_password_is_reset_but_authentication_requires_verification:
+    'Current behaviour resets the password and consumes the OTP, then returns HTTP 403 with a verification session and no login JWT/cookie.',
+  Consumed_reset_code_cannot_change_password_again_when_repository_returns_no_active_code:
+    'Stubs the repository post-consumption contract; retry cannot repeat hashing, password persistence, OTP consumption or authentication.',
+  Subsequent_login_verifies_new_password_against_updated_hash:
+    'A repository stub stores the hash passed by reset; subsequent login must verify the new password against that hash. Password hashing/verification remains mocked.',
+  Forgot_password_email_validation_checks_required_format_and_maximum_length:
+    'Checks real forgot-password DTO rules for required email, malformed email, overlong email and valid input.',
+  Reset_password_code_validation_requires_exactly_six_digits:
+    'Checks real reset DTO validation for empty, malformed and valid six-digit codes, including leading zeroes.',
+  Reset_password_request_requires_session_and_new_password:
+    'Checks real reset DTO validation identifies a missing session token or new password.',
+  Empty_reset_request_reports_all_required_fields:
+    'A completely empty reset DTO reports Code, NewPassword and SessionToken as required.',
+  Confirmed_self_deletion_removes_tokens_soft_deletes_publishes_event_and_expires_cookie:
+    'Checks caller identity, password verification, reset/verification token cleanup before soft deletion/event publication, exact event payload and expired auth cookie.',
+  Missing_or_invalid_deletion_identity_rejects_before_repository_access:
+    'Missing or invalid caller identity rejects account deletion before any repository or password-hasher access.',
+  Ineligible_self_deletion_rejects_before_password_check_or_side_effects:
+    'Missing, suspended, unverified or admin account receives its current error without password checks, writes, events or cookie clearing.',
+  Incorrect_confirmation_password_rejects_without_deleting_or_clearing_session:
+    'Incorrect password confirmation returns an error without deleting tokens/account, publishing events or expiring the session.',
+  Post_deletion_login_rejects_repository_filtered_account_without_new_jwt:
+    'A repository stub hides the account after soft deletion; login returns the generic credential error without password verification or a new JWT.',
+  Deletion_confirmation_requires_nonempty_password:
+    'Checks real deletion DTO validation rejects null, empty and whitespace confirmation passwords and accepts nonempty input.',
+  Admin_user_list_returns_profile_status_and_pagination_without_password_hashes:
+    'Checks exact account/contact/status projection, omission of password hashes, pagination counts and cancellation propagation.',
+  Admin_search_and_status_filters_are_forwarded_to_both_list_and_count:
+    'Name/email search and kicked/verified/deleted filters reach both repository operations unchanged; checks the returned DTO and counts, not SQL matching.',
+  Empty_admin_search_returns_empty_list_and_zero_pages:
+    'An empty repository search result yields an empty user list, total zero and zero pages.',
+  Admin_pagination_clamps_bounds_and_computes_repository_offset:
+    'Parameterized page/page-size cases verify lower/upper clamps, exact repository offset and total-page calculation.',
+  Confirmed_admin_kick_sets_suspension_publishes_actor_event_and_blocks_subsequent_login:
+    'Checks suspension write before an exact event identifying the admin; a subsequent login against the stubbed suspended account is rejected without JWT issuance.',
+  Invalid_admin_kick_rejects_without_suspension_or_publication:
+    'Missing confirmation, self-kick, missing user, admin target or already-kicked user reject without suspension writes or event publication.',
+  User_management_policy_checks_actual_admin_account_and_guards_list_and_kick:
+    'Runs the real AdminOnly handler, including a forged admin claim against a regular account, and checks management endpoints inherit the policy without AllowAnonymous.'
 };
 
 function decode(value = '') {
