@@ -374,7 +374,15 @@ public sealed class ResetPasswordFormTests : IClassFixture<BrowserFixture>
         {
             // Restore the seed user's original password via a second real round-trip,
             // so every other test (and suite) that relies on SeedUserOriginalPassword
-            // keeps working.
+            // keeps working. Clear the session first so this clean-up starts from the same
+            // signed-out state as the main reset above, rather than inheriting the login that
+            // test just performed.
+            //
+            // Note: this does not by itself make the restore reliable. The app signs the user
+            // in after a reset, so the success message ResetPasswordViaUiAsync waits for can
+            // be navigated away before the wait ever sees it. Reported to QA - see the test
+            // run notes for the captured Auth log.
+            ResetBrowserSession();
             await ResetPasswordViaUiAsync(SeedUserEmail, SeedUserOriginalPassword);
         }
     }

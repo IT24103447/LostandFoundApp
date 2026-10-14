@@ -114,6 +114,17 @@ public sealed class AdminUserManagementFormTests : IClassFixture<BrowserFixture>
     {
         SearchBox().Clear();
         SearchBox().SendKeys(email);
+
+        // The search re-renders the table asynchronously, so the row returned straight after
+        // typing can still belong to the previous, unfiltered table — clicking it then throws
+        // StaleElementReferenceException. Wait until every row shown belongs to this email
+        // (i.e. the search has settled) before taking the row.
+        _wait.Until(d =>
+        {
+            var rows = AllDataRows().ToList();
+            return rows.Count > 0 && rows.All(r => r.Text.Contains(email, StringComparison.OrdinalIgnoreCase));
+        });
+
         return _wait.Until(d => d.FindElement(By.XPath($"//tr[.//td[normalize-space()='{email}']]")));
     }
 

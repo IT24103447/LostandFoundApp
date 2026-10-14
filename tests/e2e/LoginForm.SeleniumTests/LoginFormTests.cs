@@ -96,6 +96,19 @@ public sealed class LoginFormTests : IClassFixture<BrowserFixture>
     private static long GetUnixTimeSeconds()
         => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
+    // Sign out lives inside the shared account menu: open it, check Sign out is there, close it again.
+    private void AssertSignOutInAccountMenu(string userName)
+    {
+        var menuButton = _loginWait.Until(d =>
+            d.FindElement(By.XPath($"//button[.//span[normalize-space()='{userName}']]")));
+        menuButton.Click();
+
+        _loginWait.Until(d =>
+            d.FindElements(By.XPath("//button[normalize-space()='Sign out']")).Any(e => e.Displayed));
+
+        menuButton.Click();
+    }
+
     private void AssertAuthenticatedUserOnHome(string expectedName)
     {
         _loginWait.Until(d => d.Url.TrimEnd('/') == BrowserFixture.BaseUrl);
@@ -103,7 +116,7 @@ public sealed class LoginFormTests : IClassFixture<BrowserFixture>
 
         var bodyText = _driver.FindElement(By.TagName("body")).Text;
         Assert.Contains(expectedName, bodyText);
-        Assert.Contains("Sign out", bodyText);
+        AssertSignOutInAccountMenu(expectedName);
     }
 
     private void AssertAdminDashboardLoaded(string expectedAdminName)
@@ -117,7 +130,7 @@ public sealed class LoginFormTests : IClassFixture<BrowserFixture>
         Assert.Contains("User Management", bodyText);
         Assert.Contains(expectedAdminName, bodyText);
         Assert.Contains("Admin Dashboard", bodyText);
-        Assert.Contains("Sign out", bodyText);
+        AssertSignOutInAccountMenu(expectedAdminName);
         Assert.Contains("Admin", bodyText);
     }
 
@@ -260,7 +273,7 @@ public sealed class LoginFormTests : IClassFixture<BrowserFixture>
         _loginWait.Until(d => d.Url.TrimEnd('/') == BrowserFixture.BaseUrl);
         Assert.Equal(BrowserFixture.BaseUrl, _driver.Url.TrimEnd('/'));
         Assert.Contains(SeedUserName, _driver.FindElement(By.TagName("body")).Text);
-        Assert.Contains("Sign out", _driver.FindElement(By.TagName("body")).Text);
+        AssertSignOutInAccountMenu(SeedUserName);
 
         // No admin page should be rendered in the regular user's browser.
         Assert.DoesNotContain("User Management", _driver.FindElement(By.TagName("body")).Text);
