@@ -287,10 +287,12 @@ public sealed class AdminUserManagementFormTests : IClassFixture<BrowserFixture>
             // Restore user8 to Active so this test is reusable across runs.
             LoginAsAdmin();
             GoToUserManagement();
-            var row = RowForEmail(KickRestoreEmail);
+            // Never hold a row across a RowForEmail/RowStatusText call - both re-run the
+            // search and re-render the table, which leaves a row captured earlier stale.
+            // Find the row again immediately before clicking it.
             if (RowStatusText(KickRestoreEmail) == "Kicked")
             {
-                ClickRowActionButton(row, "Unkick");
+                ClickRowActionButton(RowForEmail(KickRestoreEmail), "Unkick");
                 ClickDialogButton("Unkick");
                 _wait.Until(d => RowStatusText(KickRestoreEmail) == "Active");
             }
