@@ -18,6 +18,7 @@ internal sealed class ItemControllerTestContext
 {
     public Mock<ILostItemsRepository> LostItems { get; } = new(MockBehavior.Strict);
     public Mock<IFoundItemsRepository> FoundItems { get; } = new(MockBehavior.Strict);
+    public Mock<IItemsSearchRepository> SearchItems { get; } = new(MockBehavior.Strict);
     public Mock<IPhotoStorageService> Photos { get; } = new(MockBehavior.Strict);
     public Mock<IEventPublisher> Publisher { get; } = new(MockBehavior.Strict);
 
@@ -34,6 +35,12 @@ internal sealed class ItemControllerTestContext
     public FoundItemsController FoundController(Guid? userId) => new(
         FoundItems.Object, Photos.Object, Publisher.Object, ItemsOptions, KafkaOptions,
         NullLogger<FoundItemsController>.Instance)
+    {
+        ControllerContext = ContextFor(userId)
+    };
+
+    public ItemsController ItemsController(Guid? userId) => new(
+        SearchItems.Object, LostItems.Object, FoundItems.Object)
     {
         ControllerContext = ContextFor(userId)
     };
