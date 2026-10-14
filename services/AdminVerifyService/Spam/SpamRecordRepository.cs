@@ -122,7 +122,7 @@ public sealed class SpamRecordRepository
         await using var command = new MySqlCommand(sql, connection, transaction);
         command.Parameters.AddWithValue("@userId", listing.UserId);
         command.Parameters.AddWithValue("@from", listing.PostedAt - window);
-        command.Parameters.AddWithValue("@postedAt", listing.PostedAt);
+        command.Parameters.AddWithValue("@postedAt", listing.PostedAt.AddMilliseconds(1));
         command.Parameters.AddWithValue("@limit", cap > 0 ? cap : int.MaxValue);
 
         var listingIds = new List<Guid>();
