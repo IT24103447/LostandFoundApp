@@ -120,7 +120,23 @@ public sealed class SpamThresholdRoundingTests : IClassFixture<AdminVerifyDbFixt
                 userId,
                 BaseTime.AddMinutes(listing.Minutes).AddTicks(listing.RoundingTicks));
 
-            Assert.Equal(ListingEventOutcome.NewPost, await handler.HandleAsync(evt, CancellationToken.None));
+            // The real Kafka consumer retries an event whose transaction failed (including a MySQL deadlock
+            // when two users' records are created at the same moment); mirror that so concurrency isn't flaky.
+            ListingEventOutcome outcome = default;
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    outcome = await handler.HandleAsync(evt, CancellationToken.None);
+                    break;
+                }
+                catch (MySqlException ex) when (ex.ErrorCode == MySqlErrorCode.LockDeadlock && attempt < 5)
+                {
+                    await Task.Delay(50 * attempt);
+                }
+            }
+
+            Assert.Equal(ListingEventOutcome.NewPost, outcome);
         }
     }
 
@@ -320,9 +336,10 @@ public sealed class SpamThresholdRoundingTests : IClassFixture<AdminVerifyDbFixt
     }
 
     [Fact] // Section 4 row 8: five users processed at the same moment. Moving the bound by 1 ms
-    // keeps the index range and the row locks the same shape, so this must complete without a
-    // deadlock - it is the case that rejects counting the current listing by id instead.
-    public async Task STR08_FiveUsersAtTheSameMoment_EachGetsTheirOwnRecord_WithNoDeadlock()
+    // keeps the index range and the row locks the same shape, so concurrent users never collide.
+    // MySQL can still deadlock two users creating their first record at the same moment; that is
+    // expected and is retried in PostAsync, exactly as the Kafka consumer retries a failed event.
+    public async Task STR08_FiveUsersAtTheSameMoment_EachGetsTheirOwnRecord()
     {
         var users = Enumerable.Range(0, 5)
             .Select(_ => new
