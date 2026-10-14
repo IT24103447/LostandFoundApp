@@ -115,7 +115,7 @@ try {
         $latestItem = Get-Item -LiteralPath $latestRoot
         # OneDrive cloud folders also have ReparsePoint set, but no link target.
         # Reject actual symbolic links/junctions rather than normal synced folders.
-        if ($latestItem.LinkType -or @($latestItem.Target).Count -gt 0) {
+        if ($latestItem.LinkType -or $latestItem.Target) {
             throw 'Refusing to move a linked latest-results folder.'
         }
         [System.IO.Directory]::CreateDirectory($historyRoot) | Out-Null
