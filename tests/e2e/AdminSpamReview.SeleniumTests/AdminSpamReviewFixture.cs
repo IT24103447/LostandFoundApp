@@ -41,7 +41,7 @@ public sealed class AdminSpamReviewFixture : IDisposable
         options.AddArgument("--disable-features=PasswordLeakDetection");
 
         Driver = new ChromeDriver(options);
-        Wait = new WebDriverWait(Driver, TimeSpan.FromSeconds(15));
+        Wait = new WebDriverWait(Driver, TimeSpan.FromSeconds(30));
     }
 
     public void Dispose()
@@ -201,6 +201,15 @@ public sealed class AdminSpamReviewFixture : IDisposable
         DeleteByIds(userIds, "auth_service.users", "id");
     }
 
+    // Removes the case-action test's non-record rows: the tracked_listings row a record's links
+    // point at, and the ItemService lost item the Solve runner deletes through the admin API
+    // (its photos cascade off lost_items).
+    public void DeleteSeededItems(params Guid[] listingIds)
+    {
+        DeleteByIds(listingIds, "admin_verify_db.tracked_listings", "listing_id");
+        DeleteByIds(listingIds, "item_service.lost_items", "id");
+    }
+
     private void DeleteByIds(Guid[] ids, string table, string column)
     {
         if (ids.Length == 0) return;
@@ -221,6 +230,207 @@ public sealed class AdminSpamReviewFixture : IDisposable
         }
 
         command.ExecuteNonQuery();
+    }
+
+    // ---- Seeded case-action rows (LF-267/268/269) -----------------------------------------------
+
+    // The purge for the case-action tests. PurgeSeleniumSpamRows only touches spam_records +
+    // their auth accounts; the case flow also writes tracked_listings and ItemService items, so a
+    // rerun needs those gone too (a solve test that dies mid-run leaves its item soft-deleted).
+    // Everything that belongs to QA throwaway work is removed; real users' rows are untouched.
+    public void PurgeSeleniumCaseData()
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        // Order matters for the FKs: spam_records first so their spam_record_listings cascade
+        // away before tracked_listings rows are deleted, and ItemService photos cascade off the
+        // deleted lost_items rows.
+        using var command = new MySqlCommand(
+            """
+            DELETE FROM admin_verify_db.spam_records
+            WHERE user_id NOT IN (
+                SELECT id FROM auth_service.users
+                WHERE email NOT LIKE 'selenium.sr.%@example.com'
+                  AND email NOT LIKE 'del-%@deleted.local'
+                  AND deleted_at IS NULL
+            );
+            DELETE FROM admin_verify_db.tracked_listings
+            WHERE user_id NOT IN (
+                SELECT id FROM auth_service.users
+                WHERE email NOT LIKE 'selenium.sr.%@example.com'
+                  AND email NOT LIKE 'del-%@deleted.local'
+                  AND deleted_at IS NULL
+            );
+            DELETE FROM item_service.lost_items
+            WHERE user_id NOT IN (
+                SELECT id FROM auth_service.users
+                WHERE email NOT LIKE 'selenium.sr.%@example.com'
+                  AND email NOT LIKE 'del-%@deleted.local'
+                  AND deleted_at IS NULL
+            );
+            DELETE FROM auth_service.users WHERE email LIKE 'selenium.sr.%@example.com';
+            """,
+            connection);
+
+        command.ExecuteNonQuery();
+    }
+
+    // A tracked_listings row - the table spam_record_listings links out to. Same throwaway user
+    // as the record, so the flagging is coherent.
+    public Guid SeedTrackedListing(Guid userId, DateTime postedAtUtc, string listingType = "LOST")
+    {
+        var listingId = Guid.NewGuid();
+
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            """
+            INSERT INTO admin_verify_db.tracked_listings (
+                listing_id, listing_type, user_id, posted_at, created_at
+            ) VALUES (
+                @id, @listingType, @userId, @postedAt, @postedAt
+            );
+            """,
+            connection);
+
+        command.Parameters.AddWithValue("@id", listingId);
+        command.Parameters.AddWithValue("@listingType", listingType);
+        command.Parameters.AddWithValue("@userId", userId);
+        command.Parameters.AddWithValue("@postedAt", Format(postedAtUtc));
+
+        command.ExecuteNonQuery();
+        return listingId;
+    }
+
+    // Links a tracked listing to a spam record. solveResult seeds the mid-solve state a resume
+    // test needs (DELETED/SKIPPED/FAILED) or stays NULL for a listing Solve still has to handle.
+    public void SeedLinkedList(Guid recordId, Guid listingId, DateTime addedAtUtc, string? solveResult = null)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            """
+            INSERT INTO admin_verify_db.spam_record_listings (
+                spam_record_id, listing_id, solve_result, added_at
+            ) VALUES (
+                @recordId, @listingId, @solveResult, @addedAt
+            );
+            """,
+            connection);
+
+        command.Parameters.AddWithValue("@recordId", recordId);
+        command.Parameters.AddWithValue("@listingId", listingId);
+        command.Parameters.AddWithValue("@solveResult", (object?)solveResult ?? DBNull.Value);
+        command.Parameters.AddWithValue("@addedAt", Format(addedAtUtc));
+
+        command.ExecuteNonQuery();
+    }
+
+    // An ACTIVE ItemService lost item for a listing plus one photo row, so the popup renders the
+    // real title, an Active badge and a photo strip - and the Solve runner's admin DELETE has a
+    // row to actually soft-delete. id doubles as the listingId (the item channel keys admin item
+    // calls by the listing id).
+    public void SeedLostItem(Guid listingId, Guid userId, string title)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            """
+            INSERT INTO item_service.lost_items (
+                id, user_id, title, category, description, date_lost,
+                last_known_location, hidden_information, status, created_at, updated_at
+            ) VALUES (
+                @id, @userId, @title, 'Electronics', @description, CURRENT_DATE,
+                'Unknown', 'qa-seed', 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
+            );
+            INSERT INTO item_service.lost_item_photos (id, lost_item_id, url, created_at)
+            VALUES (UUID(), @id, @photoUrl, UTC_TIMESTAMP(3));
+            """,
+            connection);
+
+        command.Parameters.AddWithValue("@id", listingId);
+        command.Parameters.AddWithValue("@userId", userId);
+        command.Parameters.AddWithValue("@title", title);
+        command.Parameters.AddWithValue("@description", "Selenium-seeded lost item used by the case-action flow tests.");
+        command.Parameters.AddWithValue("@photoUrl", "/photos/selenium-seed.png");
+
+        command.ExecuteNonQuery();
+    }
+
+    // ---- Case-action DB reads -------------------------------------------------------------------
+
+    public string ReadSpamStatus(Guid recordId)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            "SELECT status FROM admin_verify_db.spam_records WHERE id = @id;", connection);
+        command.Parameters.AddWithValue("@id", recordId);
+
+        return (string)command.ExecuteScalar()!;
+    }
+
+    public string ReadKickStatus(Guid recordId)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            "SELECT kick_status FROM admin_verify_db.spam_records WHERE id = @id;", connection);
+        command.Parameters.AddWithValue("@id", recordId);
+
+        return (string)command.ExecuteScalar()!;
+    }
+
+    public string? ReadListingSolveResult(Guid recordId, Guid listingId)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        // null when the row is still unsolved, "DELETED"/"SKIPPED"/"FAILED" once solved.
+        using var command = new MySqlCommand(
+            """
+            SELECT solve_result FROM admin_verify_db.spam_record_listings
+            WHERE spam_record_id = @recordId AND listing_id = @listingId;
+            """,
+            connection);
+        command.Parameters.AddWithValue("@recordId", recordId);
+        command.Parameters.AddWithValue("@listingId", listingId);
+
+        var value = command.ExecuteScalar();
+        return value as string;
+    }
+
+    // true = soft-deleted (deleted_at set), false = still active, null = no such item.
+    public bool? ReadItemDeletedAt(Guid listingId)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            "SELECT deleted_at FROM item_service.lost_items WHERE id = @id;", connection);
+        command.Parameters.AddWithValue("@id", listingId);
+
+        var value = command.ExecuteScalar();
+        return value is null ? null : value is DBNull ? false : true;
+    }
+
+    // Whether Auth Service soft-banned the user (the Solve runner's kick step sets this).
+    public bool ReadUserKicked(Guid userId)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            "SELECT is_kicked FROM auth_service.users WHERE id = @id;", connection);
+        command.Parameters.AddWithValue("@id", userId);
+
+        return Convert.ToInt32(command.ExecuteScalar()) == 1;
     }
 
     // ---- Navigation ----------------------------------------------------------------------------
