@@ -2,42 +2,85 @@
 
 A lost-and-found platform built as a microservice system: independent services per domain (auth, items, matching, admin moderation), talking to each other asynchronously over Kafka instead of direct service-to-service calls (with one narrow, read-only exception, see [Architecture](#architecture)), with a single React SPA as the one frontend for all of them.
 
-## Status (Sprint 3)
+## Status (Sprint 4)
 
-Auth, Item and Matching Services are built, tested, and deployed end-to-end. Admin Verify is still scaffolded - expected for this point in the project, not a gap.
+All four backend services are built, tested and deployed. Sprint 4 DevOps setup and evidence are documented in [Admin Verify Service](#admin-verify-service---sprint-4-devops).
 
 | Service | Status |
 |---|---|
 | Auth Service | ✅ Built, tested, deployed (Sprint 1) - registration, email OTP verification, login/JWT, password reset, profile update, admin user management (list/kick/unkick) |
 | Item Service | ✅ Built, tested, deployed (Sprint 2) - report lost/found items with a photo, edit, search/filter, view details, mark resolved, soft-delete, "my reports"; transactional outbox publishing `items.*` events; consumes `matches.confirmed` |
 | Matching Service | ✅ Built, tested, deployed (Sprint 3) - AI image descriptions (Gemini), claim preview + scoring, two-sided confirm/reject, contact hand-off, confirmed-match events, email notifications, match re-evaluation and lifecycle handling |
-| Admin Verify Service | 🔲 Not started (Sprint 4) |
-| Frontend | ✅ Deployed - pages for everything Auth, Item and Matching Services support; Admin Verify pages will fail until that service is deployed, by design |
+| Admin Verify Service | ✅ Built, tested, deployed (Sprint 4) - Kafka listing intake, spam detection, admin alerts, record review, Open, Dismiss and resumable Solve; SonarQube, coverage, dependency audit and deployment smoke tests |
+| Frontend | ✅ Deployed - Auth, Item, Matching, match appeals, admin user management and Spam Review; connected to the deployed Admin Verify API |
 
 ## Architecture
 
 Microservices, no API gateway - the frontend calls each service's own base URL directly. Cross-service *state changes and signals* go through a shared, self-hosted Kafka broker. Each service owns its own MySQL schema.
 
-```
-              Azure Static Web App (React + Vite frontend)
-                  │  REST, direct per-service (Bearer JWT)
-      ┌───────────┼────────────────────┐
-      ▼           ▼                    ▼
- Auth Service   Item Service  ◄──── Matching Service
- (App Service)  (App Service)  REST   (App Service)
-      │          │    │       GET     │      │      │
-      ▼          ▼    ▼       only    ▼      ▼      ▼
-  auth_db     item_db  Blob       matching_db  Gemini  SendGrid
-                      Storage                  API     SMTP
-      │          │                    │
-      └──────────┴──────► Kafka ◄──────┘
-                  (self-hosted, Azure Container Instance)
-                              │
-                              ▼
-              Application Insights (shared across services)
+```mermaid
+flowchart TB
+    FE["React + Vite frontend<br/>Azure Static Web App"]
+
+    subgraph APIs["Azure App Services - shared lostfound-plan"]
+        AUTH["Auth Service<br/>Accounts, JWT and user management"]
+        ITEM["Item Service<br/>Lost/found reports and photos"]
+        MATCH["Matching Service<br/>Claims, matching and appeals"]
+        ADMIN["Admin Verify Service<br/>Spam detection and review"]
+    end
+
+    FE -->|Accounts and login| AUTH
+    FE -->|Reports and admin deletion| ITEM
+    FE -->|Claims and appeal review| MATCH
+    FE -->|Spam records and Solve progress| ADMIN
+    MATCH -->|Read-only REST with caller JWT| ITEM
+
+    subgraph SQL["Shared Azure MySQL Flexible Server - service-owned schemas"]
+        AUTHDB[(auth_db)]
+        ITEMDB[(item_db)]
+        MATCHDB[(matching_db)]
+        ADMINDB[(admin_verify_db)]
+    end
+
+    AUTH --> AUTHDB
+    ITEM --> ITEMDB
+    MATCH --> MATCHDB
+    ADMIN --> ADMINDB
+
+    KAFKA["Shared Kafka broker<br/>Azure Container Instance"]
+    AUTH -->|User events| KAFKA
+    ITEM -->|Listing and lifecycle events| KAFKA
+    MATCH -->|Confirmed-match events| KAFKA
+    KAFKA -->|User and item events| MATCH
+    KAFKA -->|Confirmed matches| ITEM
+    KAFKA -->|Listing create and update events| ADMIN
+
+    BLOB["Azure Blob Storage<br/>Item photos"]
+    GEMINI["Google Gemini API<br/>Photo descriptions"]
+    SMTP["SendGrid SMTP<br/>Verification and notifications"]
+    INSIGHTS["Shared Application Insights<br/>API telemetry"]
+
+    ITEM -->|Store photos| BLOB
+    MATCH -->|Read photos| BLOB
+    MATCH --> GEMINI
+    AUTH --> SMTP
+    MATCH --> SMTP
+    ADMIN --> SMTP
+    APIs -.->|All four APIs send telemetry| INSIGHTS
+
+    classDef service fill:#dbeafe,stroke:#2563eb,color:#172554
+    classDef storage fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef shared fill:#fff3cd,stroke:#b58105,color:#713f12
+    class AUTH,ITEM,MATCH,ADMIN service
+    class AUTHDB,ITEMDB,MATCHDB,ADMINDB,BLOB storage
+    class KAFKA,GEMINI,SMTP,INSIGHTS shared
 ```
 
-**Authentication across services.** Auth Service issues the JWT; every other service validates it locally with the shared `Jwt:Secret`/`Issuer`/`Audience` (no call back to Auth). The frontend sends `Authorization: Bearer <jwt>` to Item and Matching Services. Matching Service additionally requires the `email_verified=1` claim (policy `VerifiedClaimUser`).
+Solid arrows show API calls, database/storage access and event delivery; the dotted arrow shows telemetry. The frontend calls each API directly over HTTPS in Azure, passing JWTs for protected requests. During Solve, it also calls Auth Service for an optional user kick; Admin Verify saves progress rather than performing the deletion or kick itself. Kafka topic ownership is detailed below; deployment automation is documented in [CI/CD](#cicd).
+
+**Authentication across services.** Auth Service issues the JWT; every other service validates it locally with the shared `Jwt:Secret`/`Issuer`/`Audience` (no call back to Auth). The frontend sends `Authorization: Bearer <jwt>` to Item, Matching and Admin Verify Services. Matching Service additionally requires the `email_verified=1` claim (policy `VerifiedClaimUser`); Admin Verify uses the `AdminOnly` policy.
+
+**Sprint 4 extension.** Admin Verify runs on Azure App Service with its own `admin_verify_db`, consumes Item create/update events from Kafka, and uses the shared Application Insights resource. The frontend coordinates admin listing deletion through Item Service and optional user kicks through Auth Service, saving progress in Admin Verify. See the [Sprint 4 deployment diagram](#sprint-4-deployment-topology).
 
 **Where Matching Service does call another service synchronously.** To preview or submit a claim, Matching Service reads the two reports from Item Service over REST (`GET /api/items/{lost|found}/{id}` and `/mine`), forwarding the caller's own JWT so Item Service's normal authorization applies. This is read-only - Matching never writes to Item Service over REST. Every *write* that crosses the boundary (e.g. resolving the two reports after a confirmed match) is a Kafka event.
 
@@ -48,8 +91,8 @@ Topic names are `{TopicPrefix}.{event}`; delivery is at-least-once, so consumers
 | Topic | Producer | Consumers | Purpose |
 |---|---|---|---|
 | `auth.user.verified` / `.profile_updated` / `.kicked` / `.unkicked` / `.deleted` | Auth | Matching (notification contacts, only when `Notifications:Enabled`) | Keep a local email/active/deleted copy of each user for notifications |
-| `items.lost_item.created` / `.updated` | Item | Matching | Trigger image-description jobs and match re-evaluation |
-| `items.found_item.created` / `.updated` | Item | Matching | Same, for found reports |
+| `items.lost_item.created` / `.updated` | Item | Matching, Admin Verify | Image-description jobs and match re-evaluation; listing intake and spam detection |
+| `items.found_item.created` / `.updated` | Item | Matching, Admin Verify | Same, for found reports |
 | `items.lost_item.resolved` / `items.found_item.resolved` | Item | Matching | Deactivate matches on a resolved report |
 | `items.item.delete_requested` | Item (lost *and* found delete) | Matching | Deactivate matches on a deleted report |
 | `matches.confirmed` | Matching | Item | Both parties confirmed - Item Service marks both reports `RESOLVED` |
@@ -131,7 +174,7 @@ cp .env.example .env.local   # then edit if your service URLs differ
 npm run dev                   # → http://localhost:5173/register
 ```
 
-Default local service URLs (from `.env.example` and each service's `launchSettings.json`): Auth `http://localhost:5261`, Item `http://localhost:5001`, Matching `http://localhost:5179`, Admin Verify `http://localhost:5003` (placeholder). The app checks all four `VITE_*_API_BASE_URL` values at startup, so keep a value for each even when a service isn't running.
+Default local service URLs (from `.env.example` and each service's `launchSettings.json`): Auth `http://localhost:5261`, Item `http://localhost:5001`, Matching `http://localhost:5179`, Admin Verify `http://localhost:5019`. The app checks all four `VITE_*_API_BASE_URL` values at startup, so keep a value for each even when a service isn't running.
 
 ### Pages by service
 
@@ -141,7 +184,7 @@ Default local service URLs (from `.env.example` and each service's `launchSettin
 | `features/items` | `/report-lost-item`, `/report-found-item` (+ `/success`), `/my-reports`, `/edit-lost-item/:id`, `/edit-found-item/:id`, `/items/:id` (details + claim dialog) |
 | `features/matches` | `/matched-items`, `/matched-items/:matchId` (review, confirm/reject, return contact) |
 | `features/home` | `/` (browse/search) |
-| `features/admin` | `/admin/*` - user management today; moderation arrives with Admin Verify (Sprint 4) |
+| `features/admin` | `/admin/*` - user management, match appeals and Spam Review |
 
 ### Folder conventions (multi-team)
 Each microservice owns one folder under `frontend/src/features/<service>/` with this internal layout:
@@ -249,7 +292,7 @@ dotnet user-secrets set "Kafka:BootstrapServers" "localhost:9092"               
 
 ## CI/CD
 
-GitHub Actions, one workflow per service plus one for the frontend (`auth-`, `item-`, `matching-service-ci-cd.yml`, `frontend-ci-cd.yml`), path-filtered (each backend filter covers both the service and its `.Tests` project) so a change to one never triggers another's pipeline.
+GitHub Actions, one workflow per service plus one for the frontend (`auth-`, `item-`, `matching-service-ci-cd.yml`, `admin-verify-service-ci-cd.yml`, `frontend-ci-cd.yml`), path-filtered (each backend filter covers both the service and its `.Tests` project) to run on relevant changes.
 
 ```
 feature/<epic>-service   - every push builds + tests
@@ -266,8 +309,9 @@ main                       - build+test only; clean, reviewed archive, deploy in
 | Auth | `lostfound-auth-service` | `AZURE_AUTH_SERVICE_PUBLISH_PROFILE` | `auth_db` |
 | Item | `lostfound-item-service` | `AZURE_ITEM_SERVICE_PUBLISH_PROFILE` | `item_db` |
 | Matching | `lostfound-matching-service` | `AZURE_MATCHING_SERVICE_PUBLISH_PROFILE` | `matching_db` |
+| Admin Verify | `lostfound-adminverify-service` | `AZURE_ADMIN_VERIFY_SERVICE_PUBLISH_PROFILE` | `admin_verify_db` |
 
-All three share the `lostfound-plan` App Service plan, one MySQL Flexible Server, the Kafka container, and the `lostfound-insights` Application Insights resource. The frontend workflow builds `frontend/dist` itself and bakes in each service's production URL (`VITE_*_API_BASE_URL`); `VITE_ADMIN_API_BASE_URL` stays a localhost placeholder until Sprint 4.
+All four share the `lostfound-plan` App Service plan, one MySQL Flexible Server, the Kafka container, and the `lostfound-insights` Application Insights resource. The frontend workflow builds `frontend/dist` itself and bakes in each service's production URL (`VITE_*_API_BASE_URL`), including the deployed Admin Verify URL in `VITE_ADMIN_API_BASE_URL`.
 
 Full pipeline design, deploy gating rationale, and hard-won gotchas (publish-profile auth, Static Web Apps build quirks, Kafka broker config) are documented in `DevOps_Documentation/`.
 
@@ -280,7 +324,7 @@ Full pipeline design, deploy gating rationale, and hard-won gotchas (publish-pro
 - **Kafka metadata-refresh warnings** appear intermittently in Matching Service logs; delivery was verified unaffected.
 - **Failed Gemini jobs** are retried with backoff up to 5 attempts, then stay `FAILED`; a periodic sweep is not implemented yet.
 - **Blob container is public-read** by design (stable image URLs); tightening needs SAS URLs and a code change.
-- **Swagger is development-only**; a `404` on `/swagger` in Azure is expected.
+- **Swagger availability varies by service.** Admin Verify exposes `/swagger` locally and in Azure; the earlier services retain their own environment-specific Swagger configuration.
 - Message ordering is not guaranteed (random keys); consumers must not rely on per-item event sequence.
 
 ## Documentation
@@ -295,3 +339,322 @@ Everything DevOps- and infrastructure-related lives in `DevOps_Documentation/`:
 - `Azure-DevOps-Setup-Reference.md` - step-by-step Azure setup instructions, reusable for Admin Verify Service in Sprint 4
 - `azure-item_db-migration*.sql` - consolidated, manually-applied migrations for Azure `item_db`
 - `Secrets-Map-AI-Safe-Reference.md` - credential names and shapes only, safe to share with AI tools; actual credential values live in a separate, team-internal, never-committed file
+
+## Admin Verify Service - Sprint 4 DevOps
+
+**✅ Built, tested and deployed to Azure.** DevOps work covered pipeline automation, quality/security checks, configuration, database migrations and deployment verification.
+
+| Detail | Value |
+|---|---|
+| Source / tests | [`services/AdminVerifyService`](services/AdminVerifyService) / [`services/AdminVerifyService.Tests`](services/AdminVerifyService.Tests) |
+| Runtime / database | .NET 8 Web API / MySQL `admin_verify_db` |
+| Detection default | **3 listings within 60 minutes**; record cap disabled |
+| Access | Admin-only JWT authorization |
+| Local API / Swagger | `http://localhost:5019` / `http://localhost:5019/swagger` |
+| Azure API | [Deployed Admin Verify Service](https://lostfound-adminverify-service-b8fjfybzdkcrashd.southeastasia-01.azurewebsites.net) |
+| Health / API documentation | `/health` / `/swagger` (local and Azure) |
+
+### Main DevOps additions
+
+| Addition | What it does | Deployment effect |
+|---|---|---|
+| **1. SonarQube + test coverage** | Reviews code quality and reports automated-test coverage | A failed quality gate blocks deployment |
+| **2. NuGet dependency auditing** | Checks direct and transitive service dependencies for high/critical vulnerabilities | A failed audit blocks deployment |
+| **3. Post-deployment smoke test** | Checks application health and protected API access after deployment | Failed checks fail the deployment job |
+
+```mermaid
+flowchart TD
+    A[Code pushed] --> B[NuGet dependency audit]
+    B --> C[Build service and test project]
+    C --> D[Run unit and integration tests]
+    D --> E[Collect OpenCover coverage]
+    E --> F[SonarQube analysis and quality gate]
+    F --> G{Checks pass?}
+    G -->|No| H[Deployment blocked]
+    G -->|Yes, on develop| I[Publish and deploy to Azure]
+    I --> J[Smoke test]
+    J --> K{Health 200 and protected API 401?}
+    K -->|Yes| L[Deployment verified]
+    K -->|No| M[Deployment job fails]
+    style B fill:#fff3cd,stroke:#b58105
+    style E fill:#dbeafe,stroke:#2563eb
+    style F fill:#dbeafe,stroke:#2563eb
+    style H fill:#fee2e2,stroke:#dc2626
+    style L fill:#dcfce7,stroke:#16a34a
+    style M fill:#fee2e2,stroke:#dc2626
+```
+
+#### 1. SonarQube analysis and coverage
+
+| Item | Implementation |
+|---|---|
+| Platform | [SonarQube Cloud project](https://sonarcloud.io/project/overview?id=it24103447_lostandfoundapp) |
+| Tools / authentication | SonarScanner for .NET, Java 21 / GitHub `SONAR_TOKEN` |
+| Test scope | Full Admin Verify test project, including unit, API, MySQL and Kafka scenarios |
+| Coverage | OpenCover report submitted to SonarQube |
+| Analysis scope | Test projects excluded from source-quality analysis |
+| Deployment gate | Wait for the SonarQube quality gate before deployment |
+
+**Recorded SonarQube screenshot results:**
+
+| Metric | Result |
+|---|---|
+| Analyzed branch | `feature/Admin-Verify-Service` |
+| Commit shown | `c87d8669` |
+| Quality gate | **✅ Passed** |
+| Coverage on new code | **91.16%** |
+| New issues / accepted issues | **0 / 15** |
+| Duplication on new code | **0.0%** |
+| Security hotspots | **0** |
+| Analysis warning | **1**; details were not included in the supplied screenshot |
+
+Coverage above applies to **new code on the feature branch**, not overall project coverage or a deployment-branch measurement. The screenshot shows no coverage condition configured: coverage is reported, but a minimum coverage percentage is not documented as a deployment requirement.
+
+**25 unique maintainability findings were reviewed.** Repeated findings across analysis runs were counted once.
+
+| Review decision | Count | Action / reason |
+|---|---:|---|
+| Fixed by developer | **4** | Authorization registration, two shutdown-cancellation comments and the `Program` constructor |
+| False positives | **6** | Event properties needed for JSON deserialization |
+| Accepted with reasons | **15** | Repository consistency, restricted logging, method parameters and existing implementation choices |
+| **Total** | **25** | Every finding assigned a review decision |
+
+| Fixed finding | Developer change |
+|---|---|
+| Older authorization registration | Used `AddAuthorizationBuilder()` while retaining `AdminOnly` |
+| Empty cancellation handler in `ListingEventConsumer` | Explained expected shutdown cancellation |
+| Empty cancellation handler in `SpamAlertWorker` | Added the same shutdown explanation |
+| Partial `Program` constructor | Added a protected constructor while retaining integration-test support |
+
+The six false positives concerned `EventId`, `UserId`, `LostItemId`, `FoundItemId`, `CreatedAt` and `UpdatedAt`. DevOps integrated the analysis and documented the review decisions; the developer made the code fixes.
+
+#### 2. NuGet dependency security check
+
+| Setting | Value | Purpose |
+|---|---|---|
+| `NuGetAudit` | `true` | Enable auditing during service restore |
+| `NuGetAuditMode` | `all` | Include direct and transitive dependencies |
+| `NuGetAuditLevel` | `high` | Check high and critical vulnerabilities |
+| `WarningsAsErrors` | `NU1900;NU1903;NU1904` | Fail validation for audit failures and high/critical vulnerability warnings |
+
+**If the audit fails, deployment cannot continue.** Successful audit steps are linked in the deployment evidence below.
+
+#### 3. Post-deployment smoke test
+
+| Request | Expected response | What it checks |
+|---|---|---|
+| `GET /health` | **200 OK** | Application is responding |
+| `GET /api/admin/spam-records` without credentials | **401 Unauthorized** | Protected endpoint rejects unauthenticated access |
+
+| Retry setting | Value |
+|---|---:|
+| Maximum attempts | 18 |
+| Timeout per request | 8 seconds |
+| Delay between unsuccessful attempts | 10 seconds |
+| Overall step timeout | 5 minutes |
+
+**Both checks must pass.** Otherwise, the deployment job fails. These checks verify liveness and unauthenticated access rejection; functional flows were checked separately.
+
+### CI/CD workflow and verified evidence
+
+| Detail | Configuration |
+|---|---|
+| Workflow | [admin-verify-service-ci-cd.yml](.github/workflows/admin-verify-service-ci-cd.yml) |
+| Run history | [GitHub Actions](https://github.com/IT24103447/LostandFoundApp/actions/workflows/admin-verify-service-ci-cd.yml) |
+| Trigger | Push to `feature/**`, `develop` or `main` |
+| Path filters | `services/AdminVerifyService/**`, `services/AdminVerifyService.Tests/**`, and the workflow file |
+| Jobs | `build-and-test` → `deploy`, using `needs: build-and-test` |
+
+| Branch | Build, tests, audit and analysis | Deploy |
+|---|---|---|
+| `feature/**` | ✅ | — |
+| `develop` | ✅ | ✅ After checks pass |
+| `main` | ✅ | — |
+
+The following job and step results were verified through GitHub. Each run's latest attempt completed successfully.
+
+| Run | NuGet audit | Tests + coverage collection | SonarQube gate | Azure deployment | Smoke test |
+|---|---|---|---|---|---|
+| [37585675560](https://github.com/IT24103447/LostandFoundApp/actions/runs/37585675560) | ✅ | ✅ | ✅ | ✅ | Not included |
+| [38039755618](https://github.com/IT24103447/LostandFoundApp/actions/runs/38039755618) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [38464960214](https://github.com/IT24103447/LostandFoundApp/actions/runs/38464960214) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [38618752772](https://github.com/IT24103447/LostandFoundApp/actions/runs/38618752772) | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+Selenium and JMeter tests are maintained separately by QA and are not run by this workflow.
+
+### Sprint 4 deployment topology
+
+```mermaid
+flowchart LR
+    GH[GitHub Actions] -->|Publish profile| AV[Azure App Service: Admin Verify]
+    FE[Azure Static Web App: React] -->|Admin JWT| AV
+    FE -->|Listing details and deletion| IT[Item Service]
+    FE -->|User lookup and optional kick| AU[Auth Service]
+    IT -->|Create and update events| KA[Shared Kafka broker]
+    KA -->|Dedicated consumer group| AV
+    AV --> DB[(MySQL: admin_verify_db)]
+    AV --> AI[Shared Application Insights]
+    AV --> SMTP[SMTP admin alerts]
+```
+
+| Azure resource | Configuration |
+|---|---|
+| Resource group / region | `lostfound-rg` / Southeast Asia |
+| App Service | `lostfound-adminverify-service` |
+| Publishing model / runtime | Code / Linux, .NET 8 |
+| Plan / instances | `lostfound-plan`, Free F1 / one instance |
+| Shared resources | MySQL server, Kafka broker, Application Insights and existing frontend hosting |
+
+| Reported rollout | Work included | Result recorded in Sprint 4 report |
+|---|---|---|
+| Initial rollout | Deployment baseline and CI/CD quality checks | Deployed |
+| Detection and review | Listing intake, spam detection, review, smoke test and frontend API URL | Deployed and verified |
+| Final workflow | Open, Dismiss, Solve, final database changes and Swagger | Completed and verified |
+
+The report groups the work into three rollouts; the evidence table above contains four successful workflow runs and does not assign each run to a particular rollout.
+
+### Configuration and secrets
+
+| Location | Stored information |
+|---|---|
+| GitHub Secrets | `AZURE_ADMIN_VERIFY_SERVICE_PUBLISH_PROFILE`, `SONAR_TOKEN` |
+| Azure application settings | Production connection strings, JWT, CORS, Kafka and SMTP settings |
+| .NET user-secrets | Local development secrets |
+
+| Azure setting | Value / purpose |
+|---|---|
+| `ConnectionStrings__MySql` | Connection to `admin_verify_db` |
+| `Jwt__Secret`, `Jwt__Issuer`, `Jwt__Audience` | Match Auth Service |
+| `Cors__AllowedOrigins__0` | Deployed frontend origin |
+| `Kafka__BootstrapServers` | Shared broker address |
+| `Kafka__GroupId` / `Kafka__TopicPrefix` | `admin-verify-service` / `items` |
+| `Detection__SpamThreshold` / `Detection__SpamWindowMinutes` | `3` / `60` |
+| `Detection__SpamRecordCap` | `0` — disabled |
+| `Notifications__Enabled` | Enable after configuring SMTP and recipients |
+| `Smtp__Host`, `Smtp__Port`, `Smtp__User`, `Smtp__Password` | SMTP connection and credentials |
+| `Smtp__FromAddress`, `Smtp__FromName` | Alert sender |
+| `Frontend__BaseUrl` | Frontend address used in Spam Review links |
+| `ApplicationInsights__ConnectionString` | Shared Application Insights connection |
+
+Admin alert recipients are stored in `spam_alert_recipients`.
+
+| Frontend build setting | Local | Azure |
+|---|---|---|
+| `VITE_ADMIN_API_BASE_URL` | `http://localhost:5019` | Deployed Admin Verify service URL |
+
+**Rebuild the frontend after changing its API URL.** Vite includes the value at build time. Sprint 4 replaced the deployed frontend's earlier `localhost:5003` placeholder with the Azure API address.
+
+### Database migrations applied
+
+**Apply production migrations before deploying dependent features.** Automatic migrations run only in Development.
+
+| Admin Verify migration | Database change | Purpose |
+|---|---|---|
+| `001` | Create `tracked_listings` | Listing IDs, types, users and posting times |
+| `002` | Create `processed_events` | Duplicate-event protection |
+| `003` | Create `spam_records` | Spam records and review status |
+| `004` | Create `spam_record_listings` | Listings attached to each record |
+| `005` | Create `spam_alert_recipients` | Admin email recipients |
+| `006` | Create `spam_record_notifications` | Alert jobs and delivery progress |
+| `007` | Add `kick_status` to `spam_records` | Optional kick result |
+
+**Seven migrations produce six application tables.** The earlier `record_actions` table is not part of the final design. The kick-status migration was renamed from `008` to `007`; the existing column was checked so the same change was applied only once.
+
+| Kick status | Meaning |
+|---|---|
+| `NOT_REQUESTED` | No kick requested; default for existing records |
+| `PENDING` | Waiting for the kick result |
+| `KICKED` | Kick succeeded |
+| `FAILED` | Kick failed |
+
+| Matching migration | Change applied to `matching_db` |
+|---|---|
+| `012` | Create `match_appeals` |
+| `013` | Create `matching_item_hidden_information` |
+| `014` | Add appeal `rejection_reason` |
+| `015` | Create `appeal_notifications` |
+
+No additional Auth, Item or Matching migrations were required for the final Open, Dismiss and Solve rollout.
+
+### Kafka configuration and verification
+
+| Setting | Value |
+|---|---|
+| Consumer group / topic prefix | `admin-verify-service` / `items` |
+| Subscriptions | `items.lost_item.created`, `items.found_item.created`, `items.lost_item.updated`, `items.found_item.updated` |
+| Duplicate handling | De-duplicate by `EventId`; edits to tracked listings do not count as new posts |
+| First event is an update | Use the updated time for that listing |
+| Failure handling | Event tracking, listing tracking and detection share a transaction; failures roll back and can retry |
+| Stored data | Detection metadata; listing titles and descriptions are not stored by intake |
+| Intake exclusions | Resolved and deleted events are not subscribed to |
+
+| Topic | Recorded consumer offset | Recorded log-end offset | Lag |
+|---|---:|---:|---:|
+| `items.lost_item.created` | 286 | 286 | **0** |
+| `items.found_item.created` | 268 | 268 | **0** |
+| `items.found_item.updated` | 8 | 8 | **0** |
+| `items.lost_item.updated` | 14 | 14 | **0** |
+
+These are the inspected partition results recorded in the Sprint 4 report, not live broker measurements.
+
+### Deployment verification record
+
+| Story | Flow checked in the deployed application | Reported result |
+|---|---|---|
+| LF-79 | Admin listing access, guarded deletion, user lookup and access restrictions | ✅ Verified |
+| LF-80 | Listing intake, edits and duplicate handling | ✅ Verified |
+| LF-81 | Below-60% appeals, Pending status, My Appeals and privacy | ✅ Verified |
+| LF-82 | Posting-burst detection, additional listings and admin alerts | ✅ Verified |
+| LF-87 | Spam tabs, user details, sorting, filtering and loading more records | ✅ Verified |
+| LF-267 | Open warning, Under review, stopped collection and listing/photo details | ✅ Verified |
+| LF-268 | Dismissed status, unchanged listings and no recounting | ✅ Verified |
+| LF-269 | Deletion/skips, optional kick, saved progress, resume and match deactivation | ✅ Verified |
+| LF-338 | Appeal approval creating a normal match and rejection with a reason | ✅ Verified |
+
+Appeals belong to Matching Service. The frontend coordinates Item deletions and Auth kicks, while Admin Verify stores review/Solve progress.
+
+### Local Admin Verify setup
+
+Requires .NET 8, MySQL and the shared Kafka broker. From the repository root, start Kafka:
+
+```bash
+cd infra/kafka
+docker compose up -d
+```
+
+In another terminal, from the repository root:
+
+```bash
+cd services/AdminVerifyService
+dotnet user-secrets set "ConnectionStrings:MySql" "Server=localhost;Database=admin_verify_db;Uid=root;Pwd=<password>;Allow User Variables=true;"
+dotnet user-secrets set "Jwt:Secret" "<same value as Auth Service>"
+dotnet user-secrets set "Jwt:Issuer" "auth-service"
+dotnet user-secrets set "Jwt:Audience" "lostandfound-app"
+dotnet run --launch-profile http
+```
+
+JWT settings must match Auth Service. Set `VITE_ADMIN_API_BASE_URL=http://localhost:5019` in `frontend/.env.local`. Kafka defaults to `localhost:9092`; email alerts are off until SMTP and recipients are configured.
+
+Run the tests from the repository root with Docker running:
+
+```bash
+dotnet test services/AdminVerifyService.Tests
+```
+
+### Operational notes and ownership
+
+| Area | Current arrangement |
+|---|---|
+| Monitoring | Service registers Application Insights telemetry; `/health` provides liveness and the pipeline checks it after deployment |
+| Reliability | Transactional intake, duplicate protection, notification job tracking and resumable Solve progress |
+| Capacity | Free F1 with one instance; horizontal scaling and high availability are not demonstrated |
+| Broker | Shared Kafka must be running; existing broker security/availability limits are listed above |
+| Schema updates | Manual production migrations remain a deployment prerequisite |
+
+| Role | Contribution |
+|---|---|
+| Developer | Implemented service features and the four code-quality fixes |
+| QA | Created tests and maintained Selenium/JMeter checks |
+| DevOps | Integrated build/tests/coverage, quality and security gates, deployment, configuration, migrations and live verification |
+
+AI assistance supported pipeline review, configuration, dependency auditing, smoke-test design and deployment planning. Functional verification and rollout summaries come from the Sprint 4 DevOps report; pipeline step results come from the linked GitHub runs; feature-branch coverage comes from the supplied SonarQube screenshot.
