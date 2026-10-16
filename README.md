@@ -2,7 +2,7 @@
 
 <img src="logo_image/back2u-logo.svg" alt="Back2U logo" width="100">
 
-# Back2U Lost & Found
+# Back2U Lost & Found App
 
 Helping people get lost belongings back, one confirmed match at a time
 
