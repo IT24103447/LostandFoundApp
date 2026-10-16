@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using Confluent.Kafka;
+using ItemService.Authorization;
 using ItemService.Configuration;
 using ItemService.Databases;
 using ItemService.Filters;
@@ -9,6 +10,7 @@ using ItemService.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +21,18 @@ builder.Services.AddControllers(o => o.Filters.Add<RequestTransactionFilter>())
         o.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var bearer = new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+    };
+    options.AddSecurityDefinition("Bearer", bearer);
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement { [bearer] = [] });
+});
 builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddTransient<IDbConnectionFactory, DbConnectionFactory>();
 // One per request: repository writes and the outbox event insert share its transaction.
@@ -43,6 +56,7 @@ builder.Services.Configure<BlobStorageSettings>(builder.Configuration.GetSection
 builder.Services.AddScoped<ILostItemsRepository, LostItemsRepository>();
 builder.Services.AddScoped<IFoundItemsRepository, FoundItemsRepository>();
 builder.Services.AddScoped<IItemsSearchRepository, ItemsSearchRepository>();
+builder.Services.AddScoped<IAdminItemsRepository, AdminItemsRepository>();
 
 var blobConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
 
@@ -142,20 +156,19 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(o => o.AddPolicy(AuthorizationPolicies.AdminOnly, p => p
+    .RequireAuthenticatedUser()
+    .RequireClaim(AuthorizationPolicies.IsAdminClaim, AuthorizationPolicies.IsAdminValue)));
 
 var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
 
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors(DevCorsPolicy);
 

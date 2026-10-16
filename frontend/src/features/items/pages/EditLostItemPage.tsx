@@ -16,10 +16,12 @@ import {
   deleteLostItemPhoto,
   type LostItemResponse,
 } from "../api/reportLostItem";
+import { useAppealEditWarning } from "../../matches/hooks/useAppealEditWarning";
 
 export function EditLostItemPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { confirmEdit, warningModal } = useAppealEditWarning("lost", id, () => navigate("/my-reports"));
 
   const [item, setItem] = useState<LostItemResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export function EditLostItemPage() {
 
   const onSubmit = async (values: EditLostItemFormValues) => {
     if (!id) return;
+    if (!(await confirmEdit())) return;
     setSubmitError(null);
     setSaved(false);
     try {
@@ -84,12 +87,14 @@ export function EditLostItemPage() {
 
   const handleReplacePhoto = async (file: File) => {
     if (!id) return;
+    if (!(await confirmEdit())) return;
     const updated = await replaceLostItemPhoto(id, file);
     setItem(updated);
   };
 
   const handleDeletePhoto = async () => {
     if (!id) return;
+    if (!(await confirmEdit())) return;
     const updated = await deleteLostItemPhoto(id);
     setItem(updated);
   };
@@ -124,6 +129,7 @@ export function EditLostItemPage() {
   return (
     <div className="min-h-screen bg-[#FAFAFC]">
       <AppHeader />
+      {warningModal}
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-bold text-gray-900">Edit Lost Item Report</h1>
         <p className="mt-1.5 text-[15px] text-gray-500">Update your report's details below.</p>

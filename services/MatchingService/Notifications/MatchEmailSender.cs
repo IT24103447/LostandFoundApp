@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Mail;
+using System.Net.Mime;
 using System.Text;
 
 namespace MatchingService.Notifications;
@@ -128,7 +129,34 @@ public sealed class MatchEmailSender : IMatchEmailSender
 
         message.To.Add(recipient);
 
+        message.AlternateViews.Add(
+            AlternateView.CreateAlternateViewFromString(
+                BuildHtmlBody(job.Type, link),
+                Encoding.UTF8,
+                MediaTypeNames.Text.Html));
+
         return message;
+    }
+
+    private static string BuildHtmlBody(
+        string type,
+        Uri link)
+    {
+        var href = WebUtility.HtmlEncode(link.AbsoluteUri);
+
+        var sentence = type switch
+        {
+            NotificationTypes.CounterpartAction =>
+                $"Someone has submitted a claim for one of your reports. <a href=\"{href}\">Review the match</a> to confirm or reject it.",
+
+            NotificationTypes.MatchConfirmed =>
+                $"Good news: your match has been confirmed. <a href=\"{href}\">View the match</a> to see the other person's contact details and arrange the return.",
+
+            _ =>
+                $"Your match has been rejected. <a href=\"{href}\">View the match</a> for details."
+        };
+
+        return $"<p>{sentence}</p><p>Lost &amp; Found</p>";
     }
 
     private static string Required(

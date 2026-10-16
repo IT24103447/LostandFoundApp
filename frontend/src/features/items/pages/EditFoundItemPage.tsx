@@ -16,10 +16,12 @@ import {
   deleteFoundItemPhoto,
   type FoundItemResponse,
 } from "../api/reportFoundItem";
+import { useAppealEditWarning } from "../../matches/hooks/useAppealEditWarning";
 
 export function EditFoundItemPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { confirmEdit, warningModal } = useAppealEditWarning("found", id, () => navigate("/my-reports"));
 
   const [item, setItem] = useState<FoundItemResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export function EditFoundItemPage() {
 
   const onSubmit = async (values: EditFoundItemFormValues) => {
     if (!id) return;
+    if (!(await confirmEdit())) return;
     setSubmitError(null);
     setSaved(false);
     try {
@@ -84,12 +87,14 @@ export function EditFoundItemPage() {
 
   const handleReplacePhoto = async (file: File) => {
     if (!id) return;
+    if (!(await confirmEdit())) return;
     const updated = await replaceFoundItemPhoto(id, file);
     setItem(updated);
   };
 
   const handleDeletePhoto = async () => {
     if (!id) return;
+    if (!(await confirmEdit())) return;
     const updated = await deleteFoundItemPhoto(id);
     setItem(updated);
   };
@@ -124,6 +129,7 @@ export function EditFoundItemPage() {
   return (
     <div className="min-h-screen bg-[#FAFAFC]">
       <AppHeader />
+      {warningModal}
       <div className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-bold text-gray-900">Edit Found Item Report</h1>
         <p className="mt-1.5 text-[15px] text-gray-500">Update your report's details below.</p>

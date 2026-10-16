@@ -425,6 +425,46 @@ public sealed class ClaimAndMatchFixture : IDisposable
         return id;
     }
 
+    // ---- Story LF-81 (match appeal) test wiring only ------------------------------------------
+
+    // The appeal's stored status for this pair, read straight from the row so an assertion cannot
+    // pass on a success message alone. Null when no appeal exists for the pair.
+    public string? GetAppealStatus(Guid lostItemId, Guid foundItemId)
+    {
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            """
+            SELECT status FROM matching_service.match_appeals
+            WHERE lost_item_id = @lostItemId AND found_item_id = @foundItemId
+            LIMIT 1;
+            """,
+            connection);
+
+        command.Parameters.AddWithValue("@lostItemId", lostItemId);
+        command.Parameters.AddWithValue("@foundItemId", foundItemId);
+
+        var result = command.ExecuteScalar();
+        return result is null or DBNull ? null : (string)result;
+    }
+
+    // The report's stored title, so a test can prove an edit was or was not persisted.
+    public string GetItemTitle(Guid itemId, string itemType)
+    {
+        var table = itemType == "LOST" ? "item_service.lost_items" : "item_service.found_items";
+
+        using var connection = new MySqlConnection(ConnectionString);
+        connection.Open();
+
+        using var command = new MySqlCommand(
+            $"SELECT title FROM {table} WHERE id = @id LIMIT 1;", connection);
+        command.Parameters.AddWithValue("@id", itemId);
+
+        return command.ExecuteScalar() as string
+            ?? throw new InvalidOperationException($"No {itemType} report found for item '{itemId}'.");
+    }
+
     // ---- Story 7 test wiring only ------------------------------------------------------------
 
     // True once ItemLifecycleConsumer has processed a resolve/delete event for this item.

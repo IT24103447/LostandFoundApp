@@ -114,6 +114,17 @@ public sealed class AdminUserManagementFormTests : IClassFixture<BrowserFixture>
     {
         SearchBox().Clear();
         SearchBox().SendKeys(email);
+
+        // The search re-renders the table asynchronously, so the row returned straight after
+        // typing can still belong to the previous, unfiltered table — clicking it then throws
+        // StaleElementReferenceException. Wait until every row shown belongs to this email
+        // (i.e. the search has settled) before taking the row.
+        _wait.Until(d =>
+        {
+            var rows = AllDataRows().ToList();
+            return rows.Count > 0 && rows.All(r => r.Text.Contains(email, StringComparison.OrdinalIgnoreCase));
+        });
+
         return _wait.Until(d => d.FindElement(By.XPath($"//tr[.//td[normalize-space()='{email}']]")));
     }
 
@@ -276,10 +287,12 @@ public sealed class AdminUserManagementFormTests : IClassFixture<BrowserFixture>
             // Restore user8 to Active so this test is reusable across runs.
             LoginAsAdmin();
             GoToUserManagement();
-            var row = RowForEmail(KickRestoreEmail);
+            // Never hold a row across a RowForEmail/RowStatusText call - both re-run the
+            // search and re-render the table, which leaves a row captured earlier stale.
+            // Find the row again immediately before clicking it.
             if (RowStatusText(KickRestoreEmail) == "Kicked")
             {
-                ClickRowActionButton(row, "Unkick");
+                ClickRowActionButton(RowForEmail(KickRestoreEmail), "Unkick");
                 ClickDialogButton("Unkick");
                 _wait.Until(d => RowStatusText(KickRestoreEmail) == "Active");
             }

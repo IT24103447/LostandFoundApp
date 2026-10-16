@@ -4,12 +4,15 @@ import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App";
 import { AuthProvider } from "./features/auth/AuthContext";
+import { SolveRunnerProvider } from "./features/admin/solve/SolveRunnerProvider";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <SolveRunnerProvider>
+          <App />
+        </SolveRunnerProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

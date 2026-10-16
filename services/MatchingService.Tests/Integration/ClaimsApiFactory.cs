@@ -30,6 +30,16 @@ public sealed class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLif
 
     public FakeItemServiceHandler ItemServiceHandler { get; } = new();
 
+    /// <summary>
+    /// Lets a test assert on rows the HTTP API never exposes (an appeal that must exist exactly once, a match
+    /// that must not have been created). Same shape as MatchingServiceDbApiFactory's.
+    /// </summary>
+    public string GetConnectionString() =>
+        new MySqlConnectionStringBuilder(_mysql.GetConnectionString())
+        {
+            SslMode = MySqlSslMode.None
+        }.ConnectionString;
+
     public async Task InitializeAsync()
     {
         SetPreBuildEnvironmentVariables();
@@ -44,15 +54,9 @@ public sealed class ClaimsApiFactory : WebApplicationFactory<Program>, IAsyncLif
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            var connectionString = new MySqlConnectionStringBuilder(
-                _mysql.GetConnectionString())
-            {
-                SslMode = MySqlSslMode.None
-            }.ConnectionString;
-
             var dict = new Dictionary<string, string?>
             {
-                ["ConnectionStrings:MySql"] = connectionString,
+                ["ConnectionStrings:MySql"] = GetConnectionString(),
                 ["Kafka:BootstrapServers"] = "localhost:9092",
                 ["Kafka:GroupId"] = "matching-service-claims-tests"
 
