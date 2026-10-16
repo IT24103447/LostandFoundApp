@@ -76,13 +76,26 @@ flowchart TB
     class KAFKA,GEMINI,SMTP,INSIGHTS shared
 ```
 
-Solid arrows show API calls, database/storage access and event delivery; the dotted arrow shows telemetry. The frontend calls each API directly over HTTPS in Azure, passing JWTs for protected requests. During Solve, it also calls Auth Service for an optional user kick; Admin Verify saves progress rather than performing the deletion or kick itself. Kafka topic ownership is detailed below; deployment automation is documented in [CI/CD](#cicd).
+Back2U uses four independently deployed .NET services and a single React frontend. The frontend runs on Azure Static Web Apps and calls each service directly over HTTPS, without an API gateway. Each service owns a separate MySQL schema on the shared database server.
 
-**Authentication across services.** Auth Service issues the JWT; every other service validates it locally with the shared `Jwt:Secret`/`Issuer`/`Audience` (no call back to Auth). The frontend sends `Authorization: Bearer <jwt>` to Item, Matching and Admin Verify Services. Matching Service additionally requires the `email_verified=1` claim (policy `VerifiedClaimUser`); Admin Verify uses the `AdminOnly` policy.
+| Service | Responsibility |
+|---|---|
+| **Auth** | Accounts, email verification, JWT authentication, profiles and user management |
+| **Item** | Lost/found reports, search, photos and listing management |
+| **Matching** | AI-assisted matching, claims, confirmations, appeals and notifications |
+| **Admin Verify** | Posting-burst detection, admin alerts and spam record review |
 
-**Sprint 4 extension.** Admin Verify runs on Azure App Service with its own `admin_verify_db`, consumes Item create/update events from Kafka, and uses the shared Application Insights resource. The frontend coordinates admin listing deletion through Item Service and optional user kicks through Auth Service, saving progress in Admin Verify. See the [Sprint 4 deployment diagram](#sprint-4-deployment-topology).
+**Authentication across services.** Auth Service authenticates users and issues JWTs. Every other service validates these tokens locally using the shared `Jwt:Secret`, `Jwt:Issuer` and `Jwt:Audience`, without calling Auth Service. The frontend sends `Authorization: Bearer <jwt>` with protected requests. Matching’s claim operations require the `email_verified=1` claim through the `VerifiedClaimUser` policy. Admin-only operations enforce admin authorization; Admin Verify uses the `AdminOnly` policy.
 
-**Where Matching Service does call another service synchronously.** To preview or submit a claim, Matching Service reads the two reports from Item Service over REST (`GET /api/items/{lost|found}/{id}` and `/mine`), forwarding the caller's own JWT so Item Service's normal authorization applies. This is read-only - Matching never writes to Item Service over REST. Every *write* that crosses the boundary (e.g. resolving the two reports after a confirmed match) is a Kafka event.
+**Synchronous reads between services.** When previewing or submitting a claim, Matching Service reads reports from Item Service over REST using `GET /api/items/{lost|found}/{id}` and the `/mine` endpoints. It forwards the caller’s JWT so Item Service applies its own authorization rules. These calls are read-only; Matching does not change reports through REST.
+
+**Asynchronous events between services.** Kafka carries user changes, listing changes and confirmed-match events. Matching consumes user and item events to maintain notification contacts and matching information. Admin Verify consumes listing create/update events to detect posting bursts. Once a match is confirmed, Matching publishes `matches.confirmed`, which Item Service consumes to resolve both reports.
+
+**Admin workflows.** The frontend requests listing deletion from Item Service and optional user kicks from Auth Service. Admin Verify stores spam-review decisions and Solve progress, allowing interrupted work to resume.
+
+**Hosting and shared resources.** All four APIs run on Azure App Service. Azure Blob Storage holds item photos, Gemini generates photo descriptions, SMTP delivers emails, and Application Insights collects API telemetry. Kafka runs in an Azure Container Instance.
+
+See [Kafka topics](#kafka-topics) for event details and [CI/CD](#cicd) for deployment automation.
 
 ### Kafka topics
 
