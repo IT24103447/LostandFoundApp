@@ -19,20 +19,24 @@ public abstract class E2ETestBase
 
     private void ResetSession()
     {
-        try
+        // A hung or crashed browser would make every remaining test wait out its own timeout.
+        // Replace it (up to twice) and retry; if it still fails, surface the real error.
+        for (var attempt = 1; ; attempt++)
         {
-            ClearBrowserState();
-        }
-        catch (WebDriverException)
-        {
-            // A hung/crashed session would make every remaining test wait out its own timeout.
-            // Replace the browser once and retry.
-            Fixture.Restart();
-            ClearBrowserState();
+            try
+            {
+                ClearBrowserState();
+                return;
+            }
+            catch (WebDriverException) when (attempt < 3)
+            {
+                Fixture.Restart();
+            }
         }
     }
 
-    private void ClearBrowserState()
+    /// <summary>Signs everyone out (cookies and storage). Used between users inside one test.</summary>
+    protected void ClearBrowserState()
     {
         // Cookies can only be removed while on the app's own domain.
         Driver.Navigate().GoToUrl(TestConfig.BaseUrl + "/login");

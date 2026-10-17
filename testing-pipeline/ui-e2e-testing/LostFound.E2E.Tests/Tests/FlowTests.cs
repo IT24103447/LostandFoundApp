@@ -45,4 +45,38 @@ public class FlowTests : E2ETestBase, IClassFixture<BrowserFixture>
         details.WaitForLocation("Main campus library");
         Assert.DoesNotContain(hidden, details.PageSource);
     });
+
+    [Fact]
+    [Trait("Category", "Demo")]
+    [Trait("Category", "Full")]
+    [Trait("Description", "An admin kicks a user in User Management; that user can then no longer sign in and stays on the login page. The user is restored afterwards.")]
+    public void FLOW_05_AdminKicksUser_UserCannotLogIn() => Run(nameof(FLOW_05_AdminKicksUser_UserCannotLogIn), () =>
+    {
+        var target = TestConfig.KickTarget;   // reserved throwaway account (see TestConfig)
+        var login = new LoginPage(Driver);
+
+        try
+        {
+            // --- admin kicks the user ---
+            login.LoginAs(TestConfig.Admin);
+            new AdminHomePage(Driver).WaitUntilLoaded();
+            new AdminUsersPage(Driver).Find(target.Email).Kick(target.Email).WaitForStatus(target.Email, "Kicked");
+
+            // --- the kicked user tries to sign in with the correct password ---
+            ClearBrowserState();
+            login.LoginAs(target);
+            var message = login.WaitForErrorMessage();
+
+            Assert.Contains("suspended", message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("/login", new Uri(Driver.Url).AbsolutePath);
+        }
+        finally
+        {
+            // Always restore the account so the test can be run again and other runs are unaffected.
+            ClearBrowserState();
+            login.LoginAs(TestConfig.Admin);
+            new AdminHomePage(Driver).WaitUntilLoaded();
+            new AdminUsersPage(Driver).Find(target.Email).Unkick(target.Email).WaitForStatus(target.Email, "Active");
+        }
+    });
 }

@@ -23,6 +23,13 @@ public static class TestConfig
     public static TestUser Admin =>
         new(Env("E2E_ADMIN_EMAIL", "admin1@lostandfound.com"), Env("E2E_ADMIN_PASSWORD", "Admin123!"));
 
+    /// <summary>
+    /// Seeded account reserved for kick tests. No other test logs in as this user (reporters are
+    /// user2..user19 and the viewer is user1), so kicking it can never break another test.
+    /// </summary>
+    public static TestUser KickTarget =>
+        new(Env("E2E_KICK_EMAIL", "user20@example.com"), Env("E2E_USERS_PASSWORD", "User123!"));
+
     // The back-end APIs are used only to ARRANGE test data quickly (see ItemApi). What a test
     // verifies always goes through the browser.
     public static string AuthApiUrl => Env("E2E_AUTH_API_URL", "http://localhost:5261").TrimEnd('/');
