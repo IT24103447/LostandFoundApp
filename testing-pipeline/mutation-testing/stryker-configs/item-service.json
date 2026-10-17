@@ -1,0 +1,20 @@
+{
+  "stryker-config": {
+    "test-projects": ["../unit-testing/ItemService.UnitTests/ItemService.UnitTests.csproj"],
+    "mutation-level": "Standard",
+    "concurrency": 4,
+    "mutate": [
+      "**/LostItemsController.cs",
+      "**/FoundItemsController.cs",
+      "**/ItemsController.cs",
+      "**/ReportLostItemRequest.cs",
+      "**/ReportFoundItemRequest.cs",
+      "**/UpdateLostItemRequest.cs",
+      "**/UpdateFoundItemRequest.cs",
+      "**/ItemDetailDto.cs",
+      "**/ItemSummaryDto.cs",
+      "**/PagedResultDto.cs"
+    ],
+    "reporters": ["Progress", "Html", "Json"]
+  }
+}
