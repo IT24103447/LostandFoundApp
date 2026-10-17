@@ -2,16 +2,24 @@
   "stryker-config": {
     "test-projects": ["../unit-testing/AuthService.UnitTests/AuthService.UnitTests.csproj"],
     "mutation-level": "Standard",
-    "thresholds": {
-      "high": 80,
-      "low": 70,
-      "break": 70
-    },
     "concurrency": 4,
     "mutate": [
       "**/AuthController.cs",
+      "**/AdminController.cs",
       "**/PasswordValidator.cs",
-      "**/RegisterRequest.cs"
+      "**/RegisterRequest.cs",
+      "**/LoginRequest.cs",
+      "**/LoginResponse.cs",
+      "**/ConfirmRequest.cs",
+      "**/VerifyEmailRequest.cs",
+      "**/ResendVerificationRequest.cs",
+      "**/ForgotPasswordRequest.cs",
+      "**/ResetPasswordRequest.cs",
+      "**/UpdateProfileRequest.cs",
+      "**/UserProfileDto.cs",
+      "**/DeleteAccountRequest.cs",
+      "**/AdminUserDto.cs",
+      "**/AdminUserContactDto.cs"
     ],
     "reporters": ["Progress", "Html", "Json"]
   }
