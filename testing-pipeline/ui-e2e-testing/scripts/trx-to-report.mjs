@@ -61,6 +61,18 @@ cases.sort((a, b) => a.name.localeCompare(b.name));
 
 fs.writeFileSync(path.join(reportDir, 'details.json'), JSON.stringify({ cases }, null, 2) + '\n');
 
+
+// Scope is derived from test-name prefixes, so the report never claims more than what ran.
+const AREAS = {
+  AUTH: 'authentication and route guards', BRW: 'browse, search and filter',
+  LOST: 'report-lost wizard', FOUND: 'report-found wizard', RPT: 'my reports (view, edit, delete)',
+  ADM: 'admin pages', FLOW: 'cross-service journeys', NEG: 'robustness / negative cases',
+};
+function scopeAreas(list) {
+  const seen = new Set(list.map(c => c.name.split('_')[0]));
+  return Object.keys(AREAS).filter(k => seen.has(k)).map(k => AREAS[k]).join(', ');
+}
+
 const count = s => cases.filter(c => c.status === s).length;
 const total = cases.reduce((n, c) => n + (c.durationMs ?? 0), 0);
 const lines = [
@@ -69,7 +81,7 @@ const lines = [
   `Passed: ${count('passed')}  |  Failed: ${count('failed')}  |  Skipped: ${count('skipped')}  |  Total: ${cases.length}`,
   `Summed test time: ${(total / 1000).toFixed(1)} s`,
   '',
-  'Scope: authentication and route guards, browse/search/filter, report-lost wizard. ',
+  `Scope (from the tests that ran): ${scopeAreas(cases) || 'none'}.`,
   'Out of scope: real email (OTP), Gemini image analysis, cross-browser, visual regression.',
   '',
   '| Test | Status | Time (s) | What it checks |',
