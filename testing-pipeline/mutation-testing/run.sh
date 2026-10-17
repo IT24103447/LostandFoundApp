@@ -74,6 +74,10 @@ run_tests() {
   echo "Running Stryker.NET mutation analysis..."
   cd "$SCRIPT_DIR"
 
+  # Restore the pinned local tool manifest (.config/dotnet-tools.json) so a fresh
+  # CI runner can resolve dotnet-stryker. No-op when the tool is already restored.
+  dotnet tool restore
+
   dotnet tool run dotnet-stryker \
     --config-file "stryker-config.json" \
     --output "$stryker_out" \
