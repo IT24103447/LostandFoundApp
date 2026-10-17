@@ -1,5 +1,6 @@
 using LostFound.E2E.Tests.Support;
 using OpenQA.Selenium;
+using Xunit.Sdk;
 
 namespace LostFound.E2E.Tests.Pages;
 
@@ -61,6 +62,32 @@ public sealed class HomePage
     {
         _driver.WaitVisible(FilterChipRemove).Click();
         return this;
+    }
+
+    /// <summary>
+    /// Searches repeatedly until the report shows up. A report written by another session can take
+    /// a moment to become searchable (the item service publishes it through Kafka), so this polls
+    /// the observable outcome instead of sleeping.
+    /// </summary>
+    public void SearchUntilFound(string title, int attempts = 5)
+    {
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            Search(title);
+            try
+            {
+                _driver.WaitVisible(ResultCard(title), 8);
+                return;
+            }
+            catch (WebDriverTimeoutException) when (attempt < attempts)
+            {
+                // not searchable yet: search again
+            }
+            catch (WebDriverTimeoutException)
+            {
+                throw new XunitException($"The report '{title}' never appeared in search results after {attempts} searches.");
+            }
+        }
     }
 
     public void WaitForResult(string title) => _driver.WaitVisible(ResultCard(title));
