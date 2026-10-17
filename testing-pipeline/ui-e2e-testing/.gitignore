@@ -1,0 +1,5 @@
+bin/
+obj/
+screenshots/
+TestResults/
+*.trx
