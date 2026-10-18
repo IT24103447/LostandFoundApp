@@ -1,0 +1,21 @@
+{
+  "stryker-config": {
+    "test-projects": ["../unit-testing/AdminVerifyService.UnitTests/AdminVerifyService.UnitTests.csproj"],
+    "mutation-level": "Standard",
+    "concurrency": 4,
+    "mutate": [
+      "**/SpamRule.cs",
+      "**/SpamRecordRepository.cs",
+      "**/SpamAlertEmailSender.cs",
+      "**/SpamAlertRepository.cs",
+      "**/SpamSolveRepository.cs",
+      "**/SpamReviewQueryParser.cs",
+      "**/SpamReviewModels.cs",
+      "**/ListingEventParser.cs",
+      "**/ListingEventConsumer.cs",
+      "**/ListingEventHandler.cs",
+      "**/SecurityRegistration.cs"
+    ],
+    "reporters": ["Progress", "Html", "Json"]
+  }
+}

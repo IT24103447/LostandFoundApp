@@ -55,16 +55,33 @@ run_tests() {
   # Services under mutation test, one Stryker.NET run each (Stryker mutates a
   # single project under test per run). Format:
   #   <config-basename>|<unit-test project path relative to testing-pipeline>
+  #   [<project under test, relative to the repository root>]
+  # The third field is only needed when the unit test project references more
+  # than one service project and Stryker.NET cannot pick the project under test
+  # on its own. Paths are resolved to the platform's native form below, so the
+  # same command works on a Windows dev machine and a Linux CI runner.
   local services=(
     "auth-service|AuthService.UnitTests/AuthService.UnitTests.csproj"
     "item-service|ItemService.UnitTests/ItemService.UnitTests.csproj"
     "matching-service|MatchingService.UnitTests/MatchingService.UnitTests.csproj"
+    "adminverify-service|AdminVerifyService.UnitTests/AdminVerifyService.UnitTests.csproj|services/AdminVerifyService/AdminVerifyService.csproj"
   )
 
   echo "=== ASE Mutation Testing ==="
-  echo "Scope:   AuthService, ItemService and MatchingService unit test stories"
+  echo "Scope:   AuthService, ItemService, MatchingService and"
+  echo "         AdminVerifyService unit test stories"
   echo "Tool:    Stryker.NET (one run per service, results merged)"
   echo ""
+
+  # Git Bash needs Windows paths for native tools; Linux runners keep the
+  # POSIX path. Absent cygpath, the path is already native.
+  native_path() {
+    if command -v cygpath >/dev/null 2>&1; then
+      cygpath -w "$1"
+    else
+      printf '%s' "$1"
+    fi
+  }
 
   # --- Prerequisites ---
   command -v dotnet >/dev/null || { echo '.NET 8 SDK is required.' >&2; return 1; }
@@ -75,11 +92,12 @@ run_tests() {
 
   for entry in "${services[@]}"; do
     local service="${entry%%|*}"
-    local unit_project="$SCRIPT_DIR/../unit-testing/${entry##*|}"
+    local rest="${entry#*|}"
+    local unit_project="$SCRIPT_DIR/../unit-testing/${rest%%|*}"
     local out="$stryker_out/$service"
 
     echo "--- $service ---"
-    echo "Unit tests: ${entry##*|}"
+    echo "Unit tests: ${rest%%|*}"
 
     # --- Restore and build the unit test project ---
     echo "Restoring unit test project..."
@@ -93,13 +111,21 @@ run_tests() {
     # CI runner can resolve dotnet-stryker. No-op when already restored.
     ( cd "$SCRIPT_DIR" && dotnet tool restore ) || return 1
 
+    local stryker_cmd=(
+      dotnet tool run dotnet-stryker
+      --config-file "stryker-configs/$service.json"
+      --output "$out"
+      --verbosity info
+    )
+    if [[ "$rest" == *"|"* ]]; then
+      # Test project references several services: name the project under test
+      stryker_cmd+=(--project "$(native_path "$ROOT/${rest##*|}")")
+    fi
+
     # Report generation below decides pass/fail, so a non-zero Stryker exit must
     # not abort this function before the ASE reports are written.
     local stryker_exit=0
-    ( cd "$SCRIPT_DIR" && dotnet tool run dotnet-stryker \
-      --config-file "stryker-configs/$service.json" \
-      --output "$out" \
-      --verbosity info ) || stryker_exit=$?
+    ( cd "$SCRIPT_DIR" && "${stryker_cmd[@]}" ) || stryker_exit=$?
     if [[ "$stryker_exit" != 0 ]]; then
       echo "Stryker.NET exited with $stryker_exit for $service." >&2
       run_failed=1
@@ -206,6 +232,40 @@ const SERVICES = {
       'AppealsController.cs',
       'AdminAppealsController.cs'
     ])
+  },
+  'adminverify-service': {
+    title: 'AdminVerifyService',
+    breakAt: 70,
+    baselineNote: '74% measured across the seven admin verification story folders',
+    stories: 'Admin listing and user access, Open spam record, Dismiss spam record,\n  Flag posting bursts, Spam alert, Receive listing events,\n  Solve spam record, View spam records',
+    sourceNote: 'the spam rule, spam record, spam alert, spam solve and spam review\n  sources plus the listing event parser, consumer and handler, and the\n  admin security policy registration the stories drive',
+    knownGaps: [
+      'Known test gaps: `SpamRecordRepository` flag-burst and `SpamAlertRepository`',
+      '  storage paths, `SpamSolveRepository` beyond its input validation (most of',
+      '  the solve logic is TypeScript in the frontend, which the stories drive',
+      '  through a Node process rather than through mutation), and the',
+      '  `ListingEventConsumer`/`ListingEventHandler` plumbing have no unit tests,',
+      '  so those mutants are reported as no-coverage. Closing them is tracked as',
+      '  a follow-up.',
+      'Deferred scope: the admin listing and user access stories also drive',
+      '  `ItemService.AdminItemsController` and `AuthService.AdminController`.',
+      '  `AdminController` is already mutated under AuthService; mutation for',
+      '  `AdminItemsController` is deferred (baseline measured when probed:',
+      '  28 mutants, 77% killed).'
+    ].join('\n'),
+    scope: new Set([
+      'SpamRule.cs',
+      'SpamRecordRepository.cs',
+      'SpamAlertEmailSender.cs',
+      'SpamAlertRepository.cs',
+      'SpamSolveRepository.cs',
+      'SpamReviewQueryParser.cs',
+      'SpamReviewModels.cs',
+      'ListingEventParser.cs',
+      'ListingEventConsumer.cs',
+      'ListingEventHandler.cs',
+      'SecurityRegistration.cs'
+    ])
   }
 };
 
@@ -304,7 +364,7 @@ fs.writeFileSync(
 
 let md = '# Mutation Testing Report\n\n';
 md += '## Scope\n';
-md += 'Two services are mutation tested. Each one runs its own Stryker.NET run\n';
+md += results.length + ' services are mutation tested. Each one runs its own Stryker.NET run\n';
 md += 'against its own unit test project, is scored on its own, and is gated on its\n';
 md += 'own break-at threshold. Scores are never blended across services, so a\n';
 md += 'strong service cannot carry a weak one.\n\n';
