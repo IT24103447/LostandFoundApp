@@ -1,0 +1,28 @@
+{
+  "stryker-config": {
+    "test-projects": ["../unit-testing/MatchingService.UnitTests/MatchingService.UnitTests.csproj"],
+    "mutation-level": "Standard",
+    "concurrency": 4,
+    "mutate": [
+      "**/ImageDescriptionWorker.cs",
+      "**/ImageDescriptionValidator.cs",
+      "**/BlobUrlPhotoKeyGenerator.cs",
+      "**/ClaimService.cs",
+      "**/ClaimItemClient.cs",
+      "**/ClaimModels.cs",
+      "**/MatchReadModels.cs",
+      "**/MatchReadService.cs",
+      "**/MatchQueriesController.cs",
+      "**/FinderDecisionsController.cs",
+      "**/LostReporterDecisionsController.cs",
+      "**/MatchEmailSender.cs",
+      "**/MatchReevaluationEventHandler.cs",
+      "**/AppealService.cs",
+      "**/AdminAppealService.cs",
+      "**/AppealModels.cs",
+      "**/AppealsController.cs",
+      "**/AdminAppealsController.cs"
+    ],
+    "reporters": ["Progress", "Html", "Json"]
+  }
+}

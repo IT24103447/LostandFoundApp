@@ -58,10 +58,11 @@ run_tests() {
   local services=(
     "auth-service|AuthService.UnitTests/AuthService.UnitTests.csproj"
     "item-service|ItemService.UnitTests/ItemService.UnitTests.csproj"
+    "matching-service|MatchingService.UnitTests/MatchingService.UnitTests.csproj"
   )
 
   echo "=== ASE Mutation Testing ==="
-  echo "Scope:   AuthService and ItemService unit test stories"
+  echo "Scope:   AuthService, ItemService and MatchingService unit test stories"
   echo "Tool:    Stryker.NET (one run per service, results merged)"
   echo ""
 
@@ -176,6 +177,34 @@ const SERVICES = {
       'ItemDetailDto.cs',
       'ItemSummaryDto.cs',
       'PagedResultDto.cs'
+    ])
+  },
+  'matching-service': {
+    title: 'MatchingService',
+    breakAt: 60,
+    baselineNote: '64% measured across the ten matching story folders',
+    stories: 'Photo description pipeline, Preview and claim match,\n  View potential matches, Lost reporter decision, Finder decision,\n  Matching notifications, Match deactivation, Match re-evaluation,\n  Send match appeal, Admin match appeal review',
+    sourceNote: 'the photo pipeline, claim, match read, notification and re-evaluation\n  services the stories drive, plus the decision and match appeal\n  controllers and the request/response models they validate',
+    knownGaps: 'Known test gaps: claim paths in `ClaimService` beyond preview and\n  claim, `ImageDescriptionWorker` plumbing, `ClaimItemClient` error paths and\n  `MatchReevaluationEventHandler` branches have no unit tests, so those\n  mutants are reported as no-coverage. Closing them is tracked as a\n  follow-up.',
+    scope: new Set([
+      'ImageDescriptionWorker.cs',
+      'ImageDescriptionValidator.cs',
+      'BlobUrlPhotoKeyGenerator.cs',
+      'ClaimService.cs',
+      'ClaimItemClient.cs',
+      'ClaimModels.cs',
+      'MatchReadModels.cs',
+      'MatchReadService.cs',
+      'MatchQueriesController.cs',
+      'FinderDecisionsController.cs',
+      'LostReporterDecisionsController.cs',
+      'MatchEmailSender.cs',
+      'MatchReevaluationEventHandler.cs',
+      'AppealService.cs',
+      'AdminAppealService.cs',
+      'AppealModels.cs',
+      'AppealsController.cs',
+      'AdminAppealsController.cs'
     ])
   }
 };
