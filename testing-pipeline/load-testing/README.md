@@ -167,14 +167,75 @@ flowchart TD
 
 The spam records and appeals the admin works on are created by the steady users during the same run.
 
-### Endpoints (34, named exactly like this in the results)
+### Endpoints (34)
 
-| Service | Endpoints |
-|---|---|
-| Auth (5) | `Auth - login`, `Auth - me`, `Auth - edit profile`, `Auth - admin user list`, `Auth - admin user lookup` |
-| Item (12) | `Item - search`, `Item - view listing`, `Item - my lost reports`, `Item - my found reports`, `Item - create lost listing`, `Item - edit lost listing`, `Item - replace photo`, `Item - remove photo`, `Item - resolve lost listing`, `Item - delete lost listing`, `Item - create found listing`, `Item - admin listing read` |
-| Matching (13) | `Matching - my matches`, `Matching - my claims`, `Matching - my appeals`, `Matching - candidates`, `Matching - preview`, `Matching - claim`, `Matching - finder confirm`, `Matching - return contact`, `Matching - send appeal`, `Matching - admin appeal list`, `Matching - admin appeal detail`, `Matching - admin appeal verify`, `Matching - admin appeal reject` |
-| Admin Verify (4) | `AdminVerify - spam review list`, `AdminVerify - spam record detail`, `AdminVerify - open spam record`, `AdminVerify - dismiss spam record` |
+In the results each endpoint is named "Service - endpoint", for example "Item - search" or "AdminVerify - open spam record".
+
+```mermaid
+flowchart TB
+    subgraph AUTH ["Auth (5)"]
+        direction TB
+        AUTH1("login<br/><small>POST /api/auth/login</small>")
+        AUTH2("me<br/><small>GET /api/auth/me</small>")
+        AUTH3("edit profile<br/><small>PUT /api/auth/me</small>")
+        AUTH4("admin user list<br/><small>GET /api/admin/users</small>")
+        AUTH5("admin user lookup<br/><small>GET /api/admin/users/{id}</small>")
+        AUTH1 ~~~ AUTH2 ~~~ AUTH3 ~~~ AUTH4 ~~~ AUTH5
+    end
+    subgraph ITEM ["Item (12)"]
+        direction TB
+        ITEM1("search<br/><small>GET /api/items</small>")
+        ITEM2("view listing<br/><small>GET /api/items/{id}</small>")
+        ITEM3("my lost reports<br/><small>GET /api/items/lost/mine</small>")
+        ITEM4("my found reports<br/><small>GET /api/items/found/mine</small>")
+        ITEM5("create lost listing<br/><small>POST /api/items/lost</small>")
+        ITEM6("edit lost listing<br/><small>PUT /api/items/lost/{id}</small>")
+        ITEM7("replace photo<br/><small>PUT /api/items/lost/{id}/photo</small>")
+        ITEM8("remove photo<br/><small>DELETE /api/items/lost/{id}/photo</small>")
+        ITEM9("resolve lost listing<br/><small>POST /api/items/lost/{id}/resolve</small>")
+        ITEM10("delete lost listing<br/><small>DELETE /api/items/lost/{id}</small>")
+        ITEM11("create found listing<br/><small>POST /api/items/found</small>")
+        ITEM12("admin listing read<br/><small>GET /api/admin/items/{type}/{id}</small>")
+        ITEM1 ~~~ ITEM2 ~~~ ITEM3 ~~~ ITEM4 ~~~ ITEM5 ~~~ ITEM6 ~~~ ITEM7 ~~~ ITEM8 ~~~ ITEM9 ~~~ ITEM10 ~~~ ITEM11 ~~~ ITEM12
+    end
+    subgraph MATCH ["Matching (13)"]
+        direction TB
+        MATCH1("my matches<br/><small>GET /api/matches</small>")
+        MATCH2("my claims<br/><small>GET /api/matches/mine</small>")
+        MATCH3("my appeals<br/><small>GET /api/matches/appeals/mine</small>")
+        MATCH4("candidates<br/><small>GET /api/matches/candidates</small>")
+        MATCH5("preview<br/><small>POST /api/matches/preview</small>")
+        MATCH6("claim<br/><small>POST /api/matches/claim</small>")
+        MATCH7("finder confirm<br/><small>POST /api/matches/{id}/finder/confirm</small>")
+        MATCH8("return contact<br/><small>GET /api/matches/{id}/lost-reporter/return-contact</small>")
+        MATCH9("send appeal<br/><small>POST /api/matches/appeals</small>")
+        MATCH10("admin appeal list<br/><small>GET /api/admin/match-appeals</small>")
+        MATCH11("admin appeal detail<br/><small>GET /api/admin/match-appeals/{id}</small>")
+        MATCH12("admin appeal verify<br/><small>POST /api/admin/match-appeals/{id}/verify</small>")
+        MATCH13("admin appeal reject<br/><small>POST /api/admin/match-appeals/{id}/reject</small>")
+        MATCH1 ~~~ MATCH2 ~~~ MATCH3 ~~~ MATCH4 ~~~ MATCH5 ~~~ MATCH6 ~~~ MATCH7 ~~~ MATCH8 ~~~ MATCH9 ~~~ MATCH10 ~~~ MATCH11 ~~~ MATCH12 ~~~ MATCH13
+    end
+    subgraph ADMIN ["Admin Verify (4)"]
+        direction TB
+        ADMIN1("spam review list<br/><small>GET /api/admin/spam-records</small>")
+        ADMIN2("spam record detail<br/><small>GET /api/admin/spam-records/{id}</small>")
+        ADMIN3("open spam record<br/><small>POST /api/admin/spam-records/{id}/open</small>")
+        ADMIN4("dismiss spam record<br/><small>POST /api/admin/spam-records/{id}/dismiss</small>")
+        ADMIN1 ~~~ ADMIN2 ~~~ ADMIN3 ~~~ ADMIN4
+    end
+    classDef all fill:#f3f4f6,stroke:#6b7280,color:#111827
+    classDef both fill:#dbeafe,stroke:#2563eb,color:#172554
+    classDef steady fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef partner fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+    classDef admin fill:#ccfbf1,stroke:#0d9488,color:#134e4a
+    class AUTH1 all
+    class AUTH2,ITEM1,ITEM2,ITEM3,ITEM4,ITEM5,MATCH1,MATCH2,MATCH3 both
+    class AUTH3,ITEM6,ITEM7,ITEM8,ITEM9,ITEM10,MATCH4,MATCH5,MATCH6,MATCH8,MATCH9 steady
+    class AUTH4,AUTH5,ITEM12,MATCH10,MATCH11,MATCH12,MATCH13,ADMIN1,ADMIN2,ADMIN3,ADMIN4 admin
+    class ITEM11,MATCH7 partner
+```
+
+*Blue: steady and spike users. Green: steady users only. Purple: the partner account (steady). Teal: the admin. Grey: everyone (login).*
 
 ### Not tested, by design
 
@@ -246,9 +307,14 @@ sequenceDiagram
 `scripts/summarize-results.mjs` checks the results against `config/thresholds.json` and fails the run (exit code 1) if any check fails:
 
 - **Error rate:** at most 1% of requests may fail, overall, per thread group and per endpoint. A request fails if its status code or any of its assertions is wrong.
-- **p95 response time per endpoint:** 95% of an endpoint's requests must finish within its limit. Each thread group has a default (steady 300 ms, spike 1000 ms, admin 1500 ms), and slower operations have their own limits:
-  - **logins:** 1200 ms steady, 5000 ms spike (20 BCrypt hashes at once queue on a 2–4 core CI runner);
-  - **writes:** 1000 ms, or 2000 ms for replace photo and for writes with 10 or fewer requests per run.
+- **p95 response time per endpoint:** 95% of an endpoint's requests must finish within its limit.
+
+  | Thread group | Default | Login | Writes |
+  |---|---|---|---|
+  | Steady | 300 ms | 1200 ms | 1000 ms; 2000 ms for replace photo and for writes with 10 or fewer requests per run |
+  | Spike | 1000 ms | 5000 ms (20 BCrypt hashes at once queue on a 2–4 core CI runner) | create 1500 ms |
+  | Admin | 1500 ms | 1500 ms | 1500 ms |
+
 - **Coverage:** every expected thread group ran and called each of its expected endpoints at least once (23 steady, 10 spike, 12 admin).
 
 **How the limits were set:** from three local runs of the 80 s profile plus the CI runs seen so far. Each limit is the larger of about 5× the worst local p95 and about 1.5× the worst CI p95, rounded up.
@@ -334,6 +400,27 @@ Each line is `[status] check name: what it checks. The limit it was held to.` A 
 ## Reports
 
 Every run writes to `$ASE_REPORT_ROOT/load-testing/`. In GitHub Actions, the same folder plus the service logs is uploaded as the **`ase-load-testing`** artifact (Actions → the run → Artifacts; kept 14 days).
+
+```mermaid
+flowchart LR
+    J([JMeter run]) --> JTL[/results.jtl/]
+    J --> LOG[/jmeter.log/]
+    JTL --> H[/html dashboard/]
+    JTL --> SUM[[summarize-results.mjs]]
+    SUM --> MD[/summary.md/]
+    SUM --> DJ[/details.json/]
+    DJ --> V[[validate-report]]
+    V --> ST[/status.txt/]
+    C([everything printed]) --> CL[/console.log/]
+    classDef out fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef step fill:#dbeafe,stroke:#2563eb,color:#172554
+    classDef edge fill:#f3f4f6,stroke:#6b7280,color:#111827
+    class JTL,LOG,H,MD,DJ,ST,CL out
+    class SUM,V step
+    class J,C edge
+```
+
+*Where each report comes from. Green: the files. Blue: the scripts that make them.*
 
 ### `summary.md`, the human-readable report
 
@@ -490,15 +577,13 @@ Changes to the summary script were also checked offline by re-summarising saved 
 
 ## Typical results
 
-Three calibration runs locally (WSL2) plus CI, 80 s profile:
-- **Overall:** 52 of 52 checks pass, about 58,000–74,000 requests, 0 errors.
-- **Steady users:**
-  - **Reads:** p95 3–9 ms.
-  - **Writes** (create, edit, photo, resolve, delete, claim, confirm, appeal): p95 about 20–35 ms, and up to about 165 ms on a slower run.
-  - **Login:** about 190–225 ms, because BCrypt hashing is deliberately CPU-heavy.
-- **Spike users:** about 9,000–11,000 requests per endpoint in 20 s. Reads stay at p95 4–14 ms with 0 errors; creates p95 about 45–225 ms.
-- **Admin:** reads p95 10–75 ms; open, dismiss, verify and reject 30–300 ms.
-- **On GitHub's runner:** reads are similar.
-  - **The spike's 20 simultaneous logins** queue on 2–4 cores (p95 about 2 s).
-  - **The first photo uploads on a cold runner** took about 1.2 s.
-  - Both are inside their limits.
+Five local runs (WSL2) of the final plan, plus the CI runs. All passed 52 of 52 checks with 0 errors, at about 73,000–86,000 requests per run.
+
+| | Reads, p95 | Writes, p95 | Login, p95 |
+|---|---|---|---|
+| Steady users | 3–9 ms | 20–35 ms, up to about 165 ms on a slower run | 190–225 ms (BCrypt is deliberately CPU-heavy) |
+| Spike users (about 10,000 requests per endpoint in 20 s) | 4–20 ms | creates 45–225 ms | about 220–260 ms |
+| Admin (5–8 requests per endpoint) | 10–95 ms | open, dismiss, verify, reject 30–300 ms | 230–300 ms |
+| GitHub's runner | similar to local | first photo uploads on a cold runner up to about 1.2 s | spike up to about 2 s (20 hashes queue on 2–4 cores) |
+
+Everything stays inside its limit, including the CI outliers.
