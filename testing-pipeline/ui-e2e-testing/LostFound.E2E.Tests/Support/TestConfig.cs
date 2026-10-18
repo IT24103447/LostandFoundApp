@@ -36,13 +36,33 @@ public static class TestConfig
     public static string ItemApiUrl => Env("E2E_ITEM_API_URL", "http://localhost:5001").TrimEnd('/');
 
     /// <summary>
-    /// A seeded user other than user1, chosen at random. Spreading created reports across
-    /// user2..user19 keeps every user under the spam rule (more than 3 reports gets flagged).
+    /// Seeded account reserved for the spam-detection journey (FLOW-06). It deliberately posts
+    /// several reports in a row, so no other test may use it (PickUser never returns it).
+    /// </summary>
+    public static TestUser SpamTarget =>
+        new(Env("E2E_SPAM_EMAIL", "user19@example.com"), Env("E2E_USERS_PASSWORD", "User123!"));
+
+    /// <summary>Set E2E_SPAM_DETECTION=false in an environment without spam detection; FLOW-06 then skips itself.</summary>
+    public static bool SpamDetectionExpected =>
+        !string.Equals(Env("E2E_SPAM_DETECTION", "true"), "false", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A seeded user other than user1, chosen at random from user2..user18. Spreading created reports
+    /// across several users keeps every user under the spam rule; user19 (spam) and user20 (kick)
+    /// are reserved for their own tests.
     /// </summary>
     public static TestUser PickUser()
     {
-        var n = Random.Shared.Next(2, 20);
+        var n = Random.Shared.Next(2, 19);
         return new TestUser($"user{n}@example.com", Env("E2E_USERS_PASSWORD", "User123!"));
+    }
+
+    /// <summary>Like <see cref="PickUser"/> but guaranteed to differ from <paramref name="other"/>.</summary>
+    public static TestUser PickUserOtherThan(TestUser other)
+    {
+        TestUser candidate;
+        do { candidate = PickUser(); } while (candidate.Email == other.Email);
+        return candidate;
     }
 
     private static string Env(string key, string fallback) =>
