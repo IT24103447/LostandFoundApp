@@ -79,4 +79,35 @@ public class FlowTests : E2ETestBase, IClassFixture<BrowserFixture>
             new AdminUsersPage(Driver).Find(target.Email).Unkick(target.Email).WaitForStatus(target.Email, "Active");
         }
     });
+
+    [Fact]
+    [Trait("Category", "Full")]
+    [Trait("Description", "User A renames a report; user B can then find it under the new title and no longer under the old one.")]
+    public void FLOW_02_EditByUserA_IsReflectedInUserBSearch() => Run(nameof(FLOW_02_EditByUserA_IsReflectedInUserBSearch), () =>
+    {
+        var userA = TestConfig.PickUser();
+        // The description must not contain the title: search also matches descriptions, so the old
+        // title would otherwise still be found after the rename.
+        var oldTitle = ItemApi.CreateLostItem(userA, ItemApi.UniqueTitle("Scarf"),
+            description: "E2E rename scenario: plain description without the title");
+        var newTitle = ItemApi.UniqueTitle("Shawl");
+
+        // --- user A renames the report ---
+        new LoginPage(Driver).LoginAs(userA);
+        new HomePage(Driver).WaitUntilLoaded();
+        var reports = new MyReportsPage(Driver).Open();
+        reports.ClickEdit(oldTitle);
+        new EditLostItemPage(Driver).WaitUntilLoaded(oldTitle)
+            .ReplaceTitle(newTitle)
+            .ReEnterHiddenInformation("re-entered private detail")
+            .Save()
+            .WaitForSavedMessage();
+
+        // --- user B searches ---
+        ClearBrowserState();
+        new LoginPage(Driver).LoginAs(TestConfig.User1);
+        var home = new HomePage(Driver).WaitUntilLoaded();
+        home.SearchUntilFound(newTitle);
+        home.SearchUntilNoResults(oldTitle);
+    });
 }

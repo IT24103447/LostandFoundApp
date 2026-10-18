@@ -1,5 +1,6 @@
 using LostFound.E2E.Tests.Pages;
 using LostFound.E2E.Tests.Support;
+using OpenQA.Selenium;
 using Xunit;
 
 namespace LostFound.E2E.Tests.Tests;
@@ -101,5 +102,40 @@ public class AuthTests : E2ETestBase, IClassFixture<BrowserFixture>
         Open("/report-lost-item");
 
         new AdminHomePage(Driver).WaitUntilLoaded();
+    });
+
+    [Fact]
+    [Trait("Category", "Full")]
+    [Trait("Description", "After signing out, pressing Back never shows the protected page (the app replaces history entries, so Back leaves the app); Forward returns to the login page.")]
+    public void AUTH_08_SignOut_ThenBrowserBack_DoesNotShowProtectedPage() => Run(nameof(AUTH_08_SignOut_ThenBrowserBack_DoesNotShowProtectedPage), () =>
+    {
+        new LoginPage(Driver).LoginAs(TestConfig.User1);
+        new HomePage(Driver).WaitUntilLoaded();
+
+        new AccountMenuPage(Driver).SignOut();
+        Driver.Navigate().Back();
+
+        // The app replaces history entries on login and sign-out, so Back leaves the app
+        // instead of revealing the protected page.
+        Assert.Empty(Driver.FindElements(By.XPath("//h1[normalize-space()='Find an Item']")));
+
+        Driver.Navigate().Forward();
+        Driver.WaitForPath("/login");
+        Assert.Empty(Driver.FindElements(By.XPath("//h1[normalize-space()='Find an Item']")));
+    });
+
+    [Fact]
+    [Trait("Category", "Full")]
+    [Trait("Description", "The register form rejects a malformed e-mail and a weak password with inline errors, shows a Weak strength rating, and does not submit.")]
+    public void AUTH_09_Register_WeakPasswordAndBadEmail_ShowInlineErrors() => Run(nameof(AUTH_09_Register_WeakPasswordAndBadEmail_ShowInlineErrors), () =>
+    {
+        var register = new RegisterPage(Driver).Open().Fill("not-an-email", "abc");
+
+        register.WaitForStrengthLabel("Weak");
+        register.SubmitForm();
+
+        Assert.Equal("Enter a valid email address.", register.WaitForEmailError());
+        Assert.Equal("Password must be at least 8 characters.", register.WaitForPasswordError());
+        Assert.Equal("/register", new Uri(Driver.Url).AbsolutePath);
     });
 }
