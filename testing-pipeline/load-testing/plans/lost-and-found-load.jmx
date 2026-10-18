@@ -361,8 +361,9 @@
             </JSONPathAssertion>
             <hashTree/>
             <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Pick a listing id">
+              <stringProp name="TestPlan.comments">Seeded listings only: steady users delete their own new listings, so viewing one of those could race into a 404.</stringProp>
               <stringProp name="JSONPostProcessor.referenceNames">ITEM_ID</stringProp>
-              <stringProp name="JSONPostProcessor.jsonPathExprs">$.items[*].id</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$.items[?(@.title =~ /.*\(seed .*/)].id</stringProp>
               <stringProp name="JSONPostProcessor.match_numbers">0</stringProp>
               <stringProp name="JSONPostProcessor.defaultValues">NO_ITEM</stringProp>
             </JSONPostProcessor>

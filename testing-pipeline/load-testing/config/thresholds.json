@@ -7,13 +7,13 @@
     "steady": {
       "default": 300,
       "Auth - login": 1000,
-      "Auth - edit profile": 1000,
+      "Auth - edit profile": 2000,
       "Item - create lost listing": 1000,
-      "Item - edit lost listing": 1000,
-      "Item - replace photo": 1000,
-      "Item - remove photo": 1000,
-      "Item - resolve lost listing": 1000,
-      "Item - delete lost listing": 1000
+      "Item - edit lost listing": 2000,
+      "Item - replace photo": 2000,
+      "Item - remove photo": 2000,
+      "Item - resolve lost listing": 2000,
+      "Item - delete lost listing": 2000
     },
     "spike": {
       "default": 1000,

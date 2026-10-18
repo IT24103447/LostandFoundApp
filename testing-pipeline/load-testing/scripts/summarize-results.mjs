@@ -21,7 +21,7 @@ const ENDPOINTS = {
   'Auth - me': 'Reads the signed-in user\'s profile with the JWT; expects 200 and an email.',
   'Auth - admin user list': 'Admin reads the paged user list; expects 200 and a list of users.',
   'Item - search': 'Searches listings with varied terms, categories and types; expects 200 and a paged result.',
-  'Item - view listing': 'Opens a listing found by the search; expects 200 and the same listing id.',
+  'Item - view listing': 'Opens a seeded listing found by the search (never edited or deleted by the test); expects 200 and the same listing id.',
   'Item - my lost reports': 'Reads the user\'s own lost reports; expects 200 and a list.',
   'Item - my found reports': 'Reads the user\'s own found reports; expects 200 and a list.',
   'Item - create lost listing': 'Creates a lost listing (no photo, unique title); expects 201 and the new id. Publishes a Kafka event.',
