@@ -11,9 +11,9 @@ if (!jtlPath || !thresholdsPath || !outDir) {
 }
 
 const GROUPS = {
-  steady: { name: 'Users - steady', match: /steady/i, phase: 'ramp-up and steady peak (users join one by one, then hold, with think time)' },
-  spike: { name: 'Users - spike', match: /spike/i, phase: 'spike (users start together, no think time)' },
-  admin: { name: 'Admin', match: /admin/i, phase: 'admin working throughout the run' },
+  steady: { name: 'Users - steady', match: /steady/i, about: 'users join one by one, then hold, with think time' },
+  spike: { name: 'Users - spike', match: /spike/i, about: 'users start together, no think time' },
+  admin: { name: 'Admin', match: /admin/i, about: 'one admin working through the whole run' },
 };
 
 const ENDPOINTS = {
@@ -27,9 +27,9 @@ const ENDPOINTS = {
   'Item - create lost listing': 'Creates a lost listing (no photo, unique title); expects 201 and the new id. Publishes a Kafka event.',
   'Item - edit lost listing': 'Edits the user\'s new listing (JSON body); expects 200 and the edited title.',
   'Item - replace photo': 'Uploads a small JPEG as the listing photo; expects 200 and a photo URL.',
-  'Item - remove photo': 'Removes the photo on half the loops; expects 200 and no photos left.',
-  'Item - resolve lost listing': 'Marks the listing resolved on a third of the loops; expects 200.',
-  'Item - delete lost listing': 'Deletes the listing on a third of the loops; expects 200.',
+  'Item - remove photo': 'Removes the photo from half of the lifecycle listings; expects 200 and no photos left.',
+  'Item - resolve lost listing': 'Marks a third of the lifecycle listings resolved; expects 200.',
+  'Item - delete lost listing': 'Deletes a third of the lifecycle listings; expects 200.',
   'Auth - edit profile': 'Changes the user\'s name on a share of loops, phone unchanged; expects 200.',
   'Matching - my matches': 'Reads the user\'s matches (Matching also calls Item Service); expects 200.',
   'Matching - my claims': 'Reads the user\'s claims; expects 200.',
@@ -75,14 +75,18 @@ function percentile(sorted, q) {
   return sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(q * sorted.length) - 1)] : 0;
 }
 
+// Loops instead of Math.min(...list): spreading a very large run overflows the call stack.
+const minOf = values => values.reduce((min, v) => (v < min ? v : min), Infinity);
+const maxOf = values => values.reduce((max, v) => (v > max ? v : max), -Infinity);
+
 function stats(samples) {
   const times = samples.map(s => s.elapsed).sort((a, b) => a - b);
   const errors = samples.filter(s => !s.success).length;
-  const start = Math.min(...samples.map(s => s.timeStamp));
-  const end = Math.max(...samples.map(s => s.timeStamp + s.elapsed));
+  const start = minOf(samples.map(s => s.timeStamp));
+  const end = maxOf(samples.map(s => s.timeStamp + s.elapsed));
   const seconds = Math.max((end - start) / 1000, 0.001);
   return {
-    users: Math.max(...samples.map(s => s.grpThreads)),
+    users: maxOf(samples.map(s => s.grpThreads)),
     requests: samples.length,
     errors,
     errorRatePercent: +(errors * 100 / samples.length).toFixed(2),
@@ -173,7 +177,7 @@ for (const [group, labels] of Object.entries(expected)) {
   coverage.push({ group, thread, problem });
   cases.push({
     name: `Coverage: ${thread}`,
-    description: `The ${GROUPS[group]?.phase ?? group} thread group must run and call every expected endpoint: ${labels.join(', ')}. Guards against parts of the plan silently not executing.`,
+    description: `This thread group must run and call all ${labels.length} expected endpoints (listed in config/thresholds.json), so no part of the plan is silently skipped.`,
     status: problem ? 'failed' : 'passed',
     expectedEndpoints: labels,
     recordedEndpoints: [...new Set(groupSamples.map(s => s.label))],
@@ -188,7 +192,7 @@ for (const thread of threadGroups) {
   const pass = g.errorRatePercent <= maxErrorRate;
   cases.push({
     name: `${thread} (thread group)`,
-    description: `All requests made during the ${GROUPS[group]?.phase ?? thread} phase. Passes when no more than ${maxErrorRate}% fail.`,
+    description: `All requests from this thread group (${GROUPS[group]?.about ?? thread}). Passes when no more than ${maxErrorRate}% fail.`,
     status: pass ? 'passed' : 'failed',
     ...g,
     threshold: { errorRateMaxPercent: maxErrorRate },
@@ -197,6 +201,7 @@ for (const thread of threadGroups) {
 }
 
 const endpointRows = [];
+const describedIn = new Map();
 for (const [key, list] of byKey) {
   const [thread, label] = key.split('\u0000');
   const group = list[0].group;
@@ -209,7 +214,7 @@ for (const [key, list] of byKey) {
   const failures = [...new Set(list.filter(s => !s.success).map(s => `${s.code} ${s.failure}`.trim()))].slice(0, 3);
   cases.push({
     name: `${thread} | ${label}`,
-    description: `${ENDPOINTS[label] ?? `Requests named "${label}".`} Passes when p95 ≤ ${p95Limit ?? 'n/a'} ms and no more than ${maxErrorRate}% fail.`,
+    description: `${describedIn.has(label) ? `Same request as in ${describedIn.get(label)}.` : ENDPOINTS[label] ?? `Requests named "${label}".`} Passes when p95 ≤ ${p95Limit ?? 'n/a'} ms and no more than ${maxErrorRate}% fail.`,
     status: problems.length ? 'failed' : 'passed',
     endpoint: list[0].path,
     ...e,
@@ -217,18 +222,22 @@ for (const [key, list] of byKey) {
     ...(problems.length ? { error: [...problems, ...failures.map(f => `e.g. ${f}`)].join('; ') } : {}),
   });
   endpointRows.push({ thread, label, path: list[0].path, p95Limit, problems, ...e });
+  if (!describedIn.has(label)) describedIn.set(label, thread);
 }
 
 const failed = cases.filter(c => c.status === 'failed');
-const durationSec = Math.round((Math.max(...samples.map(s => s.timeStamp + s.elapsed)) - Math.min(...samples.map(s => s.timeStamp))) / 1000);
-const groupUsers = threadGroups.map(t => `${t}: ${Math.max(...samples.filter(s => s.thread === t).map(s => s.grpThreads))} users`).join(', ');
+const durationSec = Math.round((maxOf(samples.map(s => s.timeStamp + s.elapsed)) - minOf(samples.map(s => s.timeStamp))) / 1000);
+const groupUsers = threadGroups.map(t => {
+  const users = maxOf(samples.filter(s => s.thread === t).map(s => s.grpThreads));
+  return `${t}: ${users} ${users === 1 ? 'user' : 'users'}`;
+}).join(', ');
 
 const md = [
   '# load-testing',
   '',
   `**Result: ${failed.length ? `FAILED (${failed.length} of ${cases.length} checks)` : `PASSED (${cases.length} checks)`}**`,
   '',
-  `Scope: Apache JMeter load test of the Lost & Found services. Thread groups run: ${groupUsers}. Duration ${durationSec} s. Endpoints exercised: ${new Set(samples.map(s => s.label)).size}.`,
+  `Scope: Apache JMeter load test of the Lost & Found services. Thread groups run: ${groupUsers}. Duration ${durationSec} s. Endpoints: ${new Set(samples.map(s => s.label)).size} distinct, ${endpointRows.length} checked across the thread groups.`,
   '',
   `Totals: ${overall.requests} requests, ${overall.errors} failed (${overall.errorRatePercent}%), ${overall.throughputPerSec} requests/s, p95 ${overall.p95Ms} ms.`,
   '',
