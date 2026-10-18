@@ -4,6 +4,7 @@
 #           .\test-unit.ps1 -Service AuthService -Story Registration
 #           .\test-unit.ps1 -Prepare
 #           .\test-unit.ps1 -NoBuild
+#           .\test-unit.ps1 -NoBuild -Demo
 [CmdletBinding()]
 param(
     [ValidatePattern('^[A-Za-z][A-Za-z0-9_]*$')]
@@ -11,6 +12,7 @@ param(
     [ValidatePattern('^[A-Za-z][A-Za-z0-9_]*$')]
     [string]$Story,
     [switch]$NoBuild,
+    [switch]$Demo,
     [switch]$Prepare,
     [string]$DotNetPath
 )
@@ -25,6 +27,9 @@ if ($Story -and -not $Service) {
 }
 if ($Prepare -and $NoBuild) {
     throw 'Use -Prepare before the demo, then -NoBuild when running tests.'
+}
+if ($Prepare -and $Demo) {
+    throw 'Prepare first, then use -Demo when running tests.'
 }
 if ($Service) {
     $projectPath = Join-Path $unitRoot "$Service.UnitTests/$Service.UnitTests.csproj"
@@ -137,6 +142,7 @@ try {
     $runnerArguments += @('--artifacts-path', (ConvertTo-GitBashPath $buildRoot))
     if ($Service) { $runnerArguments += @('--service', $Service) }
     if ($Story) { $runnerArguments += @('--story', $Story) }
+    if ($Demo) { $runnerArguments += '--demo' }
     if ($NoBuild) { $runnerArguments += @('--no-build', '--no-restore') }
     else { $runnerArguments += @('--disable-build-servers', '-p:UseSharedCompilation=false') }
     & $gitBashPath @runnerArguments

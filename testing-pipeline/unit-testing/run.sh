@@ -55,9 +55,10 @@ finish() {
 run_tests() {
   command -v dotnet >/dev/null || { echo '.NET 8 SDK is required.' >&2; return 1; }
   command -v node >/dev/null || { echo 'Node.js is required for unit reporting.' >&2; return 1; }
-  local service='' story='' dotnet_args=() projects=()
+  local service='' story='' demo=false dotnet_args=() projects=()
   while (( $# > 0 )); do
     case "$1" in
+      --demo) demo=true; shift ;;
       --service|--story)
         (( $# >= 2 )) || { echo "$1 needs a name." >&2; return 2; }
         [[ "$2" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "Invalid service/story name: $2" >&2; return 2; }
@@ -74,7 +75,9 @@ run_tests() {
     projects=("$project_path")
     if [[ -n "$story" ]]; then
       [[ -d "$SCRIPT_DIR/$service.UnitTests/$story" ]] || { echo "No story folder $story exists for $service." >&2; return 2; }
-      dotnet_args+=(--filter "FullyQualifiedName~$service.UnitTests.$story.")
+      if [[ "$demo" != true ]]; then
+        dotnet_args+=(--filter "FullyQualifiedName~$service.UnitTests.$story.")
+      fi
     fi
   else
     mapfile -t projects < <(find "$SCRIPT_DIR" -maxdepth 2 -name '*.csproj' -type f | sort)
@@ -83,8 +86,14 @@ run_tests() {
   local selection="${service:-All available services}${story:+ / $story}"
   echo "Running unit tests: $selection"
   local suite_started=$SECONDS
+  local suite_started_ms
+  suite_started_ms=$(date +%s%3N)
   local project name result test_result=0 report_result=0
-  for project in "${projects[@]}"; do
+  if [[ "$demo" == true ]]; then
+    ASE_UNIT_STARTED_MS="$suite_started_ms" \
+      node "$SCRIPT_DIR/scripts/demo-runner.mjs" "$SCRIPT_DIR" "$ASE_REPORT_DIR" "$service" "$story" "${dotnet_args[@]}" || test_result=$?
+  else
+    for project in "${projects[@]}"; do
     name=$(basename "$project" .csproj)
     result=0
     dotnet test "$project" -c Release \
@@ -92,11 +101,13 @@ run_tests() {
       --results-directory "$ASE_REPORT_DIR/results" "${dotnet_args[@]}" \
       >> "$ASE_REPORT_DIR/console.log" 2>&1 || result=$?
     if (( result != 0 )); then test_result=$result; fi
-  done
+    done
+  fi
   # Generate available reports even if compilation or a test assertion failed.
-  node "$SCRIPT_DIR/scripts/summarize-results.mjs" "$ASE_REPORT_DIR/results" "$ASE_REPORT_DIR" || report_result=$?
+  ASE_UNIT_DEMO="$demo" ASE_UNIT_STARTED_MS="$suite_started_ms" ASE_UNIT_SCOPE="$selection" ASE_UNIT_EXIT_CODE="$test_result" \
+    node "$SCRIPT_DIR/scripts/summarize-results.mjs" "$ASE_REPORT_DIR/results" "$ASE_REPORT_DIR" || report_result=$?
   local suite_elapsed=$((SECONDS - suite_started))
-  echo "Unit suite wall-clock time: ${suite_elapsed}s (selected projects and reporting)."
+  printf 'Total time: %dm %02ds\n' "$((suite_elapsed / 60))" "$((suite_elapsed % 60))"
   if [[ -s "$ASE_REPORT_DIR/summary.md" ]]; then
     printf '\nSelected scope: %s\n' "$selection" >> "$ASE_REPORT_DIR/summary.md"
     printf '\nWall-clock duration: %ss (selected projects and reporting; includes restore/build unless --no-build --no-restore).\n' "$suite_elapsed" >> "$ASE_REPORT_DIR/summary.md"
