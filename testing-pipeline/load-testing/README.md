@@ -27,33 +27,36 @@ Shared setup, the CI workflow and the reporting contract are described in [`../R
 9. [Running it](#running-it)
 10. [How it was tested during development](#how-it-was-tested-during-development)
 11. [Typical results](#typical-results)
-12. [Assessment-branch note](#assessment-branch-note)
 
 ## What the test does
 
 ### The 80-second profile
 
-```mermaid
-flowchart LR
-    T0(["0 s<br/>START"]) --> R["Ramp-up<br/>steady users join,<br/>1 per second"]
-    R --> T20(["20 s<br/>STEADY PEAK"]) --> P["Peak<br/>all 20 steady users,<br/>think time 0.5–1.5 s"]
-    P --> T60(["60 s<br/>SPIKE"]) --> S["Spike<br/>20 new users at once,<br/>no think time"]
-    S --> T80(["80 s<br/>FINISHED"])
-    AD["Admin: 1 user from 0 to 80 s,<br/>working through its journey the whole time"]
-    classDef user fill:#dbeafe,stroke:#2563eb,color:#172554
-    classDef partner fill:#ede9fe,stroke:#7c3aed,color:#3b0764
-    classDef admin fill:#ccfbf1,stroke:#0d9488,color:#134e4a
-    classDef decision fill:#fff3cd,stroke:#b58105,color:#713f12
-    classDef retry fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
-    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d
-    classDef edge fill:#f3f4f6,stroke:#6b7280,color:#111827
-    class T0,T20,T60,T80 edge
-    class R,P user
-    class S retry
-    class AD admin
-```
-*Rounded grey: the phase banners printed live. Blue: steady users. Red: the spike. Teal: the admin.*
+#### Users over time
 
+```
+ users
+  20 |                     +---------------------------------------+-------------------+
+     |                   / |     STEADY PEAK                       |     SPIKE         |
+     |               /     |  20 users, think time                 |  20 new users,    |
+     |           /         |  0.5-1.5 s between steps              |  all at once,     |
+     |       /  RAMP-UP    |                                       |  no think time    |
+   1 | --/--------------------- ADMIN: 1 user for the whole run ------------------------
+       0s                  20s                                     60s                 80s
+```
+
+#### When each thread group runs
+
+```
+ time (s)  0         10        20        30        40        50        60        70        80
+           |---------|---------|---------|---------|---------|---------|---------|---------|
+ Steady 20 ////////////////////########################################
+ Spike 20                                                              ####################
+ Admin 1   ################################################################################
+           ^START              ^STEADY PEAK                            ^SPIKE      FINISHED^
+```
+
+*`/` ramping up, `#` running. `^` marks when each live banner prints.*
 
 | Time | What happens | Live banner |
 |---|---|---|
@@ -499,7 +502,3 @@ Three calibration runs locally (WSL2) plus CI, 80 s profile:
   - **The spike's 20 simultaneous logins** queue on 2–4 cores (p95 about 2 s).
   - **The first photo uploads on a cold runner** took about 1.2 s.
   - Both are inside their limits.
-
-## Assessment-branch note
-
-Auth's login rate limit is raised from 10 to 1000 per 5 minutes on `ASE/Assignment` only, so every user and partner can log in on every run. See "Changes after the original implementation", change 4, in the [DevOps documentation](../../DevOps_Documentation/ASE-Testing-Pipeline.md). Production keeps 10 per 5 minutes.
