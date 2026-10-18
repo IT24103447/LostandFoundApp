@@ -35,6 +35,7 @@ public class ReportsTests : E2ETestBase, IClassFixture<BrowserFixture>
 
     [Fact]
     [Trait("Category", "Full")]
+    [Trait("Category", "Demo")]
     [Trait("Description", "Editing a report's title shows 'Changes saved.' and the new title replaces the old one in My Reports.")]
     public void RPT_02_EditTitle_IsSavedAndShownInMyReports() => Run(nameof(RPT_02_EditTitle_IsSavedAndShownInMyReports), () =>
     {

@@ -90,6 +90,7 @@ public class ReportLostItemWizardTests : E2ETestBase, IClassFixture<BrowserFixtu
 
     [Fact]
     [Trait("Category", "Full")]
+    [Trait("Category", "Demo")]
     [Trait("Description", "The date field's latest allowed date is today, and a future date is rejected with an inline error on step 2.")]
     public void LOST_05_FutureDate_IsNotAccepted() => Run(nameof(LOST_05_FutureDate_IsNotAccepted), () =>
     {
@@ -126,6 +127,7 @@ public class ReportLostItemWizardTests : E2ETestBase, IClassFixture<BrowserFixtu
 
     [Fact]
     [Trait("Category", "Full")]
+    [Trait("Category", "Demo")]
     [Trait("Description", "A valid image is previewed, and once it is added no further photo can be added (one-photo limit).")]
     public void LOST_07_ValidImage_IsPreviewed_AndOnePhotoLimitApplies() => Run(nameof(LOST_07_ValidImage_IsPreviewed_AndOnePhotoLimitApplies), () =>
     {

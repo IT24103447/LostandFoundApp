@@ -55,6 +55,7 @@ public class AuthTests : E2ETestBase, IClassFixture<BrowserFixture>
 
     [Fact]
     [Trait("Category", "Full")]
+    [Trait("Category", "Demo")]
     [Trait("Description", "Submitting an empty login form shows inline required-field errors and stays on the login page.")]
     public void AUTH_04_EmptyForm_ShowsInlineValidationErrors() => Run(nameof(AUTH_04_EmptyForm_ShowsInlineValidationErrors), () =>
     {
@@ -106,6 +107,7 @@ public class AuthTests : E2ETestBase, IClassFixture<BrowserFixture>
 
     [Fact]
     [Trait("Category", "Full")]
+    [Trait("Category", "Demo")]
     [Trait("Description", "After signing out, pressing Back never shows the protected page (the app replaces history entries, so Back leaves the app); Forward returns to the login page.")]
     public void AUTH_08_SignOut_ThenBrowserBack_DoesNotShowProtectedPage() => Run(nameof(AUTH_08_SignOut_ThenBrowserBack_DoesNotShowProtectedPage), () =>
     {
