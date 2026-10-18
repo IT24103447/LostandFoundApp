@@ -34,18 +34,26 @@ Shared setup, the CI workflow and the reporting contract are described in [`../R
 ### The 80-second profile
 
 ```mermaid
-gantt
-    title Load profile (config/load.properties)
-    dateFormat X
-    axisFormat %M:%S
-    section Steady users (20)
-    Ramp-up, one user joins per second   :s1, 0, 20s
-    Peak, all 20 with think time         :s2, after s1, 40s
-    section Spike users (20)
-    All start together, no think time    :p1, 60, 20s
-    section Admin (1)
-    Admin journey for the whole run      :a1, 0, 80s
+flowchart LR
+    T0(["0 s<br/>START"]) --> R["Ramp-up<br/>steady users join,<br/>1 per second"]
+    R --> T20(["20 s<br/>STEADY PEAK"]) --> P["Peak<br/>all 20 steady users,<br/>think time 0.5–1.5 s"]
+    P --> T60(["60 s<br/>SPIKE"]) --> S["Spike<br/>20 new users at once,<br/>no think time"]
+    S --> T80(["80 s<br/>FINISHED"])
+    AD["Admin: 1 user from 0 to 80 s,<br/>working through its journey the whole time"]
+    classDef user fill:#dbeafe,stroke:#2563eb,color:#172554
+    classDef partner fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+    classDef admin fill:#ccfbf1,stroke:#0d9488,color:#134e4a
+    classDef decision fill:#fff3cd,stroke:#b58105,color:#713f12
+    classDef retry fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef edge fill:#f3f4f6,stroke:#6b7280,color:#111827
+    class T0,T20,T60,T80 edge
+    class R,P user
+    class S retry
+    class AD admin
 ```
+*Rounded grey: the phase banners printed live. Blue: steady users. Red: the spike. Teal: the admin.*
+
 
 | Time | What happens | Live banner |
 |---|---|---|
@@ -62,14 +70,55 @@ Each steady user (`user1`–`user20`) has a **partner** account (user N+10), whi
 
 ```mermaid
 flowchart TD
-    A[Common reads<br/>me · search · view a listing · my lost · my found] --> B{Journey this loop<br/>loop + thread number, mod 3}
-    B -->|0| L[Listing lifecycle<br/>create lost listing → edit → replace photo<br/>→ remove photo on half → resolve, delete or keep]
-    B -->|1| M[Match<br/>user reports lost · partner reports the same item found<br/>→ preview 100% → claim → partner confirms as finder<br/>→ user reads the finder's contact]
-    B -->|2| P[Appeal<br/>user reports lost · partner reports a different item<br/>→ preview below 60% → send appeal]
-    L --> C[Common reads<br/>my matches · my claims · my appeals · match candidates<br/>+ edit profile name on 1 loop in 5]
-    M --> C
-    P --> C
+    IN([Logged in once: own account and partner]) --> C1
+    subgraph COMMON1 [Common reads]
+        C1[me] --> C2[search] --> C3[view a seeded listing] --> C4[my lost reports] --> C5[my found reports]
+    end
+    C5 --> J{journey this loop:<br/>loop + thread number, mod 3}
+    J -->|0| L1
+    J -->|1| M1
+    J -->|2| A1
+    subgraph LIFE [Listing lifecycle]
+        L1[create lost listing] --> L2[edit it] --> L3[replace its photo] --> L4{remove the photo?<br/>3 listings in every 6}
+        L4 -->|yes| L5[remove photo] --> L6
+        L4 -->|no| L6{ending:<br/>shared counter}
+        L6 -->|resolve| L7[resolve]
+        L6 -->|delete| L8[delete]
+        L6 -->|keep| L9[keep it]
+    end
+    subgraph MATCH [Match]
+        M1[user: create lost listing] --> M2[partner: create found listing,<br/>same title and text] --> M3[user: preview the pair, 100%] --> M4[user: claim]
+        M4 -->|201| M6[partner: confirm as finder]
+        M4 -->|409 stale preview| M5{{preview again, claim again: 201}} --> M6
+        M6 --> M7[user: read the finder's contact]
+    end
+    subgraph APPEAL [Appeal]
+        A1[user: create lost listing] --> A2[partner: create found listing,<br/>a different item] --> A3[user: preview the pair, below 60%] --> A4[user: send appeal]
+        A4 -->|409 stale preview| A5{{preview again, appeal again: 201}}
+    end
+    L7 & L8 & L9 & M7 & A4 & A5 --> E1
+    subgraph COMMON2 [Common reads]
+        E1[my matches] --> E2[my claims] --> E3[my appeals] --> E4[match candidates] --> E5{1 loop in 5?}
+        E5 -->|yes| E6[edit profile name]
+    end
+    E5 -->|no| NX([next loop])
+    E6 --> NX
+    classDef user fill:#dbeafe,stroke:#2563eb,color:#172554
+    classDef partner fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+    classDef admin fill:#ccfbf1,stroke:#0d9488,color:#134e4a
+    classDef decision fill:#fff3cd,stroke:#b58105,color:#713f12
+    classDef retry fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef edge fill:#f3f4f6,stroke:#6b7280,color:#111827
+    class IN,NX,L9 edge
+    class C1,C2,C3,C4,C5,E1,E2,E3,E4,E6,L1,L2,L3,L5,M1,M3,M4,A1,A3,A4 user
+    class M2,M6,A2 partner
+    class J,L4,L6,E5 decision
+    class M5,A5 retry
+    class L7,L8,M7 result
 ```
+*Blue: the user. Purple: the partner account. Yellow diamonds: decisions (fixed rules, never random). Red hexagons: the stale-preview retry. Green: where a journey ends with a result. Rounded: start and end.*
+
 
 ### What the spike does
 
@@ -79,17 +128,39 @@ The spike's 20 users run the read-heavy part of the same journey with no think t
 
 ```mermaid
 flowchart TD
-    U[User list] --> U2[Look up one user's contact]
-    U2 --> S[Spam Review queue]
-    S -->|a record needs review| S1[Open the record → read its first listing<br/>→ start the review → dismiss]
-    S -->|none yet| A
-    S1 --> A[Pending appeal queue]
-    A -->|1st appeal waiting| V[Open it → verify<br/>creates the match]
-    A -->|2nd appeal waiting| R[Open it → reject with a reason]
-    A -->|none yet| E[Next pass]
-    V --> E
-    R --> E
+    IN([Logged in once]) --> U1
+    subgraph USERS [Users]
+        U1[user list] --> U2[look up one user's contact]
+    end
+    U2 --> S0
+    subgraph SPAM [Spam Review]
+        S0[spam review queue] --> S1{a record needs review?}
+        S1 -->|yes| S2[open the record] --> S3[read its first listing:<br/>200, or 404 if its owner deleted it] --> S4[start the review:<br/>UNDER_REVIEW] --> S5[dismiss it:<br/>DISMISSED]
+    end
+    S1 -->|no| P0
+    S5 --> P0
+    subgraph APPEALS [Match appeals]
+        P0[pending appeal queue] --> P1{a 1st appeal waiting?}
+        P1 -->|yes| P2[open it] --> P3[verify: VERIFIED,<br/>creates the match] --> P4{a 2nd appeal waiting?}
+        P4 -->|yes| P5[open it] --> P6[reject with a reason:<br/>REJECTED]
+    end
+    P1 -->|no| NX([next pass])
+    P4 -->|no| NX
+    P6 --> NX
+    classDef user fill:#dbeafe,stroke:#2563eb,color:#172554
+    classDef partner fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+    classDef admin fill:#ccfbf1,stroke:#0d9488,color:#134e4a
+    classDef decision fill:#fff3cd,stroke:#b58105,color:#713f12
+    classDef retry fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef edge fill:#f3f4f6,stroke:#6b7280,color:#111827
+    class IN,NX edge
+    class U1,U2,S0,S2,S3,P0,P2,P5 admin
+    class S1,P1,P4 decision
+    class S4,S5,P3,P6 result
 ```
+*Teal: admin reads. Yellow diamonds: "only if one exists" checks. Green: the admin's decisions (status changes). Rounded: start and end.*
+
 
 The spam records and appeals the admin works on are created by the steady users during the same run.
 
@@ -136,10 +207,14 @@ The spam records and appeals the admin works on are created by the steady users 
 
 ```mermaid
 sequenceDiagram
-    participant U as User (userN)
-    participant P as Partner (userN+10)
-    participant I as Item Service
-    participant M as Matching Service
+    box rgb(219,234,254) Test users
+        participant U as User (userN)
+        participant P as Partner (userN+10)
+    end
+    box rgb(220,252,231) Services
+        participant I as Item Service
+        participant M as Matching Service
+    end
     U->>I: create lost listing
     P->>I: create found listing (same title, category, text)
     I-->>M: listing events over Kafka (a moment later)
@@ -149,7 +224,7 @@ sequenceDiagram
         M-->>U: 409 "Preview it again"
         U->>M: preview again → v2
         U->>M: claim with v2 → 201 (must succeed)
-    else
+    else Kafka data was already there
         M-->>U: 201 claim created
     end
     P->>M: confirm as finder → CONFIRMED
@@ -182,17 +257,34 @@ sequenceDiagram
 ## How it fits the pipeline
 
 ```mermaid
-flowchart TD
-    T[GitHub Actions: load-testing job<br/>or local-run.sh on your machine] --> E[shared/start-environment.sh start<br/>MySQL + Kafka containers, Kafka topics,<br/>4 services + frontend, environment.sh]
-    E --> S[shared/seed-test-data.sh load-testing<br/>→ seed.sh: 12 seeded listings]
-    S --> R[load-testing/run.sh]
-    R --> J1[install or reuse JMeter 5.6.3<br/>checksum-verified, cached]
-    J1 --> J2[jmeter -n plan + load.properties<br/>→ results.jtl, html dashboard]
-    J2 --> J3[summarize-results.mjs<br/>→ summary.md, details.json, exit code]
-    J3 --> V[shared validate-report<br/>→ status.txt passed/failed]
-    V --> X[shared/start-environment.sh stop]
-    X --> A[CI: ase-load-testing artifact<br/>reports + service logs]
+flowchart LR
+    subgraph JOB [GitHub Actions load-testing job, or local-run.sh]
+        direction TB
+        E[start the environment:<br/>MySQL and Kafka containers,<br/>Kafka topics, 4 services,<br/>frontend, environment.sh] --> SD[[seed.sh: 12 seeded listings]] --> R[[load-testing/run.sh]] --> X[stop the environment] --> AR[/CI only: ase-load-testing artifact,<br/>reports and service logs/]
+    end
+    subgraph RUN [Inside run.sh]
+        direction TB
+        J1[install or reuse JMeter 5.6.3,<br/>checksum-verified] --> J2[jmeter -n with the plan<br/>and load.properties] --> J3[[summarize-results.mjs]] --> J4[[shared validate-report]]
+        J2 --> O0[/results.jtl, html dashboard/]
+        J3 --> O1[/summary.md, details.json/]
+        J4 --> O2[/status.txt/]
+    end
+    R --> J1
+    J4 -. exit code .-> R
+    classDef user fill:#dbeafe,stroke:#2563eb,color:#172554
+    classDef partner fill:#ede9fe,stroke:#7c3aed,color:#3b0764
+    classDef admin fill:#ccfbf1,stroke:#0d9488,color:#134e4a
+    classDef decision fill:#fff3cd,stroke:#b58105,color:#713f12
+    classDef retry fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef edge fill:#f3f4f6,stroke:#6b7280,color:#111827
+    class E,SD,X decision
+    class R,J1,J2 user
+    class J3,J4 user
+    class O0,O1,O2,AR result
 ```
+*Yellow: shared environment steps. Blue: this stage's run. Green parallelograms: files it produces. Double-edged boxes: another script being called.*
+
 
 - **One test entry point:** `run.sh`. CI and local runs call the same script with the same environment variables, so a local pass means the same checks as on CI.
 - **Unified reporting:** like every stage, it writes `summary.md`, `details.json` and `status.txt`, which the shared `validate-report` checks. In GitHub Actions, `summary.md` is also added to the run's summary page.
