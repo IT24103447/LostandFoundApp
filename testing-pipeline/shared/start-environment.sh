@@ -91,6 +91,15 @@ JS
   touch "$ASE_RUNTIME_DIR/compose.started"
   compose up -d --wait --wait-timeout 240
   bash "$SCRIPT_DIR/seed-test-data.sh" --databases
+  # Consumers that subscribe before a topic exists only see it after a metadata refresh (minutes), so create them up front.
+  compose exec -T kafka bash -c 'for topic in "$@"; do
+    kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic "$topic" --partitions 1 --replication-factor 1 >/dev/null
+  done' _ \
+    items.lost_item.created items.lost_item.updated items.lost_item.resolved \
+    items.found_item.created items.found_item.updated items.found_item.resolved \
+    items.item.delete_requested matches.confirmed \
+    auth.user.verified auth.user.profile_updated auth.user.kicked auth.user.unkicked auth.user.deleted
+  echo 'Kafka topics prepared.'
   export ASPNETCORE_ENVIRONMENT=Development
   export Jwt__Secret=ase-disposable-test-key-at-least-32-characters
   export Jwt__Issuer=auth-service Jwt__Audience=lostandfound-app
