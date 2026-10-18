@@ -1,24 +1,23 @@
 {
-  "description": "Pass/fail limits checked after the run. Steady = ramp-up and peak users, spike = burst users, admin = admin thread. p95 limits are in milliseconds, set at roughly 5x the p95 measured over three local runs and adjusted for CI (12 Oct 2026): the spike login burst is CPU-bound (20 BCrypt hashes at once on a 2-4 core runner) and the admin group has only about 15 samples, so its p95 is effectively its slowest request. Endpoints without their own limit use the group's default. 'expected' lists the thread groups that must run and the endpoints each must call (coverage).",
+  "description": "Pass/fail limits checked after the run. Steady = ramp-up and peak users, spike = burst users, admin = admin thread. p95 limits are in milliseconds. Recalibrated 18 Oct 2026 from three local runs of the 80 s profile and the CI runs seen so far: each limit is the larger of about 5x the worst local p95 and about 1.5x the worst CI p95, rounded up. Writes with 10 or fewer requests per run (edit profile, remove photo, resolve, delete) and replace photo get 2000 ms: with so few samples p95 is the slowest single request, and CI's first photo uploads on a cold runner reached 1155 ms. The spike login burst is CPU-bound (20 BCrypt hashes at once on a 2-4 core runner). Endpoints without their own limit use the group's default. 'expected' lists the thread groups that must run and the endpoints each must call (coverage).",
   "errorRatePercent": {
     "max": 1
   },
   "p95Ms": {
     "steady": {
       "default": 300,
-      "Auth - login": 1000,
+      "Auth - login": 1200,
       "Auth - edit profile": 2000,
       "Item - create lost listing": 1000,
-      "Item - edit lost listing": 2000,
+      "Item - edit lost listing": 1000,
       "Item - replace photo": 2000,
       "Item - remove photo": 2000,
       "Item - resolve lost listing": 2000,
       "Item - delete lost listing": 2000,
-      "Item - create found listing": 2000,
-      "Matching - preview": 2000,
-      "Matching - claim": 2000,
-      "Matching - finder confirm": 2000,
-      "Matching - send appeal": 2000
+      "Item - create found listing": 1000,
+      "Matching - claim": 1000,
+      "Matching - finder confirm": 1000,
+      "Matching - send appeal": 1000
     },
     "spike": {
       "default": 1000,
@@ -26,8 +25,7 @@
       "Item - create lost listing": 1500
     },
     "admin": {
-      "default": 1500,
-      "Auth - login": 1000
+      "default": 1500
     }
   },
   "expected": {
