@@ -986,14 +986,14 @@
             </JSONPathAssertion>
             <hashTree/>
             <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Pick how the listing ends">
-              <stringProp name="TestPlan.comments">Half the loops also remove the photo; the listing is then deleted, resolved or kept (a third each).</stringProp>
+              <stringProp name="TestPlan.comments">A counter shared by all steady users cycles the endings (resolve, keep, delete) and removes the photo on 3 listings out of every 6, so any 3 lifecycle loops in a row cover every ending. Not random: with only a few lifecycle loops per run, a random pick could skip an ending and fail coverage.</stringProp>
               <stringProp name="scriptLanguage">groovy</stringProp>
-              <stringProp name="parameters"></stringProp>
+              <stringProp name="parameters">${__counter(FALSE,)}</stringProp>
               <stringProp name="filename"></stringProp>
               <stringProp name="cacheKey">true</stringProp>
-              <stringProp name="script">def random = new Random()
-vars.put('REMOVE_PHOTO', String.valueOf(random.nextBoolean()))
-vars.put('LISTING_ENDING', ['delete', 'resolve', 'keep'][random.nextInt(3)])</stringProp>
+              <stringProp name="script">def n = args[0] as int
+vars.put('LISTING_ENDING', ['delete', 'resolve', 'keep'][n % 3])
+vars.put('REMOVE_PHOTO', String.valueOf(n.intdiv(3) % 2 == 0))</stringProp>
             </JSR223PostProcessor>
             <hashTree/>
           </hashTree>
