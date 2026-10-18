@@ -108,7 +108,10 @@
   .diagram .lbl { font-size: 9.5px; font-weight: 600; fill: #374151; }
   .diagram .num { font-size: 11px; font-weight: 700; fill: #fff; }
   .diagram .mono { font-family: Consolas, "Courier New", monospace; font-size: 10px; }
-  .foot { font-size: 9px; color: var(--muted); display: flex; justify-content: space-between; margin-top: 2px; }
+  .foot { font-size: 9px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+  .legend { display: flex; align-items: center; gap: 14px; color: #374151; }
+  .legend b { color: var(--navy); }
+  .lg { display: inline-flex; align-items: center; gap: 5px; }
 
   /* Page 2 text */
   .cols { column-count: 2; column-gap: 7mm; font-size: 10.9px; line-height: 1.45; margin-top: 8px; }
@@ -391,7 +394,7 @@
   </svg>
 
   <div class="foot" style="position:absolute; left:9mm; right:9mm; bottom:5mm;">
-    <span>Colours: grey triggers · blue unit / CI · purple mutation · teal load · orange UI/E2E · yellow shared environment · green reporting · navy summary. Dashed arrows: data and environment, solid: job order.</span>
+    <span class="legend"><b>Arrows:</b><span class="lg"><svg width="34" height="10" viewBox="0 0 34 10"><line x1="2" y1="5" x2="30" y2="5" stroke="#4b5563" stroke-width="1.6"/><path d="M27,1.5 L33,5 L27,8.5 z" fill="#4b5563"/></svg>job order / request</span><span class="lg"><svg width="34" height="10" viewBox="0 0 34 10"><line x1="2" y1="5" x2="28" y2="5" stroke="#b58105" stroke-width="1.6" stroke-dasharray="4 3"/><path d="M27,1.5 L33,5 L27,8.5 z" fill="#b58105"/></svg>environment started for that job</span><span class="lg"><svg width="34" height="10" viewBox="0 0 34 10"><line x1="6" y1="5" x2="28" y2="5" stroke="#b58105" stroke-width="1.4"/><path d="M7,1.5 L1,5 L7,8.5 z" fill="#b58105"/><path d="M27,1.5 L33,5 L27,8.5 z" fill="#b58105"/></svg>Kafka events</span><span class="lg"><svg width="34" height="10" viewBox="0 0 34 10"><line x1="2" y1="5" x2="28" y2="5" stroke="#16a34a" stroke-width="1.6" stroke-dasharray="4 3"/><path d="M27,1.5 L33,5 L27,8.5 z" fill="#16a34a"/></svg>reports written</span><span class="lg"><svg width="34" height="10" viewBox="0 0 34 10"><line x1="2" y1="5" x2="28" y2="5" stroke="#16a34a" stroke-width="1.6"/><path d="M27,1.5 L33,5 L27,8.5 z" fill="#16a34a"/></svg>reports collected</span></span>
     <span>Page 1 of 2</span>
   </div>
 </section>
