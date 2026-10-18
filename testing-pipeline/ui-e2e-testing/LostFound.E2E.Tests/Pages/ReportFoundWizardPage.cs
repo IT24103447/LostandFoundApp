@@ -116,6 +116,25 @@ public sealed class ReportFoundWizardPage
         _driver.WaitVisible(By.XPath("//h1[normalize-space()='Found Item Reported Successfully']"));
     }
 
+    /// <summary>
+    /// Sets a text field in one step the way React expects it (native value setter, input and change
+    /// events, then focus and blur so the field counts as visited). Used for very long and
+    /// whitespace-only values, where typing character by character would be slow.
+    /// </summary>
+    public ReportFoundWizardPage SetField(string id, string text)
+    {
+        var element = _driver.WaitVisible(By.Id(id));
+        ((IJavaScriptExecutor)_driver).ExecuteScript(
+            "const el = arguments[0];" +
+            "const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;" +
+            "Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, arguments[1]);" +
+            "el.dispatchEvent(new Event('input', { bubbles: true }));" +
+            "el.dispatchEvent(new Event('change', { bubbles: true }));" +
+            "el.focus(); el.blur();",
+            element, text);
+        return this;
+    }
+
     private ReportFoundWizardPage Type(string id, string text)
     {
         var element = _driver.WaitVisible(By.Id(id));

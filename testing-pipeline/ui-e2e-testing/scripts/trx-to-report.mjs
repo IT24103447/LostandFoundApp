@@ -42,7 +42,12 @@ let r;
 while ((r = resultRe.exec(xml)) !== null) {
   const tag = r[1];
   const fullName = attr(tag, 'testName') ?? 'unknown';
-  const name = fullName.split('.').pop().replace(/\(.*$/, '');
+  // A [Theory] row's TRX name carries its arguments: "Ns.Class.Method(field: \"title\")". Cut at the first "("
+  // BEFORE splitting on ".", so a dot inside an argument cannot corrupt the name, and keep the arguments
+  // as a suffix so every row is a distinct case in details.json.
+  const method = fullName.split('(')[0].split('.').pop();
+  const rowArgs = /\(([\s\S]*)\)\s*$/.exec(fullName)?.[1]?.replace(/\s+/g, ' ').replace(/\|/g, '/');
+  const name = rowArgs ? `${method} [${rowArgs}]` : method;
   const outcome = (attr(tag, 'outcome') ?? '').toLowerCase();
   const status = outcome === 'passed' ? 'passed' : outcome === 'failed' ? 'failed'
     : (outcome === 'notexecuted' || outcome === 'skipped') ? 'skipped' : 'failed';
@@ -50,7 +55,7 @@ while ((r = resultRe.exec(xml)) !== null) {
   const msg = /<Message>([\s\S]*?)<\/Message>/.exec(body);
   const c = {
     name,
-    description: descriptions.get(name) ?? `UI/E2E test ${name}`,
+    description: descriptions.get(method) ?? `UI/E2E test ${method}`,
     status,
     durationMs: toMs(attr(tag, 'duration')),
   };

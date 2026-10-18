@@ -32,6 +32,19 @@ public sealed class RegisterPage
         return this;
     }
 
+    /// <summary>Fills every field of the form with the given values (confirm-password repeats the password).</summary>
+    public RegisterPage FillAll(string name, string email, string phone, string password)
+    {
+        _driver.FindElement(By.Id("name")).SendKeys(name);
+        _driver.FindElement(Email).SendKeys(email);
+        _driver.FindElement(By.Id("phoneNo")).SendKeys(phone);
+        _driver.FindElement(Password).SendKeys(password);
+        var confirm = _driver.FindElement(By.Id("confirmPassword"));
+        confirm.SendKeys(password);
+        confirm.SendKeys(Keys.Tab);
+        return this;
+    }
+
     public RegisterPage SubmitForm()
     {
         _driver.FindElement(Submit).Click();
