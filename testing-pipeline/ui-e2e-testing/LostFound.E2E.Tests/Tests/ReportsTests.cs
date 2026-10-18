@@ -98,4 +98,25 @@ public class ReportsTests : E2ETestBase, IClassFixture<BrowserFixture>
         home.Search(title);
         home.WaitForNoResults();
     });
+
+    [Fact]
+    [Trait("Category", "Full")]
+    [Trait("Description", "A user who opens another user's edit page and tries to save is refused with a permission error, and the original report is unchanged.")]
+    public void RPT_06_OtherUserCannotEditReport() => Run(nameof(RPT_06_OtherUserCannotEditReport), () =>
+    {
+        var owner = TestConfig.PickUser();
+        var (title, id) = ItemApi.CreateLostItemWithId(owner, ItemApi.UniqueTitle("Camera"));
+
+        new LoginPage(Driver).LoginAs(TestConfig.User1);   // not the owner
+        new HomePage(Driver).WaitUntilLoaded();
+
+        Open($"/edit-lost-item/{id}");
+        var edit = new EditLostItemPage(Driver).WaitUntilLoaded(title);
+        edit.ReplaceTitle($"Hijacked {title}").ReEnterHiddenInformation("not the owner").Save();
+
+        edit.WaitForSubmitError("You don't have permission to edit this report.");
+
+        Open($"/items/{id}");
+        new ItemDetailsPage(Driver).WaitUntilLoaded(title);   // still the original title
+    });
 }

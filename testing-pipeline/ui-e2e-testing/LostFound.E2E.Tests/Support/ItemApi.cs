@@ -13,8 +13,33 @@ public static class ItemApi
 
     public static string UniqueTitle(string prefix) => $"{prefix} {Guid.NewGuid():N}"[..(prefix.Length + 9)];
 
-    /// <summary>Creates a lost-item report owned by <paramref name="owner"/> and returns its title.</summary>
-    public static string CreateLostItem(TestUser owner, string title, string category = "Accessories")
+    /// <summary>Creates a lost-item report for <paramref name="owner"/> and returns the title it was stored under.</summary>
+    public static string CreateLostItem(TestUser owner, string title, string category = "Accessories") =>
+        CreateLostItemWithId(owner, title, category).Title;
+
+    /// <summary>
+    /// Like <see cref="CreateLostItem"/>, but also returns the report's id, which is needed to build
+    /// /items/:id and /edit-lost-item/:id URLs. If the connection is reset (a busy local stack does
+    /// this), the request is retried under a slightly different title: the first attempt may already
+    /// have been saved, and reusing the title could leave a duplicate that confuses delete and rename checks.
+    /// </summary>
+    public static (string Title, string Id) CreateLostItemWithId(TestUser owner, string title, string category = "Accessories")
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            var attemptTitle = attempt == 1 ? title : $"{title}-r{attempt}";
+            try
+            {
+                return CreateLostItemOnce(owner, attemptTitle, category);
+            }
+            catch (HttpRequestException) when (attempt < 3)
+            {
+                Thread.Sleep(TimeSpan.FromSeconds(3 * attempt));
+            }
+        }
+    }
+
+    private static (string Title, string Id) CreateLostItemOnce(TestUser owner, string title, string category)
     {
         var token = LoginAsync(owner).GetAwaiter().GetResult();
 
@@ -34,16 +59,37 @@ public static class ItemApi
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var response = Http.Send(request);
+        var body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
         if (!response.IsSuccessStatusCode)
         {
-            var body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             throw new InvalidOperationException(
                 $"Could not create test item '{title}': {(int)response.StatusCode} {body}");
         }
-        return title;
+
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        if (!root.TryGetProperty("id", out var id) && !root.TryGetProperty("Id", out id))
+            throw new InvalidOperationException("The create response contained no id.");
+        return (title, id.GetString()!);
     }
 
+    /// <summary>Login is idempotent, so a transient network reset is retried a few times.</summary>
     private static async Task<string> LoginAsync(TestUser user)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await LoginOnceAsync(user);
+            }
+            catch (Exception ex) when (attempt < 3 && ex is HttpRequestException or TaskCanceledException)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3 * attempt));
+            }
+        }
+    }
+
+    private static async Task<string> LoginOnceAsync(TestUser user)
     {
         using var content = new StringContent(
             JsonSerializer.Serialize(new { email = user.Email, password = user.Password }),

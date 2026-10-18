@@ -50,6 +50,10 @@ public sealed class EditLostItemPage
     public void WaitForSavedMessage() =>
         _driver.WaitVisible(By.XPath("//*[normalize-space()='Changes saved.']"));
 
+    /// <summary>Waits for an error message shown after saving (for example the 403 permission message).</summary>
+    public void WaitForSubmitError(string message) =>
+        _driver.WaitVisible(By.XPath($"//*[normalize-space()=\"{message}\"]"));
+
     public void WaitForValidationMessage(string message) =>
         _driver.WaitVisible(By.XPath($"//p[contains(@class,'text-red-500') and normalize-space()='{message}']"));
 }
