@@ -2211,13 +2211,27 @@ vars.put('REMOVE_PHOTO', String.valueOf(n.intdiv(3) % 2 == 0))</stringProp>
           <boolProp name="LoopController.continue_forever">false</boolProp>
         </elementProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">${__intSum(${__P(steady_ramp_seconds,20)},${__P(steady_peak_seconds,25)})}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__intSum(${__P(steady_ramp_seconds,20)},${__P(steady_peak_seconds,40)})}</stringProp>
         <stringProp name="ThreadGroup.delay">0</stringProp>
         <boolProp name="ThreadGroup.delayedStart">true</boolProp>
       </ThreadGroup>
       <hashTree>
         <OnceOnlyController guiclass="OnceOnlyControllerGui" testclass="OnceOnlyController" testname="Log in once"/>
         <hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Phase banner: steady at peak">
+            <stringProp name="TestPlan.comments">Printed once by the last steady user to start, i.e. when the ramp-up is complete. No sample is recorded.</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters">last STEADY PEAK: all ${__P(steady_users,20)} steady users running until ${__intSum(${__P(steady_ramp_seconds,20)},${__P(steady_peak_seconds,40)})} s</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">if (vars.get('BANNER_SHOWN') != null) return
+if (args.length > 0 &amp;&amp; args[0] == 'last' &amp;&amp; ctx.getThreadNum() != ctx.getThreadGroup().getNumThreads() - 1) return
+if (args.length > 0 &amp;&amp; args[0] == 'first' &amp;&amp; ctx.getThreadNum() != 0) return
+vars.put('BANNER_SHOWN', 'yes')
+def seconds = ((System.currentTimeMillis() - org.apache.jmeter.threads.JMeterContextService.getTestStartTime()) / 1000) as int
+println String.format('===== %3d s | %s =====', seconds, Parameters.substring(Parameters.indexOf(' ') + 1))</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
           <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="User accounts">
             <stringProp name="delimiter">,</stringProp>
             <stringProp name="fileEncoding">UTF-8</stringProp>
@@ -2595,13 +2609,27 @@ vars.put('REMOVE_PHOTO', String.valueOf(n.intdiv(3) % 2 == 0))</stringProp>
           <boolProp name="LoopController.continue_forever">false</boolProp>
         </elementProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">${__P(spike_seconds,15)}</stringProp>
-        <stringProp name="ThreadGroup.delay">${__intSum(${__P(steady_ramp_seconds,20)},${__P(steady_peak_seconds,25)})}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(spike_seconds,20)}</stringProp>
+        <stringProp name="ThreadGroup.delay">${__intSum(${__P(steady_ramp_seconds,20)},${__P(steady_peak_seconds,40)})}</stringProp>
         <boolProp name="ThreadGroup.delayedStart">true</boolProp>
       </ThreadGroup>
       <hashTree>
         <OnceOnlyController guiclass="OnceOnlyControllerGui" testclass="OnceOnlyController" testname="Log in once"/>
         <hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Phase banner: spike">
+            <stringProp name="TestPlan.comments">Printed once by the first spike user. No sample is recorded.</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters">first SPIKE: steady users done, ${__P(spike_users,20)} spike users starting together for ${__P(spike_seconds,20)} s, no think time</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">if (vars.get('BANNER_SHOWN') != null) return
+if (args.length > 0 &amp;&amp; args[0] == 'last' &amp;&amp; ctx.getThreadNum() != ctx.getThreadGroup().getNumThreads() - 1) return
+if (args.length > 0 &amp;&amp; args[0] == 'first' &amp;&amp; ctx.getThreadNum() != 0) return
+vars.put('BANNER_SHOWN', 'yes')
+def seconds = ((System.currentTimeMillis() - org.apache.jmeter.threads.JMeterContextService.getTestStartTime()) / 1000) as int
+println String.format('===== %3d s | %s =====', seconds, Parameters.substring(Parameters.indexOf(' ') + 1))</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
           <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="User accounts">
             <stringProp name="delimiter">,</stringProp>
             <stringProp name="fileEncoding">UTF-8</stringProp>
@@ -2738,13 +2766,27 @@ vars.put('REMOVE_PHOTO', String.valueOf(n.intdiv(3) % 2 == 0))</stringProp>
           <boolProp name="LoopController.continue_forever">false</boolProp>
         </elementProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">${__P(admin_seconds,60)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(admin_seconds,80)}</stringProp>
         <stringProp name="ThreadGroup.delay">0</stringProp>
         <boolProp name="ThreadGroup.delayedStart">true</boolProp>
       </ThreadGroup>
       <hashTree>
         <OnceOnlyController guiclass="OnceOnlyControllerGui" testclass="OnceOnlyController" testname="Log in once"/>
         <hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Phase banner: start">
+            <stringProp name="TestPlan.comments">Prints a phase line in the live output once, when the admin logs in at the start of the run. No sample is recorded.</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters">any START: ${__P(steady_users,20)} steady users ramping up over ${__P(steady_ramp_seconds,20)} s, 1 admin for ${__P(admin_seconds,80)} s</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">if (vars.get('BANNER_SHOWN') != null) return
+if (args.length > 0 &amp;&amp; args[0] == 'last' &amp;&amp; ctx.getThreadNum() != ctx.getThreadGroup().getNumThreads() - 1) return
+if (args.length > 0 &amp;&amp; args[0] == 'first' &amp;&amp; ctx.getThreadNum() != 0) return
+vars.put('BANNER_SHOWN', 'yes')
+def seconds = ((System.currentTimeMillis() - org.apache.jmeter.threads.JMeterContextService.getTestStartTime()) / 1000) as int
+println String.format('===== %3d s | %s =====', seconds, Parameters.substring(Parameters.indexOf(' ') + 1))</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
           <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="Admin account">
             <stringProp name="delimiter">,</stringProp>
             <stringProp name="fileEncoding">UTF-8</stringProp>

@@ -94,8 +94,9 @@ run_tests() {
   done
 
   local jmeter_result=0 summary_result=0
-  echo "Running the load test plan (about one minute)."
+  echo "Running the load test plan (about 80 seconds)."
   "$JMETER" "${args[@]}" "$@" || jmeter_result=$?
+  echo "===== FINISHED: all users stopped; checking thresholds and writing the reports ====="
   node "$SCRIPT_DIR/scripts/summarize-results.mjs" "$ASE_REPORT_DIR/results.jtl" \
     "$SCRIPT_DIR/config/thresholds.json" "$ASE_REPORT_DIR" > /dev/null || summary_result=$?
   if [[ -n "${GITHUB_STEP_SUMMARY:-}" && -s "$ASE_REPORT_DIR/summary.md" ]]; then
