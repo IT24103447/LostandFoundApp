@@ -74,7 +74,7 @@
           </elementProp>
           <elementProp name="ADMIN_THINK" elementType="Argument">
             <stringProp name="Argument.name">ADMIN_THINK</stringProp>
-            <stringProp name="Argument.value">${__P(admin_think_ms,2000)}</stringProp>
+            <stringProp name="Argument.value">${__P(admin_think_ms,1000)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
         </collectionProp>
@@ -228,6 +228,45 @@
             <hashTree/>
           </hashTree>
         </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Auth - admin user lookup step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Auth">
+            <stringProp name="TestPlan.comments">Live console progress for Auth: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Auth - admin user lookup">
+            <stringProp name="HTTPSampler.domain">${AUTH_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${AUTH_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/users/${LOOKUP_USER_ID}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Looking up a user should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Contact has an email">
+              <stringProp name="JSON_PATH">$.email</stringProp>
+              <stringProp name="EXPECTED_VALUE"></stringProp>
+              <boolProp name="JSONVALIDATION">false</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Auth - me step"/>
         <hashTree>
           <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Auth">
@@ -366,6 +405,13 @@
               <boolProp name="INVERT">false</boolProp>
               <boolProp name="ISREGEX">false</boolProp>
             </JSONPathAssertion>
+            <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Pick a user to look up">
+              <stringProp name="JSONPostProcessor.referenceNames">LOOKUP_USER_ID</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$.users[*].id</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">0</stringProp>
+              <stringProp name="JSONPostProcessor.defaultValues">NO_USER</stringProp>
+            </JSONPostProcessor>
             <hashTree/>
           </hashTree>
         </hashTree>
@@ -851,6 +897,38 @@
               <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
               <stringProp name="JSONPostProcessor.defaultValues">NO_LISTING</stringProp>
             </JSONPostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - admin listing read step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Item - admin listing read">
+            <stringProp name="TestPlan.comments">Reads the first listing of the spam record. Its owner may already have deleted it (step 1 lifecycle), which the admin page shows as deleted, so 404 is an accepted answer; anything else fails.</stringProp>
+            <stringProp name="HTTPSampler.domain">${ITEM_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${ITEM_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/items/${__changeCase(${SPAM_LISTING_TYPE},LOWER,)}/${SPAM_LISTING_ID}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200 or 404">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+                <stringProp name="404">404</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Reading a flagged listing as admin should return 200, or 404 when its owner deleted it.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">true</boolProp>
+              <intProp name="Assertion.test_type">40</intProp>
+            </ResponseAssertion>
             <hashTree/>
           </hashTree>
         </hashTree>
@@ -1681,6 +1759,232 @@ vars.put('LISTING_ENDING', ['delete', 'resolve', 'keep'][random.nextInt(3)])</st
             </hashTree>
           </hashTree>
         </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - admin appeal list step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
+            <stringProp name="TestPlan.comments">Live console progress for Matching: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matching - admin appeal list">
+            <stringProp name="HTTPSampler.domain">${MATCHING_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${MATCHING_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/match-appeals?status=PENDING&amp;page=1</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">The pending appeal queue should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Response is JSON">
+              <stringProp name="JSON_PATH">$</stringProp>
+              <stringProp name="EXPECTED_VALUE"></stringProp>
+              <boolProp name="JSONVALIDATION">false</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Pick the appeal to verify">
+              <stringProp name="JSONPostProcessor.referenceNames">APPEAL_TO_VERIFY</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+              <stringProp name="JSONPostProcessor.defaultValues">NO_APPEAL</stringProp>
+            </JSONPostProcessor>
+            <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Pick the appeal to reject">
+              <stringProp name="JSONPostProcessor.referenceNames">APPEAL_TO_REJECT</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$[1].id</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+              <stringProp name="JSONPostProcessor.defaultValues">NO_APPEAL</stringProp>
+            </JSONPostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - admin appeal detail (verify) step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
+            <stringProp name="TestPlan.comments">Live console progress for Matching: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matching - admin appeal detail">
+            <stringProp name="HTTPSampler.domain">${MATCHING_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${MATCHING_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/match-appeals/${APPEAL_TO_VERIFY}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Opening an appeal should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Appeal returned">
+              <stringProp name="JSON_PATH">$.appeal.id</stringProp>
+              <stringProp name="EXPECTED_VALUE"></stringProp>
+              <boolProp name="JSONVALIDATION">false</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - admin appeal verify step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
+            <stringProp name="TestPlan.comments">Live console progress for Matching: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matching - admin appeal verify">
+            <stringProp name="TestPlan.comments">Verifying creates the match through the normal claim path; both listings are still active because the appeal journey never touches them again.</stringProp>
+            <stringProp name="HTTPSampler.domain">${MATCHING_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${MATCHING_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/match-appeals/${APPEAL_TO_VERIFY}/verify</stringProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Verifying a pending appeal should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Appeal verified">
+              <stringProp name="JSON_PATH">$.status</stringProp>
+              <stringProp name="EXPECTED_VALUE">VERIFIED</stringProp>
+              <boolProp name="JSONVALIDATION">true</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - admin appeal detail (reject) step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
+            <stringProp name="TestPlan.comments">Live console progress for Matching: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matching - admin appeal detail">
+            <stringProp name="HTTPSampler.domain">${MATCHING_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${MATCHING_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/match-appeals/${APPEAL_TO_REJECT}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Opening an appeal should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Appeal returned">
+              <stringProp name="JSON_PATH">$.appeal.id</stringProp>
+              <stringProp name="EXPECTED_VALUE"></stringProp>
+              <boolProp name="JSONVALIDATION">false</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - admin appeal reject step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
+            <stringProp name="TestPlan.comments">Live console progress for Matching: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matching - admin appeal reject">
+            <stringProp name="HTTPSampler.domain">${MATCHING_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${MATCHING_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/match-appeals/${APPEAL_TO_REJECT}/reject</stringProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{"reason":"Load test: these reports describe different items."}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="JSON body">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Rejecting a pending appeal should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Appeal rejected">
+              <stringProp name="JSON_PATH">$.status</stringProp>
+              <stringProp name="EXPECTED_VALUE">REJECTED</stringProp>
+              <boolProp name="JSONVALIDATION">true</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - candidates step"/>
         <hashTree>
           <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
@@ -1757,6 +2061,137 @@ vars.put('LISTING_ENDING', ['delete', 'resolve', 'keep'][random.nextInt(3)])</st
               <stringProp name="JSON_PATH">$.items</stringProp>
               <stringProp name="EXPECTED_VALUE"></stringProp>
               <boolProp name="JSONVALIDATION">false</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Pick a record that needs review">
+              <stringProp name="JSONPostProcessor.referenceNames">SPAM_ID</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$.items[?(@.status == 'NEEDS_REVIEW')].id</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+              <stringProp name="JSONPostProcessor.defaultValues">NO_RECORD</stringProp>
+            </JSONPostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="AdminVerify - spam record detail step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="AdminVerify">
+            <stringProp name="TestPlan.comments">Live console progress for AdminVerify: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="AdminVerify - spam record detail">
+            <stringProp name="HTTPSampler.domain">${ADMIN_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${ADMIN_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/spam-records/${SPAM_ID}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Opening a spam record should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Record lists its listings">
+              <stringProp name="JSON_PATH">$.listings</stringProp>
+              <stringProp name="EXPECTED_VALUE"></stringProp>
+              <boolProp name="JSONVALIDATION">false</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Pick the first listing of the record">
+                  <stringProp name="JSONPostProcessor.referenceNames">SPAM_LISTING_ID;SPAM_LISTING_TYPE</stringProp>
+                  <stringProp name="JSONPostProcessor.jsonPathExprs">$.listings[0].listingId;$.listings[0].listingType</stringProp>
+                  <stringProp name="JSONPostProcessor.match_numbers">1;1</stringProp>
+                  <stringProp name="JSONPostProcessor.defaultValues">NO_LISTING;LOST</stringProp>
+                </JSONPostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="AdminVerify - open spam record step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="AdminVerify">
+            <stringProp name="TestPlan.comments">Live console progress for AdminVerify: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="AdminVerify - open spam record">
+            <stringProp name="HTTPSampler.domain">${ADMIN_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${ADMIN_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/spam-records/${SPAM_ID}/open</stringProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Opening a record for review should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Record under review">
+              <stringProp name="JSON_PATH">$.status</stringProp>
+              <stringProp name="EXPECTED_VALUE">UNDER_REVIEW</stringProp>
+              <boolProp name="JSONVALIDATION">true</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="AdminVerify - dismiss spam record step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="AdminVerify">
+            <stringProp name="TestPlan.comments">Live console progress for AdminVerify: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="AdminVerify - dismiss spam record">
+            <stringProp name="HTTPSampler.domain">${ADMIN_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${ADMIN_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/admin/spam-records/${SPAM_ID}/dismiss</stringProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="200">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Dismissing a record under review should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Record dismissed">
+              <stringProp name="JSON_PATH">$.status</stringProp>
+              <stringProp name="EXPECTED_VALUE">DISMISSED</stringProp>
+              <boolProp name="JSONVALIDATION">true</boolProp>
               <boolProp name="EXPECT_NULL">false</boolProp>
               <boolProp name="INVERT">false</boolProp>
               <boolProp name="ISREGEX">false</boolProp>
@@ -2293,7 +2728,7 @@ vars.put('LISTING_ENDING', ['delete', 'resolve', 'keep'][random.nextInt(3)])</st
         </hashTree>
       </hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Admin">
-        <stringProp name="TestPlan.comments">One admin working for the whole run: logs in once, then reads the user list and the Spam Review queue.</stringProp>
+        <stringProp name="TestPlan.comments">One admin working for the whole run: logs in once, then loops through the user list and a user lookup, the Spam Review queue (open and dismiss one record), and the appeal queue (verify one appeal, reject another).</stringProp>
         <stringProp name="ThreadGroup.num_threads">${__P(admin_users,1)}</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
@@ -2356,6 +2791,22 @@ vars.put('LISTING_ENDING', ['delete', 'resolve', 'keep'][random.nextInt(3)])</st
             </collectionProp>
           </ModuleController>
           <hashTree/>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Only when the list returned a user">
+            <stringProp name="IfController.condition">${__jexl3("${LOOKUP_USER_ID}" != "NO_USER")}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+            <boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Look up a user">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="1002">Auth</stringProp>
+                <stringProp name="1003">Auth - admin user lookup step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+          </hashTree>
           <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Spam Review queue">
             <collectionProp name="ModuleController.node_path">
               <stringProp name="764597751">Test Plan</stringProp>
@@ -2365,6 +2816,117 @@ vars.put('LISTING_ENDING', ['delete', 'resolve', 'keep'][random.nextInt(3)])</st
             </collectionProp>
           </ModuleController>
           <hashTree/>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Only when a record needs review">
+            <stringProp name="TestPlan.comments">One record per pass: read it, read one of its listings, open it for review, then dismiss it. Dismiss only changes the record; Solve and kick are left out because they act on the user and their listings, which the steady users are still using.</stringProp>
+            <stringProp name="IfController.condition">${__jexl3("${SPAM_ID}" != "NO_RECORD")}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+            <boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Open the record">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="27655">AdminVerify</stringProp>
+                <stringProp name="58370">AdminVerify - spam record detail step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+            <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Only when the record lists a listing">
+              <stringProp name="IfController.condition">${__jexl3("${SPAM_LISTING_ID}" != "NO_LISTING")}</stringProp>
+              <boolProp name="IfController.evaluateAll">false</boolProp>
+              <boolProp name="IfController.useExpression">true</boolProp>
+            </IfController>
+            <hashTree>
+              <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Read a flagged listing">
+                <collectionProp name="ModuleController.node_path">
+                  <stringProp name="764597751">Test Plan</stringProp>
+                  <stringProp name="1001">Lost and Found load test</stringProp>
+                  <stringProp name="1005">Item</stringProp>
+                  <stringProp name="1006">Item - admin listing read step</stringProp>
+                </collectionProp>
+              </ModuleController>
+              <hashTree/>
+            </hashTree>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Start the review">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="27655">AdminVerify</stringProp>
+                <stringProp name="58370">AdminVerify - open spam record step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Dismiss it">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="27655">AdminVerify</stringProp>
+                <stringProp name="58370">AdminVerify - dismiss spam record step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+          </hashTree>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Pending appeals">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1007">Matching</stringProp>
+              <stringProp name="1008">Matching - admin appeal list step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Only when an appeal is pending">
+            <stringProp name="IfController.condition">${__jexl3("${APPEAL_TO_VERIFY}" != "NO_APPEAL")}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+            <boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Open the first appeal">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="1007">Matching</stringProp>
+                <stringProp name="1008">Matching - admin appeal detail (verify) step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Verify it">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="1007">Matching</stringProp>
+                <stringProp name="1008">Matching - admin appeal verify step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+          </hashTree>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Only when a second appeal is pending">
+            <stringProp name="TestPlan.comments">Two decisions per pass, so both verify and reject run in every run once two appeals are waiting.</stringProp>
+            <stringProp name="IfController.condition">${__jexl3("${APPEAL_TO_REJECT}" != "NO_APPEAL")}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+            <boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Open the second appeal">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="1007">Matching</stringProp>
+                <stringProp name="1008">Matching - admin appeal detail (reject) step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Reject it with a reason">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="1007">Matching</stringProp>
+                <stringProp name="1008">Matching - admin appeal reject step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+          </hashTree>
         </hashTree>
       </hashTree>
     </hashTree>

@@ -41,6 +41,15 @@ const ENDPOINTS = {
   'Matching - finder confirm': 'The partner confirms the claim as finder; expects 200 and status CONFIRMED.',
   'Matching - return contact': 'The user reads the contact details of the finder after confirmation; expects 200 and an email.',
   'Matching - send appeal': 'Appeals a pair scored below 60%; expects 201 (same preview-and-retry rule as the claim).',
+  'Auth - admin user lookup': 'Admin opens the contact details of a user from the list; expects 200 and an email.',
+  'AdminVerify - spam record detail': 'Admin opens a spam record that needs review; expects 200 and its listings.',
+  'Item - admin listing read': 'Admin reads the first listing of the spam record through the admin endpoint of Item; expects 200, or 404 when its owner already deleted it.',
+  'AdminVerify - open spam record': 'Admin starts the review of that record; expects 200 and status UNDER_REVIEW.',
+  'AdminVerify - dismiss spam record': 'Admin dismisses the record; expects 200 and status DISMISSED.',
+  'Matching - admin appeal list': 'Admin reads the pending appeal queue, which the appeal journey fills during the run; expects 200.',
+  'Matching - admin appeal detail': 'Admin opens a pending appeal with its current score; expects 200.',
+  'Matching - admin appeal verify': 'Admin verifies the first pending appeal, which creates the match; expects 200 and status VERIFIED.',
+  'Matching - admin appeal reject': 'Admin rejects the second pending appeal with a reason; expects 200 and status REJECTED.',
   'AdminVerify - spam review list': 'Admin reads the active Spam Review queue, which grows during the run; expects 200.',
 };
 

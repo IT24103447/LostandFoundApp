@@ -71,7 +71,16 @@
     "admin": [
       "Auth - login",
       "Auth - admin user list",
-      "AdminVerify - spam review list"
+      "AdminVerify - spam review list",
+      "Auth - admin user lookup",
+      "AdminVerify - spam record detail",
+      "Item - admin listing read",
+      "AdminVerify - open spam record",
+      "AdminVerify - dismiss spam record",
+      "Matching - admin appeal list",
+      "Matching - admin appeal detail",
+      "Matching - admin appeal verify",
+      "Matching - admin appeal reject"
     ]
   }
 }
