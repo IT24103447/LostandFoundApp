@@ -196,7 +196,7 @@ The spam records and appeals the admin works on are created by the steady users 
 | **Journey rotation by loop number + thread number** | All three journeys run at the same time from the first loop, with no randomness. |
 | **Listing endings and photo removal from a shared counter** (`__counter`), not random | Any 3 lifecycle loops in a row cover resolve, keep and delete, and the first one already removes a photo. A random pick once produced 0 resolves in a CI run and failed coverage; nothing in the plan depends on chance. |
 | **"View a listing" picks only seeded listings** (JSONPath filter on the `(seed …)` title) | Steady users delete their own new listings, so viewing one of those could race a delete and return 404. Seeded listings are never edited or deleted. |
-| **Claim and appeal: on 409 "preview it again", preview again and resubmit once** | The preview version includes data Matching receives over Kafka a moment after a listing is created, so a preview taken immediately can go stale. That is the app's documented answer, and the UI does the same. The first try accepts 201 or 409 ("Ignore status" on, because JMeter marks 4xx as failed before assertions run); the retry must return 201, and any other code fails. |
+| **Claim and appeal: on 409 "preview it again", preview again and resubmit once** | Matching's score includes each listing's **hidden information**. Item's API never returns that field, so Matching keeps its own copy from Item's Kafka events, which arrive about a second after the listing is created. The test previews within 1–3 s of creating the pair, so on some claims the preview was worked out before the hidden information arrived, and Matching answers 409 "preview it again". That's expected behaviour, not a fault: the app asks the user to preview again, and the test does the same. Title, category and description are read fresh from Item at preview time, so they can't cause it. The first try accepts 201 or 409 ("Ignore status" on, because JMeter marks 4xx as failed before assertions run); the retry must return 201, and any other code fails. |
 | **Admin listing read accepts 200 or 404** | The listing a spam record points to may already have been deleted by its owner, which the admin page also shows as deleted. Anything other than 200 or 404 fails. |
 | **Two appeal decisions per admin pass** (verify the first pending appeal, reject the second) | Both verify and reject run in every run once two appeals are waiting, rather than depending on which pass finds them. |
 | **Spike stays read-heavy** (creates on 10% of loops, no edits, deletes or claims) | Real bursts are mostly browsing. Writes at spike speed would flood the spam rule and the match tables and measure something unrealistic. |
@@ -220,14 +220,14 @@ sequenceDiagram
     end
     U->>I: create lost listing
     P->>I: create found listing (same title, category, text)
-    I-->>M: listing events over Kafka (a moment later)
+    I-->>M: listing events over Kafka with each listing's hidden information (about 1 s later)
     U->>M: preview the pair → 100%, preview version v1
     U->>M: claim with v1
-    alt Kafka data arrived after the preview
+    alt hidden information arrived after the preview
         M-->>U: 409 "Preview it again"
         U->>M: preview again → v2
         U->>M: claim with v2 → 201 (must succeed)
-    else Kafka data was already there
+    else hidden information was already there
         M-->>U: 201 claim created
     end
     P->>M: confirm as finder → CONFIRMED

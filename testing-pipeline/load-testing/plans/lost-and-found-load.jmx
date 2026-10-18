@@ -1392,7 +1392,7 @@ vars.put('REMOVE_PHOTO', String.valueOf(n.intdiv(3) % 2 == 0))</stringProp>
             <hashTree/>
           </hashTree>
           <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Preview again and resubmit after a 409">
-            <stringProp name="TestPlan.comments">Matching scores data it receives over Kafka a moment after a listing is created, so the first preview can go stale. The UI asks the user to preview again; the journey does the same, and the retry must succeed.</stringProp>
+            <stringProp name="TestPlan.comments">Matching scores each listing&apos;s hidden information, which it gets from Item&apos;s Kafka events about a second after the listing is created (Item&apos;s API never returns it), so a preview taken straight after creation can go stale. The UI asks the user to preview again; the journey does the same, and the retry must succeed.</stringProp>
             <stringProp name="IfController.condition">${__jexl3("${SUBMIT_STATUS}" == "409")}</stringProp>
             <boolProp name="IfController.evaluateAll">false</boolProp>
             <boolProp name="IfController.useExpression">true</boolProp>
@@ -1650,7 +1650,7 @@ vars.put('REMOVE_PHOTO', String.valueOf(n.intdiv(3) % 2 == 0))</stringProp>
             <hashTree/>
           </hashTree>
           <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Preview again and resubmit after a 409">
-            <stringProp name="TestPlan.comments">Matching scores data it receives over Kafka a moment after a listing is created, so the first preview can go stale. The UI asks the user to preview again; the journey does the same, and the retry must succeed.</stringProp>
+            <stringProp name="TestPlan.comments">Matching scores each listing&apos;s hidden information, which it gets from Item&apos;s Kafka events about a second after the listing is created (Item&apos;s API never returns it), so a preview taken straight after creation can go stale. The UI asks the user to preview again; the journey does the same, and the retry must succeed.</stringProp>
             <stringProp name="IfController.condition">${__jexl3("${SUBMIT_STATUS}" == "409")}</stringProp>
             <boolProp name="IfController.evaluateAll">false</boolProp>
             <boolProp name="IfController.useExpression">true</boolProp>
