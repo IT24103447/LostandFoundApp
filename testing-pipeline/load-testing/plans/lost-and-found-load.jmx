@@ -202,6 +202,69 @@
               <boolProp name="ISREGEX">false</boolProp>
             </JSONPathAssertion>
             <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Keep the phone number">
+              <stringProp name="JSONPostProcessor.referenceNames">MY_PHONE</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$.phoneNo</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+              <stringProp name="JSONPostProcessor.defaultValues">NO_PHONE</stringProp>
+            </JSONPostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Auth - edit profile step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Auth">
+            <stringProp name="TestPlan.comments">Live console progress for Auth: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Auth - edit profile">
+            <stringProp name="TestPlan.comments">Name-only edit: the phone number read by Auth - me is sent back unchanged.</stringProp>
+            <stringProp name="HTTPSampler.domain">${AUTH_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${AUTH_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/auth/me</stringProp>
+            <stringProp name="HTTPSampler.method">PUT</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{"name":"Load Tester ${__threadNum}-${__Random(1,9999)}","phoneNo":"${MY_PHONE}"}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="JSON body">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Editing the profile should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Profile has an email">
+              <stringProp name="JSON_PATH">$.email</stringProp>
+              <stringProp name="EXPECTED_VALUE"></stringProp>
+              <boolProp name="JSONVALIDATION">false</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
           </hashTree>
         </hashTree>
         <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Auth - admin user list step"/>
@@ -511,6 +574,227 @@
               <boolProp name="ISREGEX">false</boolProp>
             </JSONPathAssertion>
             <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Keep the new listing id">
+              <stringProp name="JSONPostProcessor.referenceNames">MY_LOST_ID</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$.id</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+              <stringProp name="JSONPostProcessor.defaultValues">NO_LISTING</stringProp>
+            </JSONPostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - edit lost listing step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Item - edit lost listing">
+            <stringProp name="HTTPSampler.domain">${ITEM_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${ITEM_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/items/lost/${MY_LOST_ID}</stringProp>
+            <stringProp name="HTTPSampler.method">PUT</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{"title":"Load test wallet ${__threadNum} (edited)","category":"Accessories","description":"Listing edited by the JMeter load test.","dateLost":"${__timeShift(yyyy-MM-dd,,-P2D,,)}","lastKnownLocation":"Student centre","hiddenInformation":"Load test detail"}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="JSON body">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Editing a lost listing should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Edited title saved">
+              <stringProp name="JSON_PATH">$.title</stringProp>
+              <stringProp name="EXPECTED_VALUE">.*\(edited\)</stringProp>
+              <boolProp name="JSONVALIDATION">true</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">true</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+            <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Pick how the listing ends">
+              <stringProp name="TestPlan.comments">Half the loops also remove the photo; the listing is then deleted, resolved or kept (a third each).</stringProp>
+              <stringProp name="scriptLanguage">groovy</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="cacheKey">true</stringProp>
+              <stringProp name="script">def random = new Random()
+vars.put('REMOVE_PHOTO', String.valueOf(random.nextBoolean()))
+vars.put('LISTING_ENDING', ['delete', 'resolve', 'keep'][random.nextInt(3)])</stringProp>
+            </JSR223PostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - replace photo step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Item - replace photo">
+            <stringProp name="HTTPSampler.domain">${ITEM_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${ITEM_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/items/lost/${MY_LOST_ID}/photo</stringProp>
+            <stringProp name="HTTPSampler.method">PUT</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.DO_MULTIPART_POST">true</boolProp>
+            <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
+              <collectionProp name="HTTPFileArgs.files">
+                <elementProp name="${DATA_DIR}/listing-photo.jpg" elementType="HTTPFileArg">
+                  <stringProp name="File.path">${DATA_DIR}/listing-photo.jpg</stringProp>
+                  <stringProp name="File.paramname">photo</stringProp>
+                  <stringProp name="File.mimetype">image/jpeg</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Replacing the photo should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Photo saved">
+              <stringProp name="JSON_PATH">$.photoUrls[0]</stringProp>
+              <stringProp name="EXPECTED_VALUE"></stringProp>
+              <boolProp name="JSONVALIDATION">false</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - remove photo step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Item - remove photo">
+            <stringProp name="HTTPSampler.domain">${ITEM_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${ITEM_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/items/lost/${MY_LOST_ID}/photo</stringProp>
+            <stringProp name="HTTPSampler.method">DELETE</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Removing the photo should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="No photos left">
+              <stringProp name="JSON_PATH">$.photoUrls</stringProp>
+              <stringProp name="EXPECTED_VALUE">[]</stringProp>
+              <boolProp name="JSONVALIDATION">true</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - resolve lost listing step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Item - resolve lost listing">
+            <stringProp name="HTTPSampler.domain">${ITEM_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${ITEM_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/items/lost/${MY_LOST_ID}/resolve</stringProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Resolving a lost listing should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Item - delete lost listing step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Item">
+            <stringProp name="TestPlan.comments">Live console progress for Item: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Item - delete lost listing">
+            <stringProp name="HTTPSampler.domain">${ITEM_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${ITEM_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/items/lost/${MY_LOST_ID}</stringProp>
+            <stringProp name="HTTPSampler.method">DELETE</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Deleting a lost listing should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
           </hashTree>
         </hashTree>
       </hashTree>
@@ -619,6 +903,45 @@
                 <stringProp name="49586">200</stringProp>
               </collectionProp>
               <stringProp name="Assertion.custom_message">My appeals should return 200.</stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="Response is JSON">
+              <stringProp name="JSON_PATH">$</stringProp>
+              <stringProp name="EXPECTED_VALUE"></stringProp>
+              <boolProp name="JSONVALIDATION">false</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="Matching - candidates step"/>
+        <hashTree>
+          <Summariser guiclass="SummariserGui" testclass="Summariser" testname="Matching">
+            <stringProp name="TestPlan.comments">Live console progress for Matching: same-named summarisers combine into one line per interval.</stringProp>
+          </Summariser>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Matching - candidates">
+            <stringProp name="HTTPSampler.domain">${MATCHING_HOST}</stringProp>
+            <stringProp name="HTTPSampler.port">${MATCHING_PORT}</stringProp>
+            <stringProp name="HTTPSampler.path">/api/matches/candidates?type=LOST</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Status is 200">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message">Match candidates should return 200.</stringProp>
               <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
               <boolProp name="Assertion.assume_success">false</boolProp>
               <intProp name="Assertion.test_type">8</intProp>
@@ -790,6 +1113,80 @@
             </collectionProp>
           </ModuleController>
           <hashTree/>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Only when the listing was created">
+            <stringProp name="TestPlan.comments">Each steady user takes its own new listing through edit, photo replace and an ending, so no two threads touch the same row.</stringProp>
+            <stringProp name="IfController.condition">${__jexl3("${MY_LOST_ID}" != "NO_LISTING")}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+            <boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Edit the listing">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="1005">Item</stringProp>
+                <stringProp name="1006">Item - edit lost listing step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Replace the photo">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="1005">Item</stringProp>
+                <stringProp name="1006">Item - replace photo step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+            <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Remove the photo on half the loops">
+              <stringProp name="IfController.condition">${__jexl3("${REMOVE_PHOTO}" == "true")}</stringProp>
+              <boolProp name="IfController.evaluateAll">false</boolProp>
+              <boolProp name="IfController.useExpression">true</boolProp>
+            </IfController>
+            <hashTree>
+              <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Remove the photo">
+                <collectionProp name="ModuleController.node_path">
+                  <stringProp name="764597751">Test Plan</stringProp>
+                  <stringProp name="1001">Lost and Found load test</stringProp>
+                  <stringProp name="1005">Item</stringProp>
+                  <stringProp name="1006">Item - remove photo step</stringProp>
+                </collectionProp>
+              </ModuleController>
+              <hashTree/>
+            </hashTree>
+            <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Delete on a third of the loops">
+              <stringProp name="IfController.condition">${__jexl3("${LISTING_ENDING}" == "delete")}</stringProp>
+              <boolProp name="IfController.evaluateAll">false</boolProp>
+              <boolProp name="IfController.useExpression">true</boolProp>
+            </IfController>
+            <hashTree>
+              <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Delete the listing">
+                <collectionProp name="ModuleController.node_path">
+                  <stringProp name="764597751">Test Plan</stringProp>
+                  <stringProp name="1001">Lost and Found load test</stringProp>
+                  <stringProp name="1005">Item</stringProp>
+                  <stringProp name="1006">Item - delete lost listing step</stringProp>
+                </collectionProp>
+              </ModuleController>
+              <hashTree/>
+            </hashTree>
+            <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Resolve on a third of the loops">
+              <stringProp name="IfController.condition">${__jexl3("${LISTING_ENDING}" == "resolve")}</stringProp>
+              <boolProp name="IfController.evaluateAll">false</boolProp>
+              <boolProp name="IfController.useExpression">true</boolProp>
+            </IfController>
+            <hashTree>
+              <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Resolve the listing">
+                <collectionProp name="ModuleController.node_path">
+                  <stringProp name="764597751">Test Plan</stringProp>
+                  <stringProp name="1001">Lost and Found load test</stringProp>
+                  <stringProp name="1005">Item</stringProp>
+                  <stringProp name="1006">Item - resolve lost listing step</stringProp>
+                </collectionProp>
+              </ModuleController>
+              <hashTree/>
+            </hashTree>
+          </hashTree>
           <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="My matches">
             <collectionProp name="ModuleController.node_path">
               <stringProp name="764597751">Test Plan</stringProp>
@@ -817,6 +1214,33 @@
             </collectionProp>
           </ModuleController>
           <hashTree/>
+          <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Match candidates">
+            <collectionProp name="ModuleController.node_path">
+              <stringProp name="764597751">Test Plan</stringProp>
+              <stringProp name="1001">Lost and Found load test</stringProp>
+              <stringProp name="1007">Matching</stringProp>
+              <stringProp name="1008">Matching - candidates step</stringProp>
+            </collectionProp>
+          </ModuleController>
+          <hashTree/>
+          <ThroughputController guiclass="ThroughputControllerGui" testclass="ThroughputController" testname="Edit profile on a share of loops">
+            <stringProp name="TestPlan.comments">Profile edits are rare in real use: only profile_edit_percent of loops change the name.</stringProp>
+            <intProp name="ThroughputController.style">1</intProp>
+            <boolProp name="ThroughputController.perThread">false</boolProp>
+            <intProp name="ThroughputController.maxThroughput">1</intProp>
+            <stringProp name="ThroughputController.percentThroughput">${__P(profile_edit_percent,20)}</stringProp>
+          </ThroughputController>
+          <hashTree>
+            <ModuleController guiclass="ModuleControllerGui" testclass="ModuleController" testname="Edit profile">
+              <collectionProp name="ModuleController.node_path">
+                <stringProp name="764597751">Test Plan</stringProp>
+                <stringProp name="1001">Lost and Found load test</stringProp>
+                <stringProp name="1002">Auth</stringProp>
+                <stringProp name="1004">Auth - edit profile step</stringProp>
+              </collectionProp>
+            </ModuleController>
+            <hashTree/>
+          </hashTree>
         </hashTree>
       </hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Users - spike">

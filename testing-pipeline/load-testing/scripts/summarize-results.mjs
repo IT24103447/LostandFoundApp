@@ -25,9 +25,16 @@ const ENDPOINTS = {
   'Item - my lost reports': 'Reads the user\'s own lost reports; expects 200 and a list.',
   'Item - my found reports': 'Reads the user\'s own found reports; expects 200 and a list.',
   'Item - create lost listing': 'Creates a lost listing (no photo, unique title); expects 201 and the new id. Publishes a Kafka event.',
+  'Item - edit lost listing': 'Edits the user\'s new listing (JSON body); expects 200 and the edited title.',
+  'Item - replace photo': 'Uploads a small JPEG as the listing photo; expects 200 and a photo URL.',
+  'Item - remove photo': 'Removes the photo on half the loops; expects 200 and no photos left.',
+  'Item - resolve lost listing': 'Marks the listing resolved on a third of the loops; expects 200.',
+  'Item - delete lost listing': 'Deletes the listing on a third of the loops; expects 200.',
+  'Auth - edit profile': 'Changes the user\'s name on a share of loops, phone unchanged; expects 200.',
   'Matching - my matches': 'Reads the user\'s matches (Matching also calls Item Service); expects 200.',
   'Matching - my claims': 'Reads the user\'s claims; expects 200.',
   'Matching - my appeals': 'Reads the user\'s appeals; expects 200.',
+  'Matching - candidates': 'Reads the user\'s lost listings that can be claimed against; expects 200.',
   'AdminVerify - spam review list': 'Admin reads the active Spam Review queue, which grows during the run; expects 200.',
 };
 

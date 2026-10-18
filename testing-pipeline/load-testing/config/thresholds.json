@@ -7,7 +7,13 @@
     "steady": {
       "default": 300,
       "Auth - login": 1000,
-      "Item - create lost listing": 1000
+      "Auth - edit profile": 1000,
+      "Item - create lost listing": 1000,
+      "Item - edit lost listing": 1000,
+      "Item - replace photo": 1000,
+      "Item - remove photo": 1000,
+      "Item - resolve lost listing": 1000,
+      "Item - delete lost listing": 1000
     },
     "spike": {
       "default": 1000,
@@ -30,7 +36,14 @@
       "Item - create lost listing",
       "Matching - my matches",
       "Matching - my claims",
-      "Matching - my appeals"
+      "Matching - my appeals",
+      "Auth - edit profile",
+      "Item - edit lost listing",
+      "Item - replace photo",
+      "Item - remove photo",
+      "Item - resolve lost listing",
+      "Item - delete lost listing",
+      "Matching - candidates"
     ],
     "spike": [
       "Auth - login",
