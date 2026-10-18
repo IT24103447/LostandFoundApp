@@ -13,7 +13,12 @@
       "Item - replace photo": 2000,
       "Item - remove photo": 2000,
       "Item - resolve lost listing": 2000,
-      "Item - delete lost listing": 2000
+      "Item - delete lost listing": 2000,
+      "Item - create found listing": 2000,
+      "Matching - preview": 2000,
+      "Matching - claim": 2000,
+      "Matching - finder confirm": 2000,
+      "Matching - send appeal": 2000
     },
     "spike": {
       "default": 1000,
@@ -43,7 +48,13 @@
       "Item - remove photo",
       "Item - resolve lost listing",
       "Item - delete lost listing",
-      "Matching - candidates"
+      "Matching - candidates",
+      "Item - create found listing",
+      "Matching - preview",
+      "Matching - claim",
+      "Matching - finder confirm",
+      "Matching - return contact",
+      "Matching - send appeal"
     ],
     "spike": [
       "Auth - login",

@@ -35,6 +35,12 @@ const ENDPOINTS = {
   'Matching - my claims': 'Reads the user\'s claims; expects 200.',
   'Matching - my appeals': 'Reads the user\'s appeals; expects 200.',
   'Matching - candidates': 'Reads the user\'s lost listings that can be claimed against; expects 200.',
+  'Item - create found listing': 'The partner account reports a found listing (same text for the match journey, different text for the appeal journey); expects 201.',
+  'Matching - preview': 'Scores the lost listing of the user against the found listing of the partner; expects 200 and a preview version.',
+  'Matching - claim': 'Claims a 100% pair from its preview; expects 201 (a stale preview gets a 409, then one preview-and-retry that must succeed).',
+  'Matching - finder confirm': 'The partner confirms the claim as finder; expects 200 and status CONFIRMED.',
+  'Matching - return contact': 'The user reads the contact details of the finder after confirmation; expects 200 and an email.',
+  'Matching - send appeal': 'Appeals a pair scored below 60%; expects 201 (same preview-and-retry rule as the claim).',
   'AdminVerify - spam review list': 'Admin reads the active Spam Review queue, which grows during the run; expects 200.',
 };
 

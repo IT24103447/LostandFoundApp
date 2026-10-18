@@ -33,7 +33,7 @@ create() {
 }
 
 created=0
-tail -n +2 "$SCRIPT_DIR/data/users.csv" | head -n "$SEED_USERS" | while IFS=, read -r email password; do
+tail -n +2 "$SCRIPT_DIR/data/users.csv" | head -n "$SEED_USERS" | while IFS=, read -r email password _; do
   index=$created
   email=${email%$'\r'}
   password=${password%$'\r'}
