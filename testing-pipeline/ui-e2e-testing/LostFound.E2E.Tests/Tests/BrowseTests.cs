@@ -77,4 +77,63 @@ public class BrowseTests : E2ETestBase, IClassFixture<BrowserFixture>
         home.RemoveFirstFilterChip();
         home.WaitForResult(title);
     });
+
+    [Fact]
+    [Trait("Category", "Full")]
+    [Trait("Description", "Keyword, category and type filters combine: only reports matching all of them stay in the results.")]
+    public void BRW_05_CombinedFilters_ShowOnlyTheIntersection() => Run(nameof(BRW_05_CombinedFilters_ShowOnlyTheIntersection), () =>
+    {
+        var owner = TestConfig.PickUser();
+        var keyword = ItemApi.UniqueTitle("Gizmo");
+        var accessory = ItemApi.CreateLostItem(owner, $"{keyword} charger", "Accessories");
+        var bag = ItemApi.CreateLostItem(owner, $"{keyword} backpack", "Bags");
+
+        var home = SignInAndOpenBrowse();
+        home.Search(keyword);
+        home.WaitForResult(accessory);
+        home.WaitForResult(bag);
+
+        home.ApplyCategory("Accessories");              // keyword + category
+        home.WaitForResultGone(bag);
+        home.WaitForResult(accessory);
+
+        home.ChooseType("Found");                       // keyword + category + type: both lost reports excluded
+        home.WaitForNoResults();
+
+        home.ChooseType("Lost");                        // back to the intersection
+        home.WaitForResult(accessory);
+        home.WaitForResultGone(bag);
+    });
+
+    [Fact]
+    [Trait("Category", "Full")]
+    [Trait("Description", "Clear Filters on an empty result resets the search and brings the results back.")]
+    public void BRW_06_ClearFilters_FromEmptyResult_RestoresResults() => Run(nameof(BRW_06_ClearFilters_FromEmptyResult_RestoresResults), () =>
+    {
+        ItemApi.CreateLostItem(TestConfig.PickUser(), ItemApi.UniqueTitle("Bottle"));   // guarantees something to show
+        var home = SignInAndOpenBrowse();
+
+        home.Search($"nothing-{Guid.NewGuid():N}");
+        home.WaitForNoResults();
+
+        home.ClearFiltersFromEmptyState();
+
+        home.WaitForAnyResult();
+    });
+
+    [Fact]
+    [Trait("Category", "Full")]
+    [Trait("Description", "Clicking a search result opens its details page showing the title, description and location.")]
+    public void BRW_07_ClickingAResult_OpensItsDetails() => Run(nameof(BRW_07_ClickingAResult_OpensItsDetails), () =>
+    {
+        var title = ItemApi.CreateLostItem(TestConfig.PickUser(), ItemApi.UniqueTitle("Calculator"));
+        var home = SignInAndOpenBrowse();
+        home.Search(title);
+
+        home.OpenResult(title);
+
+        var details = new ItemDetailsPage(Driver).WaitUntilLoaded(title);
+        details.WaitForDescription($"E2E test report: {title}");
+        details.WaitForLocation("Main campus library");
+    });
 }

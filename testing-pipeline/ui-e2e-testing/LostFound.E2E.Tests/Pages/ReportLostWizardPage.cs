@@ -93,6 +93,45 @@ public sealed class ReportLostWizardPage
         _driver.WaitVisible(By.XPath("//h1[normalize-space()='Lost Item Reported Successfully']"));
     }
 
+    // ---- date field ----
+    /// <summary>The value of the date field's max attribute (the latest date the browser allows).</summary>
+    public string DateMaxAttribute() =>
+        _driver.WaitPresent(By.Id("dateLost")).GetAttribute("max") ?? "";
+
+    // ---- photo (step 3) ----
+    private static readonly By FileInput = By.CssSelector("input[type='file']");
+
+    /// <summary>
+    /// Chooses a file in the photo dropzone. The real input is display:none, so it is made
+    /// reachable first; the app's own change handler then runs exactly as for a user's choice.
+    /// </summary>
+    public ReportLostWizardPage UploadPhoto(string path)
+    {
+        var input = _driver.WaitPresent(FileInput);
+        ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].style.display='block';", input);
+        input.SendKeys(path);
+        return this;
+    }
+
+    public void WaitForPhotoPreview(string fileName) =>
+        _driver.WaitVisible(By.XPath($"//img[@alt='{fileName}']"));
+
+    public int PhotoPreviewCount() => _driver.FindElements(By.XPath("//button[starts-with(@aria-label,'Remove ')]")).Count;
+
+    public bool HasRemoveButtonFor(string fileName) =>
+        _driver.FindElements(By.XPath($"//button[@aria-label='Remove {fileName}']")).Count > 0;
+
+    /// <summary>The dropzone (and its file input) disappears once the one-photo limit is reached.</summary>
+    public bool CanAddAnotherPhoto() => _driver.FindElements(FileInput).Count > 0;
+
+    /// <summary>Fills steps 1 and 2 with valid data and stops on step 3.</summary>
+    public ReportLostWizardPage GoToStepThree(string title)
+    {
+        EnterTitle(title).ChooseCategory("Accessories").EnterDescription($"E2E description for {title}").Continue(2);
+        EnterDateLost(DateOnly.FromDateTime(DateTime.Today.AddDays(-1))).EnterLocation("Main campus library").Continue(3);
+        return this;
+    }
+
     public string PageSource => _driver.PageSource;
 
     private ReportLostWizardPage Type(string id, string text)

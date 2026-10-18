@@ -90,6 +90,46 @@ public sealed class HomePage
         }
     }
 
+    /// <summary>
+    /// Searches repeatedly until the empty state appears. After a rename or delete, an old title can
+    /// stay searchable for a moment, so this polls the observable outcome instead of sleeping.
+    /// </summary>
+    public void SearchUntilNoResults(string term, int attempts = 5)
+    {
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            Search(term);
+            try
+            {
+                _driver.WaitVisible(NoResults, 8);
+                return;
+            }
+            catch (WebDriverTimeoutException) when (attempt < attempts)
+            {
+                // stale results still shown: search again
+            }
+            catch (WebDriverTimeoutException)
+            {
+                throw new XunitException($"'{term}' still returned results after {attempts} searches.");
+            }
+        }
+    }
+
+    /// <summary>Waits until a report is no longer in the result list.</summary>
+    public void WaitForResultGone(string title) =>
+        _driver.Wait().Until(d => d.FindElements(ResultCard(title)).Count == 0);
+
+    /// <summary>Waits until at least one result card is shown.</summary>
+    public void WaitForAnyResult() =>
+        _driver.WaitVisible(By.XPath("//a[starts-with(@href,'/items/')]//h3"));
+
+    /// <summary>Clicks "Clear Filters" in the empty-state panel.</summary>
+    public HomePage ClearFiltersFromEmptyState()
+    {
+        _driver.WaitVisible(By.XPath("//button[normalize-space()='Clear Filters']")).Click();
+        return this;
+    }
+
     public void WaitForResult(string title) => _driver.WaitVisible(ResultCard(title));
 
     public void WaitForNoResults() => _driver.WaitVisible(NoResults);
