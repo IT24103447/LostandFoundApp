@@ -1,6 +1,6 @@
 <mxfile host="Electron">
   <diagram id="poster" name="Testing pipeline poster">
-    <mxGraphModel dx="982" dy="584" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="2339" math="0" shadow="0">
+    <mxGraphModel dx="4040" dy="2403" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="2339" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -747,30 +747,38 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="LbwQB9fj4F6DjTCb5Tzv-52" parent="1" style="rounded=0;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;" value="" vertex="1">
-          <mxGeometry height="110" width="373.5" x="1274.5" y="7.5" as="geometry" />
+          <mxGeometry height="110" width="762.89" x="885.11" y="7.5" as="geometry" />
         </mxCell>
-        <mxCell id="LbwQB9fj4F6DjTCb5Tzv-53" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;overflow=visible;fontFamily=Helvetica;fontSize=14;fontColor=#000066;" value="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;Source Code :&amp;nbsp;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="30" width="107.92" x="1288" y="15.000000000000004" as="geometry" />
+        <mxCell id="LbwQB9fj4F6DjTCb5Tzv-53" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;overflow=visible;fontFamily=Helvetica;fontSize=14;fontColor=#000066;" value="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;Project Source Code :&amp;nbsp;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="160" x="905.0899999999999" y="22.12" as="geometry" />
         </mxCell>
         <UserObject label="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;Lost and Found App ASE&lt;/div&gt;" link="https://github.com/IT24103447/LostandFoundApp/tree/ASE/Assignment" id="LbwQB9fj4F6DjTCb5Tzv-54">
           <mxCell parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;overflow=visible;fontFamily=Helvetica;fontSize=14;fontColor=#0000FF;fontStyle=4" vertex="1">
-            <mxGeometry height="30" width="182.08" x="1397.92" y="15.31" as="geometry" />
+            <mxGeometry height="30" width="182.08" x="1072.92" y="22.119999999999997" as="geometry" />
           </mxCell>
         </UserObject>
         <mxCell id="LbwQB9fj4F6DjTCb5Tzv-55" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;overflow=visible;fontFamily=Helvetica;fontSize=14;fontColor=#000066;" value="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;CI/CD Pipeline :&lt;/div&gt;" vertex="1">
-          <mxGeometry height="30" width="121.25" x="1288" y="47.5" as="geometry" />
+          <mxGeometry height="30" width="121.25" x="1293" y="23.31" as="geometry" />
         </mxCell>
-        <UserObject label="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;testing-pipeline-folder&lt;/div&gt;" link="https://github.com/IT24103447/LostandFoundApp/tree/ASE/Assignment/testing-pipeline" id="LbwQB9fj4F6DjTCb5Tzv-56">
+        <UserObject label="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;ase-testing-pipeline.yml&lt;/div&gt;" link="https://github.com/IT24103447/LostandFoundApp/blob/ASE/Assignment/.github/workflows/ase-testing-pipeline.yml" id="LbwQB9fj4F6DjTCb5Tzv-56">
           <mxCell parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;overflow=visible;fontFamily=Helvetica;fontSize=14;fontColor=#0000FF;fontStyle=4" vertex="1">
-            <mxGeometry height="30" width="160" x="1406" y="48.31" as="geometry" />
+            <mxGeometry height="30" width="172" x="1412" y="23.310000000000002" as="geometry" />
           </mxCell>
         </UserObject>
         <mxCell id="LbwQB9fj4F6DjTCb5Tzv-57" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;overflow=visible;fontFamily=Helvetica;fontSize=14;fontColor=#000066;" value="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;Github actions runs :&amp;nbsp;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="30" width="160" x="1288" y="83.31" as="geometry" />
+          <mxGeometry height="30" width="160" x="905.0899999999999" y="70.69" as="geometry" />
         </mxCell>
-        <UserObject label="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;ase-testing-pipeline.yml&lt;/div&gt;" link="https://github.com/IT24103447/LostandFoundApp/actions/workflows/ase-testing-pipeline.yml" id="LbwQB9fj4F6DjTCb5Tzv-58">
+        <UserObject label="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;Pipeline Runs&lt;/div&gt;" link="https://github.com/IT24103447/LostandFoundApp/actions/workflows/ase-testing-pipeline.yml" id="LbwQB9fj4F6DjTCb5Tzv-58">
           <mxCell parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;overflow=visible;fontFamily=Helvetica;fontSize=14;fontColor=#0000FF;fontStyle=4" vertex="1">
-            <mxGeometry height="30" width="172" x="1448" y="82.5" as="geometry" />
+            <mxGeometry height="30" width="172" x="1065.0900000000001" y="70.69" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <mxCell id="us6zReafTgWKjVrABZ-P-2" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;overflow=visible;fontFamily=Helvetica;fontSize=14;fontColor=#000066;" value="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;Pipeline Source code :&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="160" x="1293" y="70.69" as="geometry" />
+        </mxCell>
+        <UserObject label="&lt;div style=&quot;font-size: 15px; margin-bottom: 3px; line-height: 1.38; font-weight: bold;&quot;&gt;testing-pipeline folder&lt;/div&gt;" link="https://github.com/IT24103447/LostandFoundApp/tree/ASE/Assignment/testing-pipeline" id="us6zReafTgWKjVrABZ-P-3">
+          <mxCell parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=0;overflow=visible;fontFamily=Helvetica;fontSize=14;fontColor=#0000FF;fontStyle=4" vertex="1">
+            <mxGeometry height="30" width="172" x="1461" y="70.69" as="geometry" />
           </mxCell>
         </UserObject>
       </root>
