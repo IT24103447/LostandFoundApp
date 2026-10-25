@@ -1,89 +1,231 @@
 # ASE Testing Pipeline
 
-Automated unit/mocking, mutation, load and UI/E2E testing for the Lost & Found application. Assessment tests live in this folder, separately from the existing CSP tests.
+## 1. Individual Contributions and Detailed Instructions
 
-## Contributions and setup
+| Testing area | Student ID | Student name | Tools | Detailed README |
+|---|---|---|---|---|
+| Unit Testing & Mocking; CI workflow | IT24103447 | Ranasinghe A.B | xUnit, Moq, GitHub Actions | **[Unit Testing Instructions](unit-testing/README.md)** |
+| Mutation Testing | IT24103457 | Karunaratne J.M.N.V.B | Stryker.NET | **[Mutation Testing Instructions](mutation-testing/README.md)** |
+| Load & Performance Testing | IT24610328 | Wattegama B. C. | Apache JMeter | **[Load Testing Instructions](load-testing/README.md)** |
+| UI / E2E Testing | IT24103581 | Lalanga J. A. L. | Selenium WebDriver, xUnit | **[UI/E2E Testing Instructions](ui-e2e-testing/LostFound.E2E.Tests/README.md)** |
 
-All category runners require Bash and Node.js 22.14.0 for the current reporting framework.
+## 2. Tool Setup
 
-| Category / folder | Tools and initial configuration | Name | Student ID |
-|---|---|---|---|
-| Unit / `unit-testing` | .NET 8 SDK, xUnit and Moq; reference the service projects | — | — |
-| Mutation / `mutation-testing` | .NET 8 SDK and Stryker.NET; configure source scope, unit suites and score threshold | — | — |
-| Load / `load-testing` | Java 17+ and curl; `run.sh` downloads JMeter 5.6.3 once (checksum-verified, cached). Configured in `load-testing/`: the JMeter plan (one fragment per service), the load profile (`config/load.properties`), p95 and error-rate thresholds (`config/thresholds.json`), and seeded users and data | Wattegama B. C. | IT24610328 |
-| UI/E2E / `ui-e2e-testing` | .NET 8 SDK, Selenium and Chrome/driver; configure journeys, service URLs and test data | — | — |
+Install tools in the operating system where you will run the tests.
 
-Each category's `run.sh` contains its testing commands. Set `ASE_SUITE_READY=true` after implementing and verifying the suite and its reports. Unit, mutation and UI currently remain unfinished. The load runner is enabled and covers Auth, Item, Matching and Admin Verify.
+| Tool | Version / setup | Required for |
+|---|---|---|
+| .NET SDK | 8.0.424 | Unit, mutation, UI tests, and backend services |
+| Node.js and npm | Node.js 22.14.0 or 24.x | Reports, frontend, and some unit tests |
+| Git for Windows with Git Bash | Windows installation | Running Bash scripts and the unit helper on Windows |
+| Bash and curl | Install in Ubuntu; included with Git Bash on Windows | Running scripts |
+| Docker Desktop or Docker Engine with Compose | Installed; your user must be able to run `docker info` | Load and UI test environments |
+| Java | 17 or newer | Load testing |
+| Google Chrome | Installed | UI testing |
 
-## Workflow
+The runners restore or download the testing packages automatically. Selenium Manager prepares the matching Chrome driver. The first run requires internet access.
 
-GitHub Actions runs on relevant pushes and pull requests targeting `develop`/`main`. Pushes are not restricted to those branches. Manual runs allow selecting a category and development/strict mode.
+Run all commands from the **repository root**, where `test-unit.ps1` is located.
 
-1. Check readiness and run unit testing.
-2. Run mutation, load and UI jobs after the unit job finishes.
-3. Mutation requires an executed, passing unit baseline.
-4. Load/UI start separate MySQL, Kafka, services and frontend environments.
-5. Run category commands, clean up environments and upload results.
-6. Display a combined category-status summary.
+## 3. Windows Instructions
 
-**Development** permits clearly unfinished categories; **strict** requires all selected categories to execute and pass. Real test, reporting or setup failures fail either mode. Automatic runs default to development unless the repository Actions variable `ASE_PIPELINE_MODE` is set to `strict`. Manual runs use the selected mode.
+### 3.1 Prepare Git Bash
 
-## Generated files
-
-| File | Contents |
-|---|---|
-| `status.txt` | Category outcome |
-| `console.log` | Test execution output and errors |
-| `summary.md` | Scope, counts, failures and measurements |
-| `details.json` | Individual case descriptions and outcomes |
-
-Testing commands generate `summary.md` and `details.json`. Runners generate `status.txt` and capture `console.log`. Native tool reports are also uploaded when configured.
-
-Load testing additionally generates `results.jtl`, `jmeter.log` and `html/index.html`. UI/load jobs retain available application logs. Download results from the GitHub Actions run's **Artifacts** section. Reports are temporary output and should not be committed.
-
-## Run locally
-
-Run commands from the repository root. For the shared environment on Windows, use WSL2 with Docker Desktop integration. Install .NET SDK 8.0.424, Node.js 22.14.0/npm and curl inside WSL. Linux uses the same commands. Load testing additionally needs Java 17+.
+For the Bash runners, open **Git Bash** at the repository root and keep it open throughout testing.
 
 ```bash
-export ASE_RUNTIME_DIR="$(mktemp -d -t ase-environment.XXXXXX)"
-export ASE_REPORT_ROOT="$(mktemp -d -t ase-reports.XXXXXX)"
+export ASE_RUNTIME_DIR="$(cygpath -m "$(mktemp -d)")"
+```
+
+### 3.2 Start Docker and the Application
+
+**Required only for load and UI testing. Unit and mutation testing do not require the running application or Docker containers.**
+
+In a separate **Windows PowerShell** window:
+
+```powershell
+docker desktop start
+docker info
+```
+
+If your Docker Desktop version does not support the start command, open Docker Desktop from the Start menu. Wait until `docker info` displays the server information.
+
+Return to **Git Bash**:
+
+```bash
 export ASE_COMPOSE_PROJECT=ase-testing-local
 
 bash testing-pipeline/shared/start-environment.sh start
 source "$ASE_RUNTIME_DIR/environment.sh"
 ```
 
-This starts all four services and the frontend:
+The script starts MySQL, Kafka, AuthService, ItemService, MatchingService, AdminVerifyService, and the frontend.
 
-| Component | URL |
-|---|---|
-| Auth | http://localhost:5261 |
-| Item | http://localhost:5001 |
-| Matching | http://localhost:5179 |
-| Admin Verify | http://localhost:5003 |
-| Frontend | http://localhost:5173 |
+Wait for **"Shared environment ready"** before running load or UI tests.
 
-Run the required category:
+### 3.3 Run Unit Testing
+
+Choose either Windows method.
+
+**PowerShell:**
+
+```powershell
+.\test-unit.ps1 -Prepare
+.\test-unit.ps1 -NoBuild
+```
+
+Repeat `-Prepare` after changing the source code.
+
+**Git Bash:**
+
+Complete Section 3.1 first.
 
 ```bash
+export ASE_REPORT_ROOT="$ASE_RUNTIME_DIR/unit-reports-$(date +%s)"
 bash testing-pipeline/unit-testing/run.sh
-# Mutation: run only after unit tests pass.
+```
+
+### 3.4 Run Mutation Testing
+
+Complete Section 3.1 and run the unit tests successfully first.
+
+**Git Bash:**
+
+```bash
+export ASE_REPORT_ROOT="$ASE_RUNTIME_DIR/mutation-reports-$(date +%s)"
 bash testing-pipeline/mutation-testing/run.sh
+```
 
+### 3.5 Run Load Testing
+
+Complete Sections 3.1-3.2 first.
+
+**Git Bash:**
+
+```bash
 bash testing-pipeline/shared/seed-test-data.sh load-testing
-bash testing-pipeline/load-testing/run.sh
 
+export ASE_REPORT_ROOT="$ASE_RUNTIME_DIR/load-reports-$(date +%s)"
+bash testing-pipeline/load-testing/run.sh
+```
+
+### 3.6 Run UI/E2E Testing
+
+Complete Sections 3.1-3.2 first.
+
+**Git Bash:**
+
+```bash
 bash testing-pipeline/shared/seed-test-data.sh ui-e2e-testing
+
+export ASE_REPORT_ROOT="$ASE_RUNTIME_DIR/ui-reports-$(date +%s)"
 bash testing-pipeline/ui-e2e-testing/run.sh
 ```
 
-Unit/mutation do not need the running application when dependencies are isolated. Windows can run unit projects directly with `dotnet test` once those projects exist. Local unfinished runners return exit 78; development mode only changes CI policy.
+### 3.7 Stop the Application
 
-Use a fresh `ASE_REPORT_ROOT` for another execution. Stop the environment after testing, including after failures:
+After load or UI testing, including after a failure:
+
+**Git Bash:**
 
 ```bash
 bash testing-pipeline/shared/start-environment.sh stop
 ```
 
-Email-dependent scenarios additionally need a test SMTP provider. Detailed setup, reporting rules and implementation notes are in the [DevOps documentation](../DevOps_Documentation/ASE-Testing-Pipeline.md). Load-specific instructions are in the [load-testing README](load-testing/README.md). Locally, `load-testing/local-run.sh start|run|stop` wraps these steps for load testing.
+## 4. Ubuntu Instructions
+
+Run every command in this section in an **Ubuntu terminal** at the repository root. Keep that terminal open throughout testing.
+
+### 4.1 Prepare the Terminal
+
+```bash
+export ASE_RUNTIME_DIR="$(mktemp -d)"
+```
+
+### 4.2 Start Docker and the Application
+
+**Required only for load and UI testing. Unit and mutation testing do not require the running application or Docker containers.**
+
+For Ubuntu with Docker Engine installed and Docker access configured for your user:
+
+```bash
+sudo systemctl start docker
+docker info
+```
+
+For Ubuntu through WSL2, start Docker Desktop on Windows as shown in Section 3.2 and enable integration with your Ubuntu distribution. Then run `docker info` in Ubuntu. You do not need to start a separate Docker Engine inside WSL2.
+
+Once `docker info` displays the server information, start the application:
+
+```bash
+export ASE_COMPOSE_PROJECT=ase-testing-local
+
+bash testing-pipeline/shared/start-environment.sh start
+source "$ASE_RUNTIME_DIR/environment.sh"
+```
+
+The script starts MySQL, Kafka, all four backend services, and the frontend. Wait for **"Shared environment ready"**.
+
+### 4.3 Run Unit Testing
+
+Complete Section 4.1 first.
+
+```bash
+export ASE_REPORT_ROOT="$ASE_RUNTIME_DIR/unit-reports-$(date +%s)"
+bash testing-pipeline/unit-testing/run.sh
+```
+
+### 4.4 Run Mutation Testing
+
+Complete Section 4.1 and run the unit tests successfully first.
+
+```bash
+export ASE_REPORT_ROOT="$ASE_RUNTIME_DIR/mutation-reports-$(date +%s)"
+bash testing-pipeline/mutation-testing/run.sh
+```
+
+### 4.5 Run Load Testing
+
+Complete Sections 4.1-4.2 first.
+
+```bash
+bash testing-pipeline/shared/seed-test-data.sh load-testing
+
+export ASE_REPORT_ROOT="$ASE_RUNTIME_DIR/load-reports-$(date +%s)"
+bash testing-pipeline/load-testing/run.sh
+```
+
+### 4.6 Run UI/E2E Testing
+
+Complete Sections 4.1-4.2 first.
+
+```bash
+bash testing-pipeline/shared/seed-test-data.sh ui-e2e-testing
+
+export ASE_REPORT_ROOT="$ASE_RUNTIME_DIR/ui-reports-$(date +%s)"
+bash testing-pipeline/ui-e2e-testing/run.sh
+```
+
+### 4.7 Stop the Application
+
+After load or UI testing, including after a failure:
+
+```bash
+bash testing-pipeline/shared/start-environment.sh stop
+```
+
+For either operating system:
+
+- Run one testing type at a time, with only one application environment running.
+- Repeat the report-folder command before every run.
+- Before switching between load and UI testing, stop the application and repeat Sections 3.1-3.2 (Windows) or 4.1-4.2 (Ubuntu).
+- Perform one warm-up load run before a demonstration.
+
+## 5. Run the Automated Pipeline
+
+1. Open **GitHub -> Actions -> ASE testing pipeline -> Run workflow**.
+2. Select branch **`ASE/Assignment`**.
+3. Select category **`all`** and mode **`strict`**.
+4. Run the workflow.
+
+To run one testing type, select `unit-testing`, `mutation-testing`, `load-testing`, or `ui-e2e-testing` instead of `all`. Mutation testing automatically runs its unit-test baseline first and proceeds only if it passes.
